@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million Gold Bowl - ver 3.2.2 (Unit Logic Sync)</title>
+    <title>Million Gold Bowl - ver 3.2.3 (Cart Edit Logic)</title>
     <style>
-        /* --- 視覺核心與窄螢幕適配 --- */
         :root { 
             --primary: #1a73e8; 
             --secondary: #f0f2f5; 
@@ -15,30 +14,18 @@
             --bg-white: #ffffff;
         }
 
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; 
             background: var(--secondary); 
-            margin: 0; 
-            padding: 10px; 
-            color: #333;
-            user-select: none;
+            margin: 0; padding: 10px; color: #333; user-select: none;
         }
 
         .container { 
-            max-width: 500px; 
-            margin: auto; 
-            background: var(--bg-white); 
-            padding: 15px; 
-            border-radius: 24px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
-            padding-bottom: 150px; 
-            min-height: 92vh; 
-            position: relative; 
+            max-width: 500px; margin: auto; background: var(--bg-white); 
+            padding: 15px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
+            padding-bottom: 150px; min-height: 92vh; position: relative; 
         }
 
         .step { display: none; animation: fadeIn 0.3s ease; }
@@ -64,50 +51,31 @@
             background: #fff; border: 2.5px solid #f1f3f4; 
             border-radius: 16px; cursor: pointer; 
             position: relative; display: flex; flex-direction: column; 
-            overflow: hidden; min-height: 150px;
-            transition: 0.2s;
+            overflow: hidden; min-height: 150px; transition: 0.2s;
         }
         .opt.selected { border-color: var(--primary); background: #f1f8ff; }
 
-        .img-box { 
-            width: 100%; height: 110px; background: #fafafa; 
-            display: flex; justify-content: center; align-items: center; position: relative;
-        }
+        .img-box { width: 100%; height: 110px; background: #fafafa; display: flex; justify-content: center; align-items: center; position: relative; }
         .img-box img { width: 100%; height: 100%; object-fit: cover; }
 
         .price-circle { 
-            position: absolute; top: 5px; right: 5px; 
-            background: var(--price-tag); color: white; 
-            width: 42px; height: 32px; border-radius: 16px; 
+            position: absolute; top: 5px; right: 5px; background: var(--price-tag); 
+            color: white; width: 42px; height: 32px; border-radius: 16px; 
             display: flex; align-items: center; justify-content: center; 
             font-size: 0.8rem; font-weight: bold; border: 2.2px solid white; 
         }
 
         .opt span { padding: 10px 4px; font-weight: 800; font-size: 0.9rem; }
 
-        /* iPhone 12 數量控制器 */
-        .qty-input-overlay { 
-            background: #fcfcfc; display: flex; 
-            padding: 6px 2px; border-top: 1px solid #eee; 
-            justify-content: space-around;
-        }
+        .qty-input-overlay { background: #fcfcfc; display: flex; padding: 6px 2px; border-top: 1px solid #eee; justify-content: space-around; }
         .qty-row { display: flex; flex-direction: column; align-items: center; font-size: 0.7rem; font-weight: bold; color: #666; flex: 1; }
         .qty-btn-group { display: flex; align-items: center; gap: clamp(2px, 1vw, 5px); margin-top: 3px; }
-        .qty-btn { 
-            width: 28px; height: 28px; border-radius: 8px; 
-            border: 1px solid #ccc; background: white; 
-            font-size: 1.1rem; color: var(--primary); 
-            display: flex; align-items: center; justify-content: center; font-weight: bold;
-        }
+        .qty-btn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid #ccc; background: white; font-size: 1.1rem; color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; }
         .qty-val { min-width: 15px; font-size: 0.9rem; font-weight: 900; }
 
         .sauce-layout { display: flex; flex-direction: column; gap: 10px; }
         .sauce-row-flex { display: flex; gap: 8px; }
-        .sauce-btn { 
-            flex: 1; padding: 15px 2px; border: 2.2px solid #eee; 
-            border-radius: 12px; background: white; 
-            font-weight: 900; font-size: 1rem; cursor: pointer; 
-        }
+        .sauce-btn { flex: 1; padding: 15px 2px; border: 2.2px solid #eee; border-radius: 12px; background: white; font-weight: 900; font-size: 1rem; cursor: pointer; }
         .sauce-btn.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
 
         .special-box { background: #fff9c4; padding: 12px; border-radius: 14px; border: 1.5px dashed #fbc02d; margin-top: 5px; }
@@ -127,19 +95,31 @@
         .btn-red { background: var(--price-tag); color: white; }
         .btn-purple { background: var(--add); color: white; }
         
-        .total-display { font-size: 2rem; color: var(--price-tag); font-weight: 900; margin: 20px 0; }
+        .total-display { font-size: 2.2rem; color: var(--price-tag); font-weight: 900; margin: 20px 0; text-align: center; }
 
+        /* 購物車與加減按鈕 */
         .cart-list { text-align: left; border: 1.5px solid #ddd; border-radius: 18px; padding: 15px; background: #fff; margin-bottom: 20px; }
-        .cart-row { border-bottom: 1px solid #eee; padding: 12px 0; }
+        .cart-row { border-bottom: 1px solid #eee; padding: 15px 0; position: relative; }
         .cart-row:last-child { border-bottom: none; }
         
+        .cart-controls {
+            display: flex; align-items: center; gap: 12px; margin-top: 10px; background: #f8f9fa; 
+            padding: 8px; border-radius: 12px; justify-content: flex-end;
+        }
+        .cart-qty-btn {
+            width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--primary);
+            background: white; color: var(--primary); font-size: 1.2rem; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .cart-item-qty { font-weight: 900; font-size: 1.1rem; min-width: 25px; text-align: center; }
+
         .status-header { font-size: 11px; color: var(--price-tag); font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div id="status" class="status-header">● MILLION GOLD BOWL ver 3.2.2</div>
+    <div id="status" class="status-header">● MILLION GOLD BOWL ver 3.2.3</div>
     
     <div class="step active" id="step-start">
         <h2 style="margin-top: 40px;">1. 請選擇類別</h2>
@@ -231,11 +211,11 @@
     <div class="step" id="step-finish">
         <h2 style="text-align:center; border:none;">🛒 購物車明細</h2>
         <div id="cart-list-cont" class="cart-list"></div>
-        <div class="total-display">總金額: $<span id="cart-total-sum">0.00</span></div>
+        <div class="total-display">總計: $<span id="cart-total-sum">0.00</span></div>
         <div class="nav-btns">
             <button class="main-action btn-red" onclick="location.reload()">❌ 清空</button>
             <button class="main-action btn-purple" onclick="goNext('step-start')">➕ 繼續加單</button>
-            <button class="main-action btn-blue" id="printBtn" onclick="finalizePrint()">🖨️ 確認列印</button>
+            <button class="main-action btn-blue" id="printBtn" onclick="finalizePrint()">🖨️ 確認並列印</button>
         </div>
     </div>
 </div>
@@ -257,7 +237,6 @@
     let savedDevice = null, savedChar = null, isFast = false;
 
     function goNext(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
-
     function setCategory(v) { session.category = v; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
 
     function renderFoodList() {
@@ -306,16 +285,9 @@
     }
 
     function startSauceStep() { tempItem.sauces = []; tempItem.specials = []; tempItem.noExtras = []; tempItem.additions = {}; tempItem.price = config.prices[tempItem.mainName] + config.prices[tempItem.size]; updateSauceUI(); goNext('step-sauce-select'); }
-
-    function toggleSauce(s) {
-        if(tempItem.sauces.includes(s)) tempItem.sauces = tempItem.sauces.filter(x=>x!==s);
-        else { if(tempItem.sauces.length >= 3) return alert("限3種"); tempItem.sauces.push(s); }
-        updateSauceUI();
-    }
-
+    function toggleSauce(s) { if(tempItem.sauces.includes(s)) tempItem.sauces = tempItem.sauces.filter(x=>x!==s); else { if(tempItem.sauces.length >= 3) return alert("限3種"); tempItem.sauces.push(s); } updateSauceUI(); }
     function toggleSpecial(sp) { if(tempItem.specials.includes(sp)) tempItem.specials = tempItem.specials.filter(x=>x!==sp); else tempItem.specials.push(sp); updateSauceUI(); }
     function handleSoupDirect() { tempItem.sauces = ['湯麵']; checkSauceFlow(); }
-
     function updateSauceUI() {
         document.querySelectorAll('#step-sauce-select .sauce-btn').forEach(btn => {
             const t = btn.innerText;
@@ -352,38 +324,61 @@
 
     function confirmOneItem() {
         let addP = 0; Object.entries(tempItem.additions).forEach(([n, q]) => { addP += ((n==='西刀魚餅'?1.5:1)*q); });
-        cart.push({ ...tempItem, sauces: [...tempItem.sauces], specials: [...tempItem.specials], noExtras: [...tempItem.noExtras], additions: {...tempItem.additions}, price: tempItem.price + addP });
+        cart.push({ ...tempItem, sauces: [...tempItem.sauces], specials: [...tempItem.specials], noExtras: [...tempItem.noExtras], additions: {...tempItem.additions}, price: tempItem.price + addP, cartQty: 1 });
         session.currentIdx++;
         if(session.currentIdx < session.sequence.length) startItemProcess();
         else { renderFinalCart(); goNext('step-finish'); }
     }
 
-    /* --- 單位轉換邏輯 (同步更新螢幕與列印) --- */
+    /* --- 單位轉換邏輯 --- */
     function getFormattedAdditions(additions) {
         return Object.entries(additions).filter(([k,v]) => v > 0).map(([name, qty]) => {
-            let unit = "份";
-            let printQty = qty;
-            if (["魚圓", "肉圓", "魚餃"].includes(name)) { unit = "粒"; printQty = qty * 2; } 
-            else if (name === "蝦") { unit = "隻"; printQty = qty; }
-            return `${name} x${printQty}${unit}`;
+            let unit = "份", q = qty;
+            if (["魚圓", "肉圓", "魚餃"].includes(name)) { unit = "粒"; q = qty * 2; } 
+            else if (name === "蝦") { unit = "隻"; }
+            return `${name} x${q}${unit}`;
         });
+    }
+
+    /* --- 購物車明細加減邏輯 (ver 3.2.3 新增) --- */
+    function updateCartItemQty(index, delta) {
+        if (delta === -1 && cart[index].cartQty === 1) {
+            if (!confirm("確定要取消這份訂單嗎？")) return;
+            cart.splice(index, 1);
+        } else {
+            cart[index].cartQty += delta;
+        }
+        renderFinalCart();
     }
 
     function renderFinalCart() {
         const cont = document.getElementById('cart-list-cont'); let total = 0;
-        cont.innerHTML = cart.map(item => {
-            total += item.price;
-            const formattedAdds = getFormattedAdditions(item.additions);
+        if (cart.length === 0) {
+            cont.innerHTML = `<div style="text-align:center; padding:30px; color:#999; font-weight:bold;">購物車是空的</div>`;
+            document.getElementById('cart-total-sum').innerText = "0.00";
+            return;
+        }
+        cont.innerHTML = cart.map((item, idx) => {
+            const itemTotal = item.price * item.cartQty;
+            total += itemTotal;
+            const adds = getFormattedAdditions(item.additions);
             return `<div class="cart-row">
                 <div style="display:flex; justify-content:space-between; font-weight:900; font-size:1.1rem;">
                     <span>${item.mainName} [${item.size.replace('的','')}]</span>
-                    <span style="color:var(--price-tag);">$${item.price.toFixed(2)}</span>
+                    <span style="color:var(--price-tag);">$${itemTotal.toFixed(2)}</span>
                 </div>
                 <div style="font-size:0.9rem; color:#666; margin:5px 0;">
                     ${item.noodle} / ${item.sauces.join(',')} ${item.specials.length ? ' / '+item.specials.join(',') : ''}
                 </div>
                 ${item.noExtras.length ? `<div style="color:red; font-size:0.85rem; font-weight:bold;">✘ 不要: ${item.noExtras.join(', ')}</div>` : ''}
-                ${formattedAdds.length ? `<div style="color:var(--add); font-size:0.85rem; font-weight:bold;">✚ 加料: ${formattedAdds.join(', ')}</div>` : ''}
+                ${adds.length ? `<div style="color:var(--add); font-size:0.85rem; font-weight:bold;">✚ 加料: ${adds.join(', ')}</div>` : ''}
+                
+                <div class="cart-controls">
+                    <span style="font-size:0.8rem; color:#888;">數量:</span>
+                    <button class="cart-qty-btn" onclick="updateCartItemQty(${idx}, -1)">-</button>
+                    <span class="cart-item-qty">${item.cartQty}</span>
+                    <button class="cart-qty-btn" onclick="updateCartItemQty(${idx}, 1)">+</button>
+                </div>
             </div>`;
         }).join('');
         document.getElementById('cart-total-sum').innerText = total.toFixed(2);
@@ -392,10 +387,11 @@
     function handleSauceBack() { if(session.category === '湯') goNext('step-soup-select'); else goNext('step-noodle-type'); }
     function handleNoExtraBack() { if(session.category === '湯') goNext('step-soup-select'); else goNext('step-sauce-select'); }
 
-    /* --- 藍牙列印 --- */
+    /* --- 藍牙列印 (會根據 cartQty 印出對應份數) --- */
     async function finalizePrint() {
         const canvas = document.getElementById('printCanvas'); const ctx = canvas.getContext('2d');
         const btn = document.getElementById('printBtn');
+        if(cart.length === 0) return alert("請先點餐");
         try {
             btn.disabled = true; document.getElementById('status').innerText = "PRINTING...";
             if(!savedChar) {
@@ -406,20 +402,27 @@
                 savedChar = cs.find(c => c.properties.writeWithoutResponse) || cs.find(c => c.properties.write);
                 isFast = !!cs.find(c => c.properties.writeWithoutResponse);
             }
-            canvas.height = 350 + (cart.length * 200);
+            
+            // 展開所有訂單（根據 cartQty）
+            let printList = [];
+            cart.forEach(item => { for(let i=0; i<item.cartQty; i++) printList.push(item); });
+
+            canvas.height = 350 + (printList.length * 200);
             ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
             ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center";
             ctx.font = "bold 28px sans-serif"; ctx.fillText("Million Gold Bowl", 192, 15);
             ctx.font = "bold 46px sans-serif"; ctx.fillText("ORDER: #1024", 192, 60);
             ctx.textAlign = "right"; let y = 145;
-            cart.forEach(item => {
-                ctx.font = "bold 36px sans-serif"; ctx.fillText(`${item.mainName} (${item.size.replace('的','')})`, 370, y); y+=45;
+            
+            printList.forEach((item, pIdx) => {
+                ctx.font = "bold 36px sans-serif"; ctx.fillText(`${pIdx+1}. ${item.mainName} (${item.size.replace('的','')})`, 370, y); y+=45;
                 ctx.font = "bold 28px sans-serif"; ctx.fillText(`${item.noodle} / ${item.sauces.join(',')}`, 370, y); y+=40;
                 const adds = getFormattedAdditions(item.additions);
                 if(adds.length) { ctx.fillText(`[ADD: ${adds.join(',')}]`, 370, y); y+=35; }
                 if(item.noExtras.length) { ctx.fillText(`[NO: ${item.noExtras.join(',')}]`, 370, y); y+=35; }
                 y+=30;
             });
+
             const pixels = ctx.getImageData(0, 0, 384, canvas.height).data;
             await savedChar.writeValue(new Uint8Array([0x1B, 0x40]));
             for (let r = 0; r < canvas.height; r++) {
