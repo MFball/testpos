@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million Gold Bowl - ver 3.3.7</title>
+    <title>Million Gold Bowl - ver 3.3.8</title>
     
     <style>
         :root { 
@@ -76,7 +76,7 @@
 <body>
 
 <div class="container">
-    <div id="status" style="font-size: 11px; color: var(--price-tag); font-weight: bold;">● MILLION GOLD BOWL ver 3.3.7</div>
+    <div id="status" style="font-size: 11px; color: var(--price-tag); font-weight: bold;">● MILLION GOLD BOWL ver 3.3.8</div>
 
     <div class="step active" id="step-lang">
         <h2 style="text-align:center; border:none; margin-top:60px;">Million Gold Bowl</h2>
@@ -171,7 +171,7 @@
     const dictionary = {
         ui: {
             zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 列印單據', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
-            en: { cat_soup:'Soup', cat_noodle:'Noodle', next:'Next', confirm:'✅ Confirm', total:'Total', clear:'❌ Clear', continue:'➕ Add More', print:'🖨️ Print Receipt', select_cat:'1. Select Category', select_soup:'2. Select Soup', select_food:'2. Select Item & Qty', select_noodle:'3. Select Noodle Type', select_sauce:'4. Sauce & Requests', select_no:'5. No Extras?', select_add:'6. Additions', cart_title:'🛒 Details', special_label:'Special Request:' }
+            en: { cat_soup:'Soup', cat_noodle:'Noodle', next:'Next', confirm:'✅ Confirm', total:'Total', clear:'❌ Clear', continue:'➕ Add More', print:'🖨️ Print Receipt', select_cat:'1. Select Category', select_soup:'2. Select Soup', select_food:'2. Select Item & Qty', select_noodle:'3. Select Noodle Type', select_sauce:'4. Sauce & Requests', select_no:'5. No Extras?', select_add:'6. Additions', cart_title:'🛒 Order Details', special_label:'Special Request:' }
         },
         items: {
             '魚圓面':{zh:'魚圓面', en:'Fishball Noodle'}, '香菇肉碎面':{zh:'香菇肉碎面', en:'Mushroom Minced Noodle'}, '招牌面':{zh:'招牌面', en:'Signature Noodle'}, '餐餐面':{zh:'餐餐面', en:'Can Can Noodle'}, '肉圓面':{zh:'肉圓面', en:'Meatball Noodle'}, '蝦魚面':{zh:'蝦魚面', en:'Prawn Fish Noodle'}, '西刀魚面':{zh:'西刀魚面', en:'Saito Fish Noodle'}, '香菇面':{zh:'香菇面', en:'Mushroom Noodle'}, '魚餃面':{zh:'魚餃面', en:'Fish Dumpling Noodle'}, '(純)肉碎面':{zh:'(純)肉碎面', en:'Pure Minced Noodle'}, '小魚香面':{zh:'小魚香面', en:'Small Fish Noodle'},
@@ -180,7 +180,7 @@
             '辣椒':{zh:'辣椒', en:'Chili'}, '少辣':{zh:'少辣', en:'Less Chili'}, '多辣':{zh:'多辣', en:'More Chili'}, '茄汁':{zh:'茄汁', en:'Tomato'}, '黑醬油':{zh:'黑醬油', en:'Black Soy'}, '白醬青':{zh:'白醬青', en:'Light Soy'}, '醋':{zh:'醋', en:'Vinegar'}, '湯麵':{zh:'湯麵', en:'Soup Base'},
             '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'}, '走油':{zh:'走油', en:'No Oil'},
             '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '豆芽':{zh:'豆芽', en:'Bean Sprout'}, '油':{zh:'油', en:'Oil'}, '黑醬油(走)':{zh:'黑醬油', en:'Black Soy'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball to Fishball'},
-            '魚圓':{zh:'魚圓', en:'Fishball', unit:'粒'}, '肉圓':{zh:'肉圓', en:'Meatball', unit:'粒'}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', unit:'粒'}, '蝦':{zh:'蝦', en:'Prawn', unit:'隻'}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', unit:'片'}, '小魚香':{zh:'小魚香', en:'Small Fish', unit:'條'}, '香菇加':{zh:'香菇', en:'Mushroom', unit:'份'}, '肉碎加':{zh:'肉碎', en:'Minced Meat', unit:'份'},
+            '魚圓':{zh:'魚圓', en:'Fishball', unit:{zh:'粒', en:'pcs'}}, '肉圓':{zh:'肉圓', en:'Meatball', unit:{zh:'粒', en:'pcs'}}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', unit:{zh:'粒', en:'pcs'}}, '蝦':{zh:'蝦', en:'Prawn', unit:{zh:'隻', en:'pcs'}}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', unit:{zh:'片', en:'pcs'}}, '小魚香':{zh:'小魚香', en:'Small Fish', unit:{zh:'條', en:'pcs'}}, '香菇加':{zh:'香菇', en:'Mushroom', unit:{zh:'份', en:'serv'}}, '肉碎加':{zh:'肉碎', en:'Minced Meat', unit:{zh:'份', en:'serv'}},
             '大的':{zh:'大', en:'Large'}, '小的':{zh:'小', en:'Small'}, '湯品':{zh:'湯品', en:'Soup'}
         }
     };
@@ -206,6 +206,7 @@
 
     function selectLanguage(lang) {
         userLang = lang; const u = dictionary.ui[lang];
+        document.querySelectorAll('.step h2').forEach(h => { if(u[h.id]) h.innerText = u[h.id]; });
         document.getElementById('t-select-cat').innerText = u.select_cat;
         document.getElementById('t-cat-soup').innerText = u.cat_soup; document.getElementById('t-cat-noodle').innerText = u.cat_noodle;
         document.getElementById('t-select-soup').innerText = u.select_soup; document.getElementById('t-select-food').innerText = u.select_food;
@@ -220,8 +221,13 @@
         goNext('step-start');
     }
 
-    function getItemName(key) { return dictionary.items[key] ? dictionary.items[key][userLang] : key; }
-    function getItemUnit(key) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit : ''; }
+    function getItemName(key) { return (dictionary.items[key] && dictionary.items[key][userLang]) ? dictionary.items[key][userLang] : key; }
+    function getItemUnit(key) { 
+        if (dictionary.items[key] && dictionary.items[key].unit) {
+            return dictionary.items[key].unit[userLang] || '';
+        }
+        return ''; 
+    }
 
     function goNext(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
     function setCategory(v) { session.category = v; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
@@ -245,8 +251,8 @@
             const div = document.createElement('div'); div.className = 'opt';
             div.innerHTML = `<div class="img-box"><div class="price-circle">$${config.prices[key]}</div><img src="${config.foodImgs[key]}"></div><span>${getItemName(key)}</span>
             <div class="qty-input-overlay" onclick="event.stopPropagation()">
-                <div class="qty-row">小的<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','小的',-1)">-</button><span class="qty-val" id="ms-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','小的',1)">+</button></div></div>
-                <div class="qty-row">大的<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','大的',-1)">-</button><span class="qty-val" id="ml-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','大的',1)">+</button></div></div>
+                <div class="qty-row">${userLang==='zh'?'小的':'Small'}<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','小的',-1)">-</button><span class="qty-val" id="ms-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','小的',1)">+</button></div></div>
+                <div class="qty-row">${userLang==='zh'?'大的':'Large'}<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','大的',-1)">-</button><span class="qty-val" id="ml-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','大的',1)">+</button></div></div>
             </div>`;
             cont.appendChild(div);
         });
@@ -256,13 +262,14 @@
     function checkFoodFlow() {
         session.sequence = [];
         Object.entries(mainCounts).forEach(([k, v]) => { if (v > 0) { const [n, s] = k.split('-'); for(let i=0; i<v; i++) session.sequence.push({ name: n, size: s }); } });
-        if (session.sequence.length === 0) return alert("Please select qty");
+        if (session.sequence.length === 0) return alert("Select Qty");
         session.currentIdx = 0; startItemProcess();
     }
 
     function startItemProcess() {
         const cur = session.sequence[session.currentIdx];
-        document.getElementById('assign-title').innerHTML = `正在分配 (${session.currentIdx+1}/${session.sequence.length}):<br><b style="color:red; font-size:1.4rem;">${getItemName(cur.name)} [${getItemName(cur.size)}]</b>`;
+        const titleMsg = userLang === 'zh' ? `正在分配 (${session.currentIdx+1}/${session.sequence.length}):` : `Assigning (${session.currentIdx+1}/${session.sequence.length}):`;
+        document.getElementById('assign-title').innerHTML = `${titleMsg}<br><b style="color:red; font-size:1.4rem;">${getItemName(cur.name)} [${getItemName(cur.size)}]</b>`;
         tempItem = { mainKey: cur.name, sizeKey: cur.size, noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: config.prices[cur.name] + config.prices[cur.size] };
         renderNoodleTypeList(); goNext('step-noodle-type');
     }
@@ -334,24 +341,29 @@
         const cont = document.getElementById('cart-list-cont'); let total = 0;
         cont.innerHTML = cart.map((item, idx) => {
             const itemTotal = item.price * item.cartQty; total += itemTotal;
-            const adds = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}x${v}${getItemUnit(k)}`).join(', ');
+            // 加料區翻譯修復：確保顯示時翻譯 Key 並獲取正確語言的單位
+            const adds = Object.entries(item.additionKeys)
+                .filter(([k,v])=>v>0)
+                .map(([k,v])=>`${getItemName(k)} x${v} ${getItemUnit(k)}`)
+                .join(', ');
+
             return `<div style="border-bottom:1.5px solid #eee; padding:12px 0;">
                 <div style="display:flex; justify-content:space-between; font-weight:900;">
                     <span>${getItemName(item.mainKey)} [${getItemName(item.sizeKey)}]</span>
                     <span style="color:var(--price-tag);">$${itemTotal.toFixed(2)}</span>
                 </div>
-                <div style="font-size:0.85rem; color:#666;">
-                    ${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(',')} 
-                    ${item.specialKeys.length ? ' / ' + item.specialKeys.map(k=>getItemName(k)).join(',') : ''}
+                <div style="font-size:0.85rem; color:#111; font-weight:bold; margin-top:4px;">
+                    ${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(', ')} 
                 </div>
-                ${adds ? `<div style="font-size:0.8rem; color:var(--add);">+ ${adds}</div>` : ''}
-                ${item.noExtraKeys.length ? `<div style="font-size:0.8rem; color:#999;">NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')}</div>` : ''}
+                ${item.specialKeys.length ? `<div style="font-size:0.85rem; color:#f57c00;">★ ${item.specialKeys.map(k=>getItemName(k)).join(', ')}</div>` : ''}
+                ${adds ? `<div style="font-size:0.85rem; color:var(--add); font-weight:bold;">+ ${adds}</div>` : ''}
+                ${item.noExtraKeys.length ? `<div style="font-size:0.8rem; color:#999;">(NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(', ')})</div>` : ''}
             </div>`;
         }).join('');
         document.getElementById('cart-total-sum').innerText = total.toFixed(2);
     }
 
-    function finalizePrint() { alert("正在列印 ver 3.3.7..."); location.reload(); }
+    function finalizePrint() { alert(userLang==='zh'?"正在列印單據...":"Printing Receipt..."); location.reload(); }
     function handleSauceBack() { if(session.category === '湯') goNext('step-soup-select'); else goNext('step-noodle-type'); }
     function handleNoExtraBack() { if(session.category === '湯') goNext('step-soup-select'); else goNext('step-sauce-select'); }
 </script>
