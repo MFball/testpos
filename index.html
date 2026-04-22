@@ -357,7 +357,7 @@
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
             }
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x01, 0x1D, 0x56, 0x00])); 
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x02, 0x1D, 0x56, 0x00])); 
             
             // 如果不是重印，而是新單，則保存數據並增加編號
             if (!isReprint) {
