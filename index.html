@@ -319,10 +319,10 @@
             const pSauces = item.sauceKeys.map(k => getName(k)).join(',');
             const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
             
-            ctx.font = "bold 42px sans-serif"; 
+            ctx.font = "bold 46px sans-serif"; 
             ctx.fillText(`${pMain} (${item.qty}${unit})`, 192, y); y += 50;
             
-            ctx.font = "bold 32px sans-serif";
+            ctx.font = "bold 36px sans-serif";
             ctx.fillText(`[${pSize}] ${pNoodle} ${pSauces}`, 192, y); y += 45;
             
             if(item.specialKeys.length > 0) {
