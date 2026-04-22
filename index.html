@@ -385,7 +385,8 @@
     /* --- 3. 收據繪製 (Canvas) --- */
     function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        const dynamicHeight = 350 + (cart.length * 280) + 80; // 根據購物車品項數量動態增加高度
+        const dynamicHeight = 250 + (items.length * 200) + (items.reduce((acc,item)=>acc+(item.noExtraKeys.length>0?45:0)+(Object.keys(item.additionKeys).length>0?45:0)+(item.specialKeys.length>0?45:0),0)) + 80; 
+ // 根據購物車品項數量動態增加高度
         canvas.height = dynamicHeight;
         
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
