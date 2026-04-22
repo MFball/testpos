@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.4.9</title>
+    <title>Million FishBall Noodle - ver 3.4.10</title>
     
     <style>
         :root { 
@@ -64,7 +64,7 @@
             background: #fcfcfc; display: flex; justify-content: center; align-items: center;
             padding: 8px 2px; border-top: 1px solid #eee; gap: 10px;
         }
-        .qty-row { display: flex; flex-direction: column; align-items: center; font-size: 0.75rem; font-weight: bold; flex: 1; }
+        .qty-row { display: flex; flex-direction: column; align-items: center; font-size: 0.85rem; font-weight: bold; flex: 1; }
         .qty-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #ccc; background: white; color: var(--primary); font-weight: bold; font-size: 1.2rem; }
         .qty-val { font-size: 1.1rem; margin: 0 8px; min-width: 20px; display: inline-block; }
 
@@ -88,7 +88,7 @@
 
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.4.9</span>
+        <span>MILLION 麵店 v3.4.10</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
@@ -172,6 +172,7 @@
 
     <div class="step" id="step-finish">
         <h2 id="t-cart-title" style="text-align:center; border:none;">🛒 購物車明細</h2>
+        <div id="order-no-display" style="text-align:center; font-weight:900; color:var(--primary); margin-bottom:10px;"></div>
         <div id="cart-list-cont" style="border: 2px solid #ddd; border-radius: 18px; padding: 15px; background: #fff;"></div>
         <div style="font-size: 2.2rem; color: var(--price-tag); font-weight: 900; margin: 25px 0; text-align: center;">
             <span id="t-total">總計</span>: $<span id="cart-total-sum">0.00</span>
@@ -187,12 +188,22 @@
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
+    const START_NO = 8238; // 單號初始值 [cite: 67]
     let savedDevice = null, savedCharacteristic = null, isFastMode = false;
     let userLang = 'zh'; 
     let cart = [], session = { category: '', sequence: [], currentIdx: 0 }, mainCounts = {}; 
     let tempItem = { mainKey:'', sizeKey:'', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: 0 };
 
-    // --- 藍牙持久化連線 ---
+    // --- 單號管理邏輯  ---
+    function getOrderData() {
+        const today = new Date().toLocaleDateString();
+        let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO };
+        if (data.date !== today) { data.date = today; data.num = START_NO; }
+        return data;
+    }
+    function saveOrderData(data) { localStorage.setItem('million_order_data', JSON.stringify(data)); }
+
+    // --- 藍牙 ---
     async function getPrinter() {
         if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
         document.getElementById('status-text').innerText = "🔍 搜尋印表機...";
@@ -218,55 +229,47 @@
         }
     }
 
-    // --- 大字體置中列印排版 (Ver 3.4.9 修改點) ---
-    function drawPrintCanvas() {
+    // --- 列印排版 (含單號) ---
+    function drawPrintCanvas(orderNum) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        // 由於字體變大，動態增加畫布高度
-        const dynamicHeight = 300 + (cart.length * 350) + 150; 
+        const dynamicHeight = 400 + (cart.length * 350) + 150; 
         canvas.height = dynamicHeight;
         
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
-        ctx.textBaseline = "top"; ctx.fillStyle = "black"; 
+        ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center"; 
         
-        // 全部置中對齊
-        ctx.textAlign = "center"; 
-        
-        ctx.font = "bold 30px sans-serif";
+        ctx.font = "bold 28px sans-serif";
         ctx.fillText("Million FishBall Noodle", 192, 20);
         ctx.font = "18px sans-serif";
         ctx.fillText(new Date().toLocaleString(), 192, 60);
-        ctx.font = "bold 22px sans-serif";
-        ctx.fillText("------------------------------------------", 192, 90);
         
-        let y = 140;
+        // 列印單號 
+        ctx.font = "bold 60px sans-serif";
+        ctx.fillText(`No. ${orderNum}`, 192, 90);
+        
+        ctx.font = "bold 22px sans-serif";
+        ctx.fillText("------------------------------------------", 192, 160);
+        
+        let y = 200;
         cart.forEach((item, i) => {
-            // 1. 選擇麵食（放大 0.5 位：34 -> 52px）
             ctx.font = "bold 52px sans-serif"; 
             ctx.fillText(`${i+1}. ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})`, 192, y); y += 70;
-            
-            // 2. 麵種 & 醬料（放大 2 倍：28 -> 56px）
             ctx.font = "56px sans-serif";
             ctx.fillText(`${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(',')}`, 192, y); y += 70;
-            
-            // 3. 特別要求（放大 2 倍：24 -> 48px）
             if(item.specialKeys.length > 0) {
                 ctx.font = "bold 48px sans-serif";
-                ctx.fillText(`REQ: ${item.specialKeys.map(k=>getItemName(k)).join(',')}`, 192, y); y += 60;
+                ctx.fillText(`★ ${item.specialKeys.map(k=>getItemName(k)).join(',')}`, 192, y); y += 60;
             }
-
-            // 4. 加料區（放大 2 倍：24 -> 48px）
             let addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}x${v*getItemRatio(k)}${getItemUnit(k)}`).join(', ');
             if(addsStr) {
                 ctx.font = "italic 48px sans-serif";
                 ctx.fillText(`+ ${addsStr}`, 192, y); y += 60;
             }
-            
-            // 5. 不要區（放大 2 倍：22 -> 44px）
             if(item.noExtraKeys.length > 0) {
                 ctx.font = "44px sans-serif";
                 ctx.fillText(`(NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')})`, 192, y); y += 55;
             }
-            y += 40; // 品項間隔
+            y += 40;
         });
 
         ctx.font = "bold 22px sans-serif";
@@ -280,8 +283,10 @@
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
+            const data = getOrderData(); // 取得單號
             document.getElementById('status-text').innerText = "📤 列印中...";
-            drawPrintCanvas();
+            drawPrintCanvas(data.num);
+            
             const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40])); 
             const widthBytes = 48;
@@ -297,11 +302,16 @@
                     row[8 + x] = b;
                 }
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 15 === 0) await new Promise(r => setTimeout(r, 45)); // 慢一點防止緩存溢出
+                if (y % 15 === 0) await new Promise(r => setTimeout(r, 45)); 
             }
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x06, 0x1D, 0x56, 0x00])); 
+            
+            // 完成列印後單號遞增並儲存 [cite: 123]
+            data.num++; 
+            saveOrderData(data);
+            
             document.getElementById('status-text').innerText = "✅ 完成";
-            alert("列印成功！");
+            alert("列印成功！單號已更新。");
             clearWholeOrder();
         } catch (e) {
             alert("列印失敗：" + e.message);
@@ -309,7 +319,7 @@
         }
     }
 
-    // --- UI 與 語言控制 ---
+    // --- UI 控制與語言修正 ---
     function selectLanguage(lang) { userLang = lang; updateUIText(); goNext('step-start'); }
     function updateUIText() {
         const u = dictionary.ui[userLang];
@@ -349,7 +359,7 @@
             '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'},
             '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '油':{zh:'油', en:'Oil'}, '黑醬油(走)':{zh:'黑醬油', en:'Black Soy'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball to Fishball'},
             '魚圓':{zh:'魚圓', en:'Fishball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '肉圓':{zh:'肉圓', en:'Meatball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', ratio:2, unit:{zh:'粒', en:'pcs'}}, '蝦':{zh:'蝦', en:'Prawn', ratio:1, unit:{zh:'隻', en:'pcs'}}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', ratio:1, unit:{zh:'片', en:'pcs'}}, '小魚香':{zh:'小魚香', en:'Small Fish', ratio:1, unit:{zh:'條', en:'pcs'}}, '香菇加':{zh:'香菇', en:'Mushroom', ratio:1, unit:{zh:'份', en:'serv'}}, '肉碎加':{zh:'肉碎', en:'Minced Meat', ratio:1, unit:{zh:'份', en:'serv'}},
-            '大的':{zh:'大', en:'Large'}, '小的':{zh:'小', en:'Small'}, '湯品':{zh:'湯品', en:'Soup'}
+            '大的':{zh:'大', en:'L'}, '小的':{zh:'小', en:'S'}, '湯品':{zh:'湯品', en:'Soup'}
         }
     };
 
@@ -370,28 +380,31 @@
     function goNext(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
     function setCategory(v) { session.category = v; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
 
+    // --- 渲染麵食清單時修正 L/S 顯示 ---
+    function renderFoodList() {
+        const cont = document.getElementById('grid-foodItems'); cont.innerHTML = '';
+        const labelS = (userLang === 'zh') ? '小' : 'S'; // 修正顯示文字
+        const labelL = (userLang === 'zh') ? '大' : 'L';
+        Object.keys(config.foodImgs).forEach(key => {
+            const div = document.createElement('div'); div.className = 'opt';
+            div.innerHTML = `<div class="img-box"><div class="price-circle">$${config.prices[key]}</div><img src="${config.foodImgs[key]}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>
+            <div class="qty-input-overlay" onclick="event.stopPropagation()">
+                <div class="qty-row">${labelS}<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','小的',-1)">-</button><span class="qty-val" id="ms-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','小的',1)">+</button></div></div>
+                <div class="qty-row">${labelL}<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','大的',-1)">-</button><span class="qty-val" id="ml-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','大的',1)">+</button></div></div>
+            </div>`;
+            cont.appendChild(div);
+        });
+    }
+
     function renderSoupList() {
         const cont = document.getElementById('grid-soupItems'); cont.innerHTML = '';
         Object.entries(config.soupImgs).forEach(([key, img]) => {
             const div = document.createElement('div'); div.className = 'opt';
             div.innerHTML = `<div class="img-box"><div class="price-circle">$${config.prices[key]}</div><img src="${img}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>`;
             div.onclick = () => { 
-                tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '湯品', sauceKeys: ['湯麵'], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: config.prices[key] }; 
-                session.sequence = [{ name: key, size: '小的' }]; session.currentIdx = 0; renderNoExtraList(); goNext('step-no-extra'); 
+                tempItem = { mainKey: key, sizeKey: '湯品', noodleKey: '湯品', sauceKeys: ['湯麵'], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: config.prices[key] }; 
+                session.sequence = [{ name: key, size: '湯品' }]; session.currentIdx = 0; renderNoExtraList(); goNext('step-no-extra'); 
             };
-            cont.appendChild(div);
-        });
-    }
-
-    function renderFoodList() {
-        const cont = document.getElementById('grid-foodItems'); cont.innerHTML = '';
-        Object.keys(config.foodImgs).forEach(key => {
-            const div = document.createElement('div'); div.className = 'opt';
-            div.innerHTML = `<div class="img-box"><div class="price-circle">$${config.prices[key]}</div><img src="${config.foodImgs[key]}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>
-            <div class="qty-input-overlay" onclick="event.stopPropagation()">
-                <div class="qty-row">S<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','小的',-1)">-</button><span class="qty-val" id="ms-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','小的',1)">+</button></div></div>
-                <div class="qty-row">L<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','大的',-1)">-</button><span class="qty-val" id="ml-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','大的',1)">+</button></div></div>
-            </div>`;
             cont.appendChild(div);
         });
     }
@@ -399,7 +412,7 @@
     function changeMainQty(n, s, d) { const k = `${n}-${s}`; mainCounts[k] = Math.max(0, (mainCounts[k] || 0) + d); document.getElementById(s==='小的'?`ms-${n}`:`ml-${n}`).innerText = mainCounts[k]; }
     function checkFoodFlow() {
         session.sequence = []; Object.entries(mainCounts).forEach(([k, v]) => { if (v > 0) { const [n, s] = k.split('-'); for(let i=0; i<v; i++) session.sequence.push({ name: n, size: s }); } });
-        if (session.sequence.length === 0) return alert("Select Qty");
+        if (session.sequence.length === 0) return alert(userLang==='zh'?"請選擇數量":"Select Qty");
         session.currentIdx = 0; startItemProcess();
     }
 
@@ -436,7 +449,7 @@
         goNext('step-sauce-select');
     }
 
-    function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert("Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
+    function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert(userLang==='zh'?"請選擇醬料":"Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
     function renderNoExtraList() {
         const cont = document.getElementById('grid-noExtra'); cont.innerHTML = '';
         Object.entries(config.noExtraImgs).forEach(([key, img]) => {
@@ -467,6 +480,9 @@
 
     function renderFinalCart() {
         const cont = document.getElementById('cart-list-cont'); let total = 0;
+        const orderData = getOrderData();
+        document.getElementById('order-no-display').innerText = `No. ${orderData.num}`; // 顯示當前準備列印的單號 [cite: 117]
+        
         cont.innerHTML = cart.map((item, idx) => {
             total += item.price;
             const addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}x${v*getItemRatio(k)}${getItemUnit(k)}`).join(', ');
