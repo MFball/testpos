@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.5.2</title>
+    <title>Million FishBall Noodle - ver 3.5.3</title>
     
     <style>
         :root { 
@@ -26,6 +26,17 @@
             font-size: 11px; font-weight: bold; border: 1px solid #eee;
         }
         #status-text { color: #d93025; }
+
+        /* 版本號移至右下方 */
+        .version-tag {
+            position: fixed;
+            right: 10px;
+            bottom: 5px;
+            font-size: 10px;
+            color: #ccc;
+            z-index: 2000;
+            pointer-events: none;
+        }
 
         .step { display: none; animation: fadeIn 0.3s ease; }
         .step.active { display: block; }
@@ -93,10 +104,12 @@
 </head>
 <body>
 
+<div class="version-tag">Million 麵店 v3.5.3</div>
+
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.5.2</span>
         <span id="status-text">● 藍牙待機中</span>
+        <span id="display-time" style="color:#666;"></span>
     </div>
 
     <div class="step active" id="step-lang">
@@ -210,6 +223,12 @@
     let cart = [], session = { category: '', sequence: [], currentIdx: 0 }, mainCounts = {}; 
     let tempItem = { mainKey:'', sizeKey:'', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: 0, qty: 1 };
 
+    // 每秒更新時間顯示
+    setInterval(() => {
+        const now = new Date();
+        document.getElementById('display-time').innerText = now.toLocaleTimeString();
+    }, 1000);
+
     // --- 單號與歷史管理 ---
     function getOrderData() { 
         const today = new Date().toLocaleDateString(); 
@@ -248,7 +267,6 @@
         if (ord) {
             const choice = confirm("選擇補印語言 / Select Language:\n\n【確定/OK】 = 中文簡體 (Simplified)\n【取消/Cancel】 = English");
             const printLang = choice ? 'zh' : 'en';
-            // 使用歷史數據渲染畫布並列印，但不增加單號
             handleImagePrint(ord.num, ord.items, ord.total, printLang, false);
         }
     }
@@ -293,7 +311,6 @@
     // --- 列印排版 ---
     function drawPrintCanvas(orderNo, items, total, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        // 控制畫布高度：根據項目數量動態計算，最後緩衝設為 80 [cite: 282]
         const dynamicHeight = 250 + (items.length * 200) + (items.reduce((acc,item)=>acc+(item.noExtraKeys.length>0?45:0)+(Object.keys(item.additionKeys).length>0?45:0)+(item.specialKeys.length>0?45:0),0)) + 80; 
         canvas.height = dynamicHeight;
         
@@ -319,11 +336,13 @@
             const pSauces = item.sauceKeys.map(k => getName(k)).join(',');
             const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
             
+            // 主食名稱與數量字體設為 46px
             ctx.font = "bold 46px sans-serif"; 
-            ctx.fillText(`${pMain} (${item.qty}${unit})`, 192, y); y += 50;
+            ctx.fillText(`${pMain} (${item.qty}${unit})`, 192, y); y += 55;
             
+            // 大小、麵種與醬料字體設為 36px
             ctx.font = "bold 36px sans-serif";
-            ctx.fillText(`[${pSize}] ${pNoodle} ${pSauces}`, 192, y); y += 45;
+            ctx.fillText(`[${pSize}] ${pNoodle} ${pSauces}`, 192, y); y += 50;
             
             if(item.specialKeys.length > 0) {
                 const pSpecials = item.specialKeys.map(k => getName(k)).join(',');
@@ -382,7 +401,7 @@
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
             }
 
-            // 最後走紙指令設為 0x01 [cite: 314]
+            // 最後走紙指令設為 0x01
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x01, 0x1D, 0x56, 0x00])); 
             
             if (isNewOrder) {
