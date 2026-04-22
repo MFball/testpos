@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.5.0</title>
+    <title>Million FishBall Noodle - ver 3.5.1</title>
     
     <style>
         :root { 
@@ -81,7 +81,6 @@
 
         .special-box { background: #fff8e1; padding: 12px; border-radius: 16px; border: 1.5px dashed #ffe082; margin-top: 15px; }
 
-        /* 購物車樣式優化 */
         .cart-item { border-bottom: 2px solid #eee; padding: 15px 0; text-align: left; }
         .cart-row { display: flex; justify-content: space-between; align-items: flex-start; }
         .cart-info { flex: 1; padding-right: 10px; }
@@ -94,7 +93,7 @@
 
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.5.0</span>
+        <span>MILLION 麵店 v3.5.1</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
@@ -186,7 +185,7 @@
         <div class="nav-btns">
             <button class="main-action" style="background:var(--price-tag)" onclick="clearWholeOrder()" id="btn-clear">❌ 清空</button>
             <button class="main-action" style="background:var(--add)" onclick="goNext('step-start')" id="btn-continue">➕ 繼續</button>
-            <button class="main-action" style="background:var(--primary)" id="printBtn" onclick="handleFinalizeAndPrint()">🖨️ 確認列印</button>
+            <button class="main-action" style="background:var(--primary)" id="printBtn" onclick="askPrintLanguage()">🖨️ 確認列印</button>
         </div>
     </div>
 </div>
@@ -201,7 +200,7 @@
     let cart = [], session = { category: '', sequence: [], currentIdx: 0 }, mainCounts = {}; 
     let tempItem = { mainKey:'', sizeKey:'', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: 0, qty: 1 };
 
-    // --- 單號管理 (移植自 2.9.9) ---
+    // --- 單號管理 ---
     function getOrderData() { 
         const today = new Date().toLocaleDateString(); 
         let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO }; 
@@ -236,8 +235,16 @@
         }
     }
 
-    // --- 列印排版 (完全依照 2.9.9 設定) ---
-    function drawPrintCanvas(orderNo) {
+    // --- 詢問列印語言 ---
+    function askPrintLanguage() {
+        if (cart.length === 0) return;
+        const choice = confirm("請選擇列印語言 / Select Print Language:\n\n【確定/OK】 = 中文簡體 (Simplified Chinese)\n【取消/Cancel】 = English");
+        const printLang = choice ? 'zh' : 'en';
+        handleFinalizeAndPrint(printLang);
+    }
+
+    // --- 列印排版 (完全依照 2.9.9 字體大小，並加入多語言切換) ---
+    function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
         const dynamicHeight = 300 + (cart.length * 280) + 150; 
         canvas.height = dynamicHeight;
@@ -256,34 +263,46 @@
         
         let y = 175;
         cart.forEach((item, i) => {
-            const shortSize = item.sizeKey.replace('的', '').replace('大的','大').replace('小的','小');
-            const unit = item.category === '湯' ? (userLang==='zh'?'碗':'bowl') : (userLang==='zh'?'份':'qty');
+            // 獲取列印語言對應的名稱
+            const getName = (k) => (dictionary.items[k] && dictionary.items[k][printLang]) ? dictionary.items[k][printLang] : k;
+            
+            const pMain = getName(item.mainKey);
+            const pSize = getName(item.sizeKey).replace('的', '');
+            const pNoodle = item.noodleKey === '湯品' ? '' : getName(item.noodleKey);
+            const pSauces = item.sauceKeys.map(k => getName(k)).join(',');
+            const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
             
             // 1. 主食名稱 (42px)
             ctx.font = "bold 42px sans-serif"; 
-            ctx.fillText(`${item.mainKey} (${item.qty}${unit})`, 192, y); y += 50;
+            ctx.fillText(`${pMain} (${item.qty}${unit})`, 192, y); y += 50;
             
             // 2. 麵種/醬料/大小 (32px)
             ctx.font = "bold 32px sans-serif";
-            ctx.fillText(`[${shortSize}] ${item.noodleKey==='湯品'?'':item.noodleKey} ${item.sauceKeys.join(',')}`, 192, y); y += 45;
+            ctx.fillText(`[${pSize}] ${pNoodle} ${pSauces}`, 192, y); y += 45;
             
             // 3. 特別要求 (32px)
             if(item.specialKeys.length > 0) {
+                const pSpecials = item.specialKeys.map(k => getName(k)).join(',');
                 ctx.font = "bold 32px sans-serif";
-                ctx.fillText(`★ ${item.specialKeys.join(',')}`, 192, y); y += 45;
+                ctx.fillText(`★ ${pSpecials}`, 192, y); y += 45;
             }
 
             // 4. 加料區 (30px)
-            let addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${k}(${v*getItemRatio(k)}${getItemUnit(k)})`).join(',');
+            let addsStr = Object.entries(item.additionKeys)
+                .filter(([k,v])=>v>0)
+                .map(([k,v])=>`${getName(k)}(${v*getItemRatio(k)}${getItemUnit(k, printLang)})`)
+                .join(',');
+            
             if(addsStr) {
                 ctx.font = "bold 30px sans-serif";
-                ctx.fillText(`+加料: ${addsStr}`, 192, y); y += 45;
+                ctx.fillText(`${printLang==='zh'?'+加料':'+Add'}: ${addsStr}`, 192, y); y += 45;
             }
             
             // 5. 不要區 (30px)
             if(item.noExtraKeys.length > 0) {
+                const pNo = item.noExtraKeys.map(k => getName(k)).join(',');
                 ctx.font = "bold 30px sans-serif";
-                ctx.fillText(`[不要: ${item.noExtraKeys.join(',')}]`, 192, y); y += 45;
+                ctx.fillText(`[${printLang==='zh'?'不要':'No'}: ${pNo}]`, 192, y); y += 45;
             }
             y += 25; 
         });
@@ -294,8 +313,7 @@
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, 192, y);
     }
 
-    async function handleFinalizeAndPrint() {
-        if (cart.length === 0) return;
+    async function handleFinalizeAndPrint(printLang) {
         const btn = document.getElementById('printBtn');
         try {
             btn.disabled = true;
@@ -303,7 +321,7 @@
             const orderData = getOrderData();
             
             document.getElementById('status-text').innerText = "📤 列印中...";
-            drawPrintCanvas(orderData.num);
+            drawPrintCanvas(orderData.num, printLang);
             
             const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40])); 
@@ -324,7 +342,6 @@
             }
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x06, 0x1D, 0x56, 0x00])); 
             
-            // 更新單號並清空
             orderData.num++;
             saveOrderData(orderData);
             document.getElementById('status-text').innerText = "✅ 完成";
@@ -336,7 +353,7 @@
         }
     }
 
-    // --- 購物車增減功能 (移植自 2.9.9) ---
+    // --- 購物車增減功能 ---
     function changeQty(index, delta) {
         let item = cart[index];
         if (item.qty + delta < 1) {
@@ -403,9 +420,10 @@
         additions: [ { key: '魚圓', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru' }, { key: '肉圓', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru' }, { key: '魚餃', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru' }, { key: '蝦', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru' }, { key: '西刀魚餅', price: 1.5, img: 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru' }, { key: '小魚香', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru' }, { key: '香菇加', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru' }, { key: '肉碎加', price: 1, img: 'https://i.ibb.co/TMFvjFRN/Minced.png' } ]
     };
 
-    function getItemName(key) { return (dictionary.items[key] && dictionary.items[key][userLang]) ? dictionary.items[key][userLang] : key; }
+    function getItemName(key, lang = userLang) { return (dictionary.items[key] && dictionary.items[key][lang]) ? dictionary.items[key][lang] : key; }
     function getItemRatio(key) { return (dictionary.items[key] && dictionary.items[key].ratio) ? dictionary.items[key].ratio : 1; }
-    function getItemUnit(key) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[userLang] : ''; }
+    function getItemUnit(key, lang = userLang) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[lang] : ''; }
+    
     function goNext(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
     function setCategory(v) { session.category = v; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
 
@@ -440,13 +458,14 @@
     function changeMainQty(n, s, d) { const k = `${n}-${s}`; mainCounts[k] = Math.max(0, (mainCounts[k] || 0) + d); document.getElementById(s==='小的'?`ms-${n}`:`ml-${n}`).innerText = mainCounts[k]; }
     function checkFoodFlow() {
         session.sequence = []; Object.entries(mainCounts).forEach(([k, v]) => { if (v > 0) { const [n, s] = k.split('-'); for(let i=0; i<v; i++) session.sequence.push({ name: n, size: s }); } });
-        if (session.sequence.length === 0) return alert("Select Qty");
+        if (session.sequence.length === 0) return alert(userLang==='zh'?"請選擇數量":"Select Qty");
         session.currentIdx = 0; startItemProcess();
     }
 
     function startItemProcess() {
         const cur = session.sequence[session.currentIdx];
-        document.getElementById('assign-title').innerHTML = `${userLang==='zh'?'分配中':'Assigning'} (${session.currentIdx+1}/${session.sequence.length}):<br><b style="color:red; font-size:1.4rem;">${getItemName(cur.name)} [${getItemName(cur.size)}]</b>`;
+        const titleText = userLang==='zh'?'分配中':'Assigning';
+        document.getElementById('assign-title').innerHTML = `${titleText} (${session.currentIdx+1}/${session.sequence.length}):<br><b style="color:red; font-size:1.4rem;">${getItemName(cur.name)} [${getItemName(cur.size)}]</b>`;
         tempItem = { mainKey: cur.name, sizeKey: cur.size, noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: config.prices[cur.name] + config.prices[cur.size], qty: 1, category: '面' };
         renderNoodleTypeList(); goNext('step-noodle-type');
     }
@@ -477,7 +496,7 @@
         goNext('step-sauce-select');
     }
 
-    function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert("Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
+    function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert(userLang==='zh'?"請選擇醬料":"Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
     function renderNoExtraList() {
         const cont = document.getElementById('grid-noExtra'); cont.innerHTML = '';
         Object.entries(config.noExtraImgs).forEach(([key, img]) => {
@@ -514,17 +533,29 @@
         cont.innerHTML = cart.map((item, idx) => {
             let linePrice = item.price * item.qty;
             total += linePrice;
-            const addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${k}(${v*getItemRatio(k)}${getItemUnit(k)})`).join(', ');
+            
+            // 英文版 Order Details 需要全英文顯示
+            const dMain = getItemName(item.mainKey);
+            const dSize = getItemName(item.sizeKey);
+            const dNoodle = item.noodleKey === '湯品' ? '' : getItemName(item.noodleKey);
+            const dSauces = item.sauceKeys.map(k => getItemName(k)).join(', ');
+            const dSpecials = item.specialKeys.map(k => getItemName(k)).join(', ');
+            const dNoExtras = item.noExtraKeys.map(k => getItemName(k)).join(', ');
+            const addsStr = Object.entries(item.additionKeys)
+                .filter(([k,v])=>v>0)
+                .map(([k,v])=>`${getItemName(k)}(${v*getItemRatio(k)}${getItemUnit(k)})`)
+                .join(', ');
+
             const mainUnit = item.category === '湯' ? (userLang==='zh'?'碗':'bowl') : (userLang==='zh'?'份':'qty');
             
             return `<div class="cart-item">
                 <div class="cart-row">
                     <div class="cart-info">
-                        <div style="font-weight:900; font-size:1.1rem;">${idx+1}. ${item.mainKey}</div>
-                        <div style="font-size:0.95rem; color:#111; font-weight:bold; margin-top:4px;">[${getItemName(item.sizeKey)}] ${item.noodleKey==='湯品'?'':item.noodleKey} ${item.sauceKeys.join(', ')}</div>
-                        ${item.specialKeys.length ? `<div style="font-size:0.9rem; color:#f57c00; font-weight:900;">★ ${item.specialKeys.join(', ')}</div>` : ''}
+                        <div style="font-weight:900; font-size:1.1rem;">${idx+1}. ${dMain}</div>
+                        <div style="font-size:0.95rem; color:#111; font-weight:bold; margin-top:4px;">[${dSize}] ${dNoodle} ${dSauces}</div>
+                        ${item.specialKeys.length ? `<div style="font-size:0.9rem; color:#f57c00; font-weight:900;">★ ${dSpecials}</div>` : ''}
                         ${addsStr ? `<div style="font-size:0.9rem; color:var(--add); font-weight:bold;">+ ${addsStr}</div>` : ''}
-                        ${item.noExtraKeys.length ? `<div style="font-size:0.85rem; color:red;">[不要: ${item.noExtraKeys.join(', ')}]</div>` : ''}
+                        ${item.noExtraKeys.length ? `<div style="font-size:0.85rem; color:red;">[${userLang==='zh'?'不要':'No'}: ${dNoExtras}]</div>` : ''}
                         <div style="font-weight:bold; color:var(--price-tag); margin-top:8px;">$${linePrice.toFixed(2)}</div>
                     </div>
                     <div class="cart-ctrls">
