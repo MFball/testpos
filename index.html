@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.5.6</title>
+    <title>Million FishBall Noodle - ver 3.5.7</title>
     
     <style>
         :root { 
             --primary: #1a73e8; --secondary: #f0f2f5; --success: #34a853; 
-            --price-tag: #d93025; --add: #673ab7; --bg-white: #ffffff; 
+            --price-tag: #d93025; --add: #673ab7; --bg-white: #ffffff; --edit: #f39c12;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -24,46 +24,20 @@
             display: flex; justify-content: space-between; align-items: center;
             padding: 8px 12px; background: #fff; border-radius: 12px; margin-bottom: 10px;
             font-size: 11px; font-weight: bold; border: 1px solid #eee;
-            min-height: 35px;
         }
         #status-text { color: #d93025; }
-
-        .version-tag {
-            position: fixed;
-            right: 10px;
-            bottom: 5px;
-            font-size: 10px;
-            color: #ccc;
-            z-index: 2000;
-            pointer-events: none;
-        }
 
         .step { display: none; animation: fadeIn 0.3s ease; }
         .step.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* 返回鍵保持大型化 */
         .back-btn-top { 
-            position: absolute; 
-            right: 15px; 
-            top: 15px; 
-            width: 100px; 
-            height: 50px; 
-            border-radius: 12px; 
-            background: #e0e0e0; 
-            border: 2px solid #bbb; 
-            font-size: 18px; 
-            font-weight: 900; 
-            color: #333;
-            z-index: 100;
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: absolute; left: 15px; top: 15px; width: 40px; height: 40px; 
+            border-radius: 50%; background: #eee; border: none; font-size: 22px; z-index: 100;
         }
 
         h2 { 
-            color: #202124; font-size: 1.15rem; margin: 45px 0 15px 0; 
+            color: #202124; font-size: 1.15rem; margin: 35px 0 15px 0; 
             border-left: 6px solid var(--primary); padding-left: 12px; font-weight: 900; 
         }
 
@@ -72,19 +46,18 @@
         .opt { 
             background: #fff; border: 2.5px solid #f1f3f4; border-radius: 16px; 
             cursor: pointer; position: relative; display: flex; flex-direction: column; 
-            overflow: hidden; min-height: 180px; text-align: center;
+            overflow: hidden; min-height: 160px; text-align: center;
         }
         .opt.selected { border-color: var(--primary); background: #f1f8ff; }
 
         .img-box { width: 100%; height: 110px; background: #fafafa; display: flex; justify-content: center; align-items: center; }
-        .img-box img { width: 100%; height: 100%; object-fit: contain; } 
+        .img-box img { width: 100%; height: 100%; object-fit: cover; }
 
         .price-circle { 
             position: absolute; top: 5px; right: 5px; background: var(--price-tag); 
             color: white; min-width: 42px; height: 32px; border-radius: 16px; 
             display: flex; align-items: center; justify-content: center; padding: 0 5px;
             font-size: 0.8rem; font-weight: bold; border: 2.2px solid white; 
-            z-index: 10;
         }
 
         .qty-input-overlay { 
@@ -113,23 +86,21 @@
         .cart-info { flex: 1; padding-right: 10px; }
         .cart-ctrls { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
         
-        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        .edit-btn { background: var(--edit); color: white; border: none; padding: 5px 10px; border-radius: 8px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
 
         canvas { display: none; }
     </style>
 </head>
 <body>
 
-<div class="version-tag">Million 麵店 v3.5.6</div>
-
 <div class="container">
     <div id="status-bar">
+        <span>MILLION 麵店 v3.5.7</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
     <div class="step active" id="step-lang">
-        <button onclick="showHistory()" style="background: #607d8b; color: white; padding: 10px 18px; border-radius: 15px; font-size: 0.9rem; position: absolute; left: 15px; top: 15px; border: none; cursor: pointer; font-weight: bold; z-index: 101; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">📜 歷史紀錄</button>
-        <div style="text-align: center; margin-top: 70px;">
+        <div style="text-align: center; margin-top: 40px;">
             <img src="https://i.ibb.co/TMFvjFRN/Minced.png" style="width: 120px; border-radius: 50%;">
             <h2 style="border:none; margin-top:10px; text-align:center;">Million FishBall Noodle</h2>
         </div>
@@ -139,15 +110,8 @@
         </div>
     </div>
 
-    <div class="step" id="step-history">
-        <button class="back-btn-top" onclick="goNext('step-lang')">返回</button>
-        <h2 style="margin-right: 110px;">今天訂單歷史</h2>
-        <div id="history-container" style="background: white; border-radius: 16px; overflow: hidden;"></div>
-    </div>
-
     <div class="step" id="step-start">
-        <button class="back-btn-top" onclick="goNext('step-lang')">返回</button>
-        <h2 id="t-select-cat" style="margin-right: 110px;">1. 請選擇類別</h2>
+        <h2 id="t-select-cat">1. 請選擇類別</h2>
         <div class="grid">
             <div class="opt" onclick="setCategory('湯')">
                 <div class="img-box"><img src="https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru"></div>
@@ -161,14 +125,14 @@
     </div>
 
     <div class="step" id="step-soup-select">
-        <button class="back-btn-top" onclick="goNext('step-start')">返回</button>
-        <h2 id="t-select-soup" style="margin-right: 110px;">2. 請選擇湯品</h2>
+        <button class="back-btn-top" onclick="goNext('step-start')">←</button>
+        <h2 id="t-select-soup" style="margin-left: 55px;">2. 請選擇湯品</h2>
         <div class="grid" id="grid-soupItems"></div>
     </div>
 
     <div class="step" id="step-food-select">
-        <button class="back-btn-top" onclick="goNext('step-start')">返回</button>
-        <h2 id="t-select-food" style="margin-right: 110px;">2. 選擇麵食與數量</h2>
+        <button class="back-btn-top" onclick="goNext('step-start')">←</button>
+        <h2 id="t-select-food" style="margin-left: 55px;">2. 選擇麵食與數量</h2>
         <div class="grid" id="grid-foodItems"></div>
         <div class="nav-btns">
             <button class="main-action" style="background:var(--primary)" onclick="checkFoodFlow()" id="btn-next-assign">下一步</button>
@@ -176,15 +140,15 @@
     </div>
 
     <div class="step" id="step-noodle-type">
-        <button class="back-btn-top" onclick="goNext('step-food-select')">返回</button>
-        <div id="assign-title" style="background:#e3f2fd; color:#0d47a1; padding:12px; border-radius:12px; margin-bottom:12px; font-weight:900; text-align:center; margin-top:20px;"></div>
-        <h2 id="t-select-noodle" style="margin-right: 110px;">3. 請選擇麵種</h2>
+        <button class="back-btn-top" onclick="handleNoodleBack()">←</button>
+        <div id="assign-title" style="background:#e3f2fd; color:#0d47a1; padding:12px; border-radius:12px; margin-bottom:12px; font-weight:900; text-align:center;"></div>
+        <h2 id="t-select-noodle" style="margin-left: 55px;">3. 請選擇麵種</h2>
         <div class="grid" id="grid-noodleType"></div>
     </div>
 
     <div class="step" id="step-sauce-select">
-        <button class="back-btn-top" onclick="handleSauceBack()">返回</button>
-        <h2 id="t-select-sauce" style="margin-right: 110px;">4. 選擇醬料與要求</h2>
+        <button class="back-btn-top" onclick="handleSauceBack()">←</button>
+        <h2 id="t-select-sauce" style="margin-left: 55px;">4. 選擇醬料與要求</h2>
         <div id="sauce-cont" class="sauce-grid"></div>
         <div class="special-box">
             <div id="t-special-label" style="font-weight:900; font-size:0.9rem; color:#f57c00; margin-bottom:10px;">特別要求：</div>
@@ -196,8 +160,8 @@
     </div>
 
     <div class="step" id="step-no-extra">
-        <button class="back-btn-top" onclick="handleNoExtraBack()">返回</button>
-        <h2 id="t-select-no" style="margin-right: 110px;">5. 不要什麼？</h2>
+        <button class="back-btn-top" onclick="handleNoExtraBack()">←</button>
+        <h2 id="t-select-no" style="margin-left: 55px;">5. 不要什麼？</h2>
         <div class="grid" id="grid-noExtra"></div>
         <div class="nav-btns">
             <button class="main-action" style="background:var(--primary)" onclick="goNext('step-additions')" id="btn-no-next">下一步</button>
@@ -205,8 +169,8 @@
     </div>
     
     <div class="step" id="step-additions">
-        <button class="back-btn-top" onclick="goNext('step-no-extra')">返回</button>
-        <h2 id="t-select-add" style="margin-right: 110px;">6. 加料區</h2>
+        <button class="back-btn-top" onclick="goNext('step-no-extra')">←</button>
+        <h2 id="t-select-add" style="margin-left: 55px;">6. 加料區</h2>
         <div class="grid" id="grid-additions"></div>
         <div class="nav-btns">
             <button class="main-action" style="background:var(--success)" onclick="confirmOneItem()" id="btn-confirm-item">✅ 確定此份</button>
@@ -234,48 +198,16 @@
     const START_NO = 8238;
     let savedDevice = null, savedCharacteristic = null, isFastMode = false;
     let userLang = 'zh'; 
-    let cart = [], session = { category: '', sequence: [], currentIdx: 0 }, mainCounts = {}; 
+    let cart = [], session = { category: '', sequence: [], currentIdx: 0, isEditing: false, editTargetIdx: -1 }, mainCounts = {}; 
     let tempItem = { mainKey:'', sizeKey:'', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: 0, qty: 1 };
 
     function getOrderData() { 
         const today = new Date().toLocaleDateString(); 
-        let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO, history: [] }; 
-        if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; } 
+        let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO }; 
+        if (data.date !== today) { data.date = today; data.num = START_NO; } 
         return data; 
     }
     function saveOrderData(data) { localStorage.setItem('million_order_data', JSON.stringify(data)); }
-
-    function showHistory() {
-        const data = getOrderData();
-        const cont = document.getElementById('history-container');
-        cont.innerHTML = data.history.length === 0 ? '<p style="padding:20px; text-align:center; color:#999;">目前無任何紀錄</p>' : '';
-        data.history.slice().reverse().forEach(ord => {
-            const div = document.createElement('div');
-            div.className = 'history-item';
-            div.innerHTML = `
-                <div style="text-align:left;">
-                    <b style="font-size:1.1rem;">No. ${ord.num}</b> <small style="color:#666;">(${ord.time})</small><br>
-                    <span style="font-size:0.85rem; color:#444;">${ord.items[0].mainKey} ${ord.items.length > 1 ? '...' : ''}</span>
-                </div>
-                <div>
-                    <span style="font-weight:900; color:var(--price-tag); margin-right:10px;">$${ord.total}</span>
-                    <button style="padding:6px 12px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;" onclick='reprintHistory(${ord.num})'>補印</button>
-                </div>
-            `;
-            cont.appendChild(div);
-        });
-        goNext('step-history');
-    }
-
-    function reprintHistory(num) {
-        const data = getOrderData();
-        const ord = data.history.find(o => o.num === num);
-        if (ord) {
-            const choice = confirm("選擇補印語言 / Select Language:\n\n【確定/OK】 = 中文簡體 (Simplified)\n【取消/Cancel】 = English");
-            const printLang = choice ? 'zh' : 'en';
-            handleImagePrint(ord.num, ord.items, ord.total, printLang, false);
-        }
-    }
 
     async function getPrinter() {
         if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
@@ -306,42 +238,34 @@
         if (cart.length === 0) return;
         const choice = confirm("請選擇列印語言 / Select Print Language:\n\n【確定/OK】 = 中文簡體 (Simplified Chinese)\n【取消/Cancel】 = English");
         const printLang = choice ? 'zh' : 'en';
-        const orderData = getOrderData();
-        const total = document.getElementById('cart-total-sum').innerText;
-        handleImagePrint(orderData.num, cart, total, printLang, true);
+        handleFinalizeAndPrint(printLang);
     }
 
-    /* --- 新增：智能字體調整函數 --- */
-    function getAdjustedFontSize(text, defaultSize, ctx, maxWidth = 360) {
-        // 如果是中文（繁體或簡體範圍），直接返回默認大小
-        if (/[\u4e00-\u9fa5]/.test(text)) return defaultSize;
-        
-        // 如果是英文，進行縮放計算
-        let size = defaultSize;
-        ctx.font = `bold ${size}px sans-serif`;
-        while (ctx.measureText(text).width > maxWidth && size > 22) { // 設定英文最低不小於 22px
-            size -= 2;
-            ctx.font = `bold ${size}px sans-serif`;
-        }
-        return size;
-    }
-
-    function drawPrintCanvas(orderNo, items, total, printLang) {
+    function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        const dynamicHeight = 250 + (items.length * 200) + (items.reduce((acc,item)=>acc+(item.noExtraKeys.length>0?45:0)+(Object.keys(item.additionKeys).length>0?45:0)+(item.specialKeys.length>0?45:0),0)) + 80; 
+        const dynamicHeight = 300 + (cart.length * 280) + 150; 
         canvas.height = dynamicHeight;
-        ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
-        ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center"; 
+        
+        ctx.fillStyle = "white"; 
+        ctx.fillRect(0, 0, 384, canvas.height);
+        ctx.textBaseline = "top"; 
+        ctx.fillStyle = "black"; 
+        
+        // 【修正中心點】
+        ctx.textAlign = "center"; 
+        const centerX = 192;
+
         ctx.font = "bold 26px sans-serif";
-        ctx.fillText("Million FishBall Noodle", 192, 20);
+        ctx.fillText("Million FishBall Noodle", centerX, 20);
         ctx.font = "18px sans-serif";
-        ctx.fillText(new Date().toLocaleString(), 192, 55);
+        ctx.fillText(new Date().toLocaleString(), centerX, 55);
         ctx.font = "bold 44px sans-serif";
-        ctx.fillText(`No. ${orderNo}`, 192, 85);
+        ctx.fillText(`No. ${orderNo}`, centerX, 85);
         ctx.font = "bold 20px sans-serif";
-        ctx.fillText("------------------------------------------", 192, 135);
+        ctx.fillText("------------------------------------------", centerX, 135);
+        
         let y = 175;
-        items.forEach((item, i) => {
+        cart.forEach((item, i) => {
             const getName = (k) => (dictionary.items[k] && dictionary.items[k][printLang]) ? dictionary.items[k][printLang] : k;
             const pMain = getName(item.mainKey);
             const pSize = getName(item.sizeKey).replace('的', '');
@@ -349,51 +273,51 @@
             const pSauces = item.sauceKeys.map(k => getName(k)).join(',');
             const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
             
-            // 主標題字體調整
-            const mainText = `${pMain} (${item.qty}${unit})`;
-            ctx.font = `bold ${getAdjustedFontSize(mainText, 46, ctx)}px sans-serif`; 
-            ctx.fillText(mainText, 192, y); y += 55;
+            ctx.font = "bold 42px sans-serif"; 
+            ctx.fillText(`${pMain} (${item.qty}${unit})`, centerX, y); y += 50;
             
-            // 副標題字體調整 (尺寸+麵種+醬料)
-            const subText = `[${pSize}] ${pNoodle} ${pSauces}`;
-            ctx.font = `bold ${getAdjustedFontSize(subText, 36, ctx)}px sans-serif`;
-            ctx.fillText(subText, 192, y); y += 50;
+            ctx.font = "bold 32px sans-serif";
+            ctx.fillText(`[${pSize}] ${pNoodle} ${pSauces}`, centerX, y); y += 45;
             
             if(item.specialKeys.length > 0) {
                 const pSpecials = item.specialKeys.map(k => getName(k)).join(',');
-                const specText = `★ ${pSpecials}`;
-                ctx.font = `bold ${getAdjustedFontSize(specText, 32, ctx)}px sans-serif`;
-                ctx.fillText(specText, 192, y); y += 45;
+                ctx.font = "bold 32px sans-serif";
+                ctx.fillText(`★ ${pSpecials}`, centerX, y); y += 45;
             }
+
+            let addsStr = Object.entries(item.additionKeys)
+                .filter(([k,v])=>v>0)
+                .map(([k,v])=>`${getName(k)}(${v*getItemRatio(k)}${getItemUnit(k, printLang)})`)
+                .join(',');
             
-            let addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getName(k)}(${v*getItemRatio(k)}${getItemUnit(k, printLang)})`).join(',');
             if(addsStr) {
-                const addText = `${printLang==='zh'?'+加料':'+Add'}: ${addsStr}`;
-                ctx.font = `bold ${getAdjustedFontSize(addText, 30, ctx)}px sans-serif`;
-                ctx.fillText(addText, 192, y); y += 45;
+                ctx.font = "bold 30px sans-serif";
+                ctx.fillText(`${printLang==='zh'?'+加料':'+Add'}: ${addsStr}`, centerX, y); y += 45;
             }
             
             if(item.noExtraKeys.length > 0) {
                 const pNo = item.noExtraKeys.map(k => getName(k)).join(',');
-                const noText = `[${printLang==='zh'?'不要':'No'}: ${pNo}]`;
-                ctx.font = `bold ${getAdjustedFontSize(noText, 30, ctx)}px sans-serif`;
-                ctx.fillText(noText, 192, y); y += 45;
+                ctx.font = "bold 30px sans-serif";
+                ctx.fillText(`[${printLang==='zh'?'不要':'No'}: ${pNo}]`, centerX, y); y += 45;
             }
             y += 25; 
         });
+
         ctx.font = "bold 20px sans-serif";
-        ctx.fillText("------------------------------------------", 192, y); y += 40;
+        ctx.fillText("------------------------------------------", centerX, y); y += 40;
         ctx.font = "bold 42px sans-serif";
-        ctx.fillText("TOTAL: $" + total, 192, y);
+        ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y);
     }
 
-    async function handleImagePrint(orderNo, items, total, printLang, isNewOrder) {
+    async function handleFinalizeAndPrint(printLang) {
         const btn = document.getElementById('printBtn');
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
+            const orderData = getOrderData();
             document.getElementById('status-text').innerText = "📤 列印中...";
-            drawPrintCanvas(orderNo, items, total, printLang);
+            drawPrintCanvas(orderData.num, printLang);
+            
             const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40])); 
             const widthBytes = 48;
@@ -411,17 +335,13 @@
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
             }
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x01, 0x1D, 0x56, 0x00])); 
-            if (isNewOrder) {
-                let data = getOrderData();
-                const now = new Date();
-                data.history.push({ num: data.num, time: now.toLocaleTimeString(), items: JSON.parse(JSON.stringify(items)), total: total });
-                data.num++;
-                saveOrderData(data);
-                clearWholeOrder();
-            }
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x06, 0x1D, 0x56, 0x00])); 
+            
+            orderData.num++;
+            saveOrderData(orderData);
             document.getElementById('status-text').innerText = "✅ 完成";
-            btn.disabled = false;
+            alert("列印成功！");
+            clearWholeOrder();
         } catch (e) {
             alert("列印失敗：" + e.message);
             btn.disabled = false;
@@ -432,15 +352,34 @@
         let item = cart[index];
         if (item.qty + delta < 1) {
             if (confirm(userLang==='zh'?"取消此訂單？":"Remove this item?")) cart.splice(index, 1);
-        } else item.qty += delta;
+        } else { item.qty += delta; }
         renderFinalCart();
+    }
+
+    // 【新增修改功能】
+    function editCartItem(idx) {
+        const item = cart[idx];
+        session.isEditing = true;
+        session.editTargetIdx = idx;
+        session.category = item.category;
+        
+        tempItem = JSON.parse(JSON.stringify(item)); // 複製一份
+        
+        const titleText = userLang==='zh'?'修改中':'Editing';
+        document.getElementById('assign-title').innerHTML = `${titleText}:<br><b style="color:#f39c12; font-size:1.4rem;">${getItemName(tempItem.mainKey)} [${getItemName(tempItem.sizeKey)}]</b>`;
+        
+        if (item.category === '湯') {
+            renderNoExtraList();
+            goNext('step-no-extra');
+        } else {
+            renderNoodleTypeList();
+            goNext('step-noodle-type');
+        }
     }
 
     function selectLanguage(lang) { userLang = lang; updateUIText(); goNext('step-start'); }
     function updateUIText() {
         const u = dictionary.ui[userLang];
-        const backTxt = userLang === 'zh' ? '返回' : 'Back';
-        document.querySelectorAll('.back-btn-top').forEach(b => b.innerText = backTxt);
         document.getElementById('t-select-cat').innerText = u.select_cat;
         document.getElementById('t-cat-soup').innerText = u.cat_soup; document.getElementById('t-cat-noodle').innerText = u.cat_noodle;
         document.getElementById('t-select-soup').innerText = u.select_soup; document.getElementById('t-select-food').innerText = u.select_food;
@@ -455,17 +394,17 @@
     }
 
     function clearWholeOrder() {
-        cart = []; mainCounts = {}; session = { category: '', sequence: [], currentIdx: 0 };
+        cart = []; mainCounts = {}; session = { category: '', sequence: [], currentIdx: 0, isEditing: false, editTargetIdx: -1 };
         document.querySelectorAll('.qty-val').forEach(v => v.innerText = '0');
         document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
         document.getElementById('printBtn').disabled = false;
-        goNext('step-lang');
+        goNext('step-start');
     }
 
     const dictionary = {
         ui: {
-            zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 確認列印', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
-            en: { cat_soup:'Soup', cat_noodle:'Noodle', next:'Next', confirm:'✅ Confirm', total:'Total', clear:'❌ Clear', continue:'Add More', print:'Print Receipt', select_cat:'1. Select Category', select_soup:'2. Select Soup', select_food:'2. Select Item & Qty', select_noodle:'3. Select Noodle', select_sauce:'4. Sauce & Requests', select_no:'5. No Extras?', select_add:'6. Additions', cart_title:'🛒 Order Details', special_label:'Special Request:' }
+            zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 確認列印', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：', edit_btn:'修改' },
+            en: { cat_soup:'Soup', cat_noodle:'Noodle', next:'Next', confirm:'✅ Confirm', total:'Total', clear:'❌ Clear', continue:'➕ Add More', print:'🖨️ Print Receipt', select_cat:'1. Select Category', select_soup:'2. Select Soup', select_food:'2. Select Item & Qty', select_noodle:'3. Select Noodle Type', select_sauce:'4. Sauce & Requests', select_no:'5. No Extras?', select_add:'6. Additions', cart_title:'🛒 Order Details', special_label:'Special Request:', edit_btn:'Edit' }
         },
         items: {
             '魚圓面':{zh:'魚圓面', en:'Fishball Noodle'}, '香菇肉碎面':{zh:'香菇肉碎面', en:'Mushroom Minced Noodle'}, '招牌面':{zh:'招牌面', en:'Signature Noodle'}, '餐餐面':{zh:'餐餐面', en:'Can Can Noodle'}, '肉圓面':{zh:'肉圓面', en:'Meatball Noodle'}, '蝦魚面':{zh:'蝦魚面', en:'Prawn Fish Noodle'}, '西刀魚面':{zh:'西刀魚面', en:'Saito Fish Noodle'}, '香菇面':{zh:'香菇面', en:'Mushroom Noodle'}, '魚餃面':{zh:'魚餃面', en:'Fish Dumpling Noodle'}, '(純)肉碎面':{zh:'(純)肉碎面', en:'Pure Minced Noodle'}, '小魚香面':{zh:'小魚香面', en:'Small Fish Noodle'},
@@ -496,7 +435,7 @@
     function getItemUnit(key, lang = userLang) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[lang] : ''; }
     
     function goNext(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
-    function setCategory(v) { session.category = v; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
+    function setCategory(v) { session.category = v; session.isEditing = false; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
 
     function renderSoupList() {
         const cont = document.getElementById('grid-soupItems'); cont.innerHTML = '';
@@ -513,7 +452,8 @@
 
     function renderFoodList() {
         const cont = document.getElementById('grid-foodItems'); cont.innerHTML = '';
-        const labelS = getItemName('小的'); const labelL = getItemName('大的');
+        const labelS = getItemName('小的');
+        const labelL = getItemName('大的');
         Object.keys(config.foodImgs).forEach(key => {
             const div = document.createElement('div'); div.className = 'opt';
             div.innerHTML = `<div class="img-box"><div class="price-circle">$${config.prices[key]}</div><img src="${config.foodImgs[key]}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>
@@ -544,6 +484,7 @@
         const cont = document.getElementById('grid-noodleType'); cont.innerHTML = '';
         Object.entries(config.noodleTypeImgs).forEach(([key, img]) => {
             const div = document.createElement('div'); div.className = 'opt';
+            if (tempItem.noodleKey === key) div.classList.add('selected');
             div.innerHTML = `<div class="img-box"><img src="${img}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>`;
             div.onclick = () => { tempItem.noodleKey = key; startSauceStep(); };
             cont.appendChild(div);
@@ -554,12 +495,14 @@
         const sCont = document.getElementById('sauce-cont'); sCont.innerHTML = '';
         config.sauces.forEach(key => {
             const btn = document.createElement('button'); btn.className = 'sauce-btn'; btn.innerText = getItemName(key);
+            if(tempItem.sauceKeys.includes(key)) btn.classList.add('selected');
             btn.onclick = () => { btn.classList.toggle('selected'); if(tempItem.sauceKeys.includes(key)) tempItem.sauceKeys = tempItem.sauceKeys.filter(x=>x!==key); else tempItem.sauceKeys.push(key); };
             sCont.appendChild(btn);
         });
         const spCont = document.getElementById('special-cont'); spCont.innerHTML = '';
         config.specials.forEach(key => {
             const btn = document.createElement('button'); btn.className = 'sauce-btn'; btn.innerText = getItemName(key);
+            if(tempItem.specialKeys.includes(key)) btn.classList.add('selected');
             btn.onclick = () => { btn.classList.toggle('selected'); if(tempItem.specialKeys.includes(key)) tempItem.specialKeys = tempItem.specialKeys.filter(x=>x!==key); else tempItem.specialKeys.push(key); };
             spCont.appendChild(btn);
         });
@@ -567,10 +510,12 @@
     }
 
     function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert(userLang==='zh'?"請選擇醬料":"Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
+    
     function renderNoExtraList() {
         const cont = document.getElementById('grid-noExtra'); cont.innerHTML = '';
         Object.entries(config.noExtraImgs).forEach(([key, img]) => {
             const div = document.createElement('div'); div.className = 'opt';
+            if(tempItem.noExtraKeys.includes(key)) div.classList.add('selected');
             div.innerHTML = `<div class="img-box"><img src="${img}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>`;
             div.onclick = () => { div.classList.toggle('selected'); if(tempItem.noExtraKeys.includes(key)) tempItem.noExtraKeys = tempItem.noExtraKeys.filter(x=>x!==key); else tempItem.noExtraKeys.push(key); };
             cont.appendChild(div);
@@ -582,17 +527,32 @@
         const cont = document.getElementById('grid-additions'); cont.innerHTML = '';
         config.additions.forEach(item => {
             const div = document.createElement('div'); div.className = 'opt';
+            const curQty = tempItem.additionKeys[item.key] || 0;
             div.innerHTML = `<div class="img-box"><div class="price-circle">$${item.price}</div><img src="${item.img}"></div><span style="padding:5px; font-weight:bold; font-size:0.9rem;">${getItemName(item.key)}</span>
-            <div class="qty-input-overlay" onclick="event.stopPropagation()"><button class="qty-btn" onclick="changeAddQty('${item.key}',-1)">-</button><span class="qty-val" id="aq-${item.key}">0</span><button class="qty-btn" onclick="changeAddQty('${item.key}',1)">+</button></div>`;
+            <div class="qty-input-overlay" onclick="event.stopPropagation()"><button class="qty-btn" onclick="changeAddQty('${item.key}',-1)">-</button><span class="qty-val" id="aq-${item.key}">${curQty}</span><button class="qty-btn" onclick="changeAddQty('${item.key}',1)">+</button></div>`;
             cont.appendChild(div);
         });
     }
 
     function changeAddQty(k, d) { tempItem.additionKeys[k] = Math.max(0, (tempItem.additionKeys[k] || 0) + d); document.getElementById(`aq-${k}`).innerText = tempItem.additionKeys[k]; }
+    
     function confirmOneItem() {
+        let baseP = config.prices[tempItem.mainKey] + config.prices[tempItem.sizeKey];
         let extraP = 0; config.additions.forEach(item => { if(tempItem.additionKeys[item.key]) extraP += item.price * tempItem.additionKeys[item.key]; });
-        cart.push({ ...tempItem, price: tempItem.price + extraP, sauceKeys:[...tempItem.sauceKeys], specialKeys:[...tempItem.specialKeys], noExtraKeys:[...tempItem.noExtraKeys], additionKeys:{...tempItem.additionKeys} });
-        session.currentIdx++; if(session.currentIdx < session.sequence.length) startItemProcess(); else { renderFinalCart(); goNext('step-finish'); }
+        const finalItem = { ...tempItem, price: baseP + extraP, sauceKeys:[...tempItem.sauceKeys], specialKeys:[...tempItem.specialKeys], noExtraKeys:[...tempItem.noExtraKeys], additionKeys:{...tempItem.additionKeys} };
+        
+        if (session.isEditing) {
+            cart[session.editTargetIdx] = finalItem;
+            session.isEditing = false;
+            session.editTargetIdx = -1;
+            renderFinalCart(); 
+            goNext('step-finish');
+        } else {
+            cart.push(finalItem);
+            session.currentIdx++; 
+            if(session.currentIdx < session.sequence.length) startItemProcess(); 
+            else { renderFinalCart(); goNext('step-finish'); }
+        }
     }
 
     function renderFinalCart() {
@@ -600,20 +560,46 @@
         document.getElementById('order-no-display').innerText = `No. ${orderData.num}`;
         const cont = document.getElementById('cart-list-cont'); let total = 0;
         cont.innerHTML = cart.map((item, idx) => {
-            let lineTotal = item.price * item.qty; total += lineTotal;
+            let linePrice = item.price * item.qty;
+            total += linePrice;
+            const dMain = getItemName(item.mainKey);
+            const dSize = getItemName(item.sizeKey);
+            const dNoodle = item.noodleKey === '湯品' ? '' : getItemName(item.noodleKey);
+            const dSauces = item.sauceKeys.map(k => getItemName(k)).join(', ');
+            const dSpecials = item.specialKeys.map(k => getItemName(k)).join(', ');
+            const dNoExtras = item.noExtraKeys.map(k => getItemName(k)).join(', ');
+            const addsStr = Object.entries(item.additionKeys)
+                .filter(([k,v])=>v>0)
+                .map(([k,v])=>`${getItemName(k)}(${v*getItemRatio(k)}${getItemUnit(k)})`)
+                .join(', ');
+
             const mainUnit = item.category === '湯' ? (userLang==='zh'?'碗':'bowl') : (userLang==='zh'?'份':'qty');
-            return `<div class="cart-item"><div class="cart-row"><div class="cart-info">
-                <div style="font-weight:900; font-size:1.1rem;">${idx+1}. ${getItemName(item.mainKey)}</div>
-                <div style="font-size:0.95rem; font-weight:bold; margin-top:4px;">[${getItemName(item.sizeKey)}] ${item.noodleKey==='湯品'?'':getItemName(item.noodleKey)} ${item.sauceKeys.map(k=>getItemName(k)).join(', ')}</div>
-                ${item.specialKeys.length ? `<div style="font-size:0.9rem; color:#f57c00; font-weight:900;">★ ${item.specialKeys.map(k=>getItemName(k)).join(', ')}</div>` : ''}
-                ${Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`<div style="font-size:0.9rem; color:var(--add); font-weight:bold;">+ ${getItemName(k)}(${v*getItemRatio(k)}${getItemUnit(k)})</div>`).join('')}
-                ${item.noExtraKeys.length ? `<div style="font-size:0.85rem; color:red;">[${userLang==='zh'?'不要':'No'}: ${item.noExtraKeys.map(k=>getItemName(k)).join(', ')}]</div>` : ''}
-                <div style="font-weight:bold; color:var(--price-tag); margin-top:8px;">$${lineTotal.toFixed(2)}</div>
-                </div><div class="cart-ctrls"><div style="display:flex; align-items:center; background:#eee; border-radius:10px; padding:2px;"><button class="qty-btn" onclick="changeQty(${idx}, -1)">-</button><span class="qty-num" style="padding:0 10px; font-weight:bold;">${item.qty}${mainUnit}</span><button class="qty-btn" onclick="changeQty(${idx}, 1)">+</button></div></div></div></div>`;
+            
+            return `<div class="cart-item">
+                <div class="cart-row">
+                    <div class="cart-info">
+                        <div style="font-weight:900; font-size:1.1rem;">${idx+1}. ${dMain}</div>
+                        <div style="font-size:0.95rem; color:#111; font-weight:bold; margin-top:4px;">[${dSize}] ${dNoodle} ${dSauces}</div>
+                        ${item.specialKeys.length ? `<div style="font-size:0.9rem; color:#f57c00; font-weight:900;">★ ${dSpecials}</div>` : ''}
+                        ${addsStr ? `<div style="font-size:0.9rem; color:var(--add); font-weight:bold;">+ ${addsStr}</div>` : ''}
+                        ${item.noExtraKeys.length ? `<div style="font-size:0.85rem; color:red;">[${userLang==='zh'?'不要':'No'}: ${dNoExtras}]</div>` : ''}
+                        <div style="font-weight:bold; color:var(--price-tag); margin-top:8px;">$${linePrice.toFixed(2)}</div>
+                    </div>
+                    <div class="cart-ctrls">
+                        <div style="display:flex; align-items:center; background:#eee; border-radius:10px; padding:2px;">
+                            <button class="qty-btn" onclick="changeQty(${idx}, -1)">-</button>
+                            <span class="qty-num" style="padding:0 10px; font-weight:bold;">${item.qty}${mainUnit}</span>
+                            <button class="qty-btn" onclick="changeQty(${idx}, 1)">+</button>
+                        </div>
+                        <button class="edit-btn" onclick="editCartItem(${idx})">${dictionary.ui[userLang].edit_btn}</button>
+                    </div>
+                </div>
+            </div>`;
         }).join('');
         document.getElementById('cart-total-sum').innerText = total.toFixed(2);
     }
 
+    function handleNoodleBack() { goNext('step-food-select'); }
     function handleSauceBack() { if(session.category === '湯') goNext('step-soup-select'); else goNext('step-noodle-type'); }
     function handleNoExtraBack() { if(session.category === '湯') goNext('step-soup-select'); else goNext('step-sauce-select'); }
 </script>
