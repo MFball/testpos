@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.4.5</title>
+    <title>Million FishBall Noodle - ver 3.4.6</title>
     
     <style>
         :root { 
@@ -89,7 +89,7 @@
 
 <div class="container">
     <div id="top-bar">
-        <span id="status-tag" style="font-size: 11px; color: var(--price-tag); font-weight: bold;">● MILLION 麵店 ver 3.4.5</span>
+        <span id="status-tag" style="font-size: 11px; color: var(--price-tag); font-weight: bold;">● MILLION 麵店 ver 3.4.6</span>
         <div id="bt-status" class="conn-status disconnected" onclick="initBluetooth()">
             <div class="status-dot"></div>
             <span id="bt-text">未連線</span>
@@ -189,41 +189,72 @@
 </div>
 
 <script>
+    // --- 藍牙核心控制 (強化連線與修正 Bug) ---
     let printerDevice = null;
     let printerCharacteristic = null;
 
     async function initBluetooth() {
+        const btText = document.getElementById('bt-text');
+        const btStatus = document.getElementById('bt-status');
+        
         try {
-            const btText = document.getElementById('bt-text');
             btText.innerText = "搜尋中...";
+            
+            // Web Bluetooth 搜尋
             printerDevice = await navigator.bluetooth.requestDevice({
                 filters: [{ namePrefix: 'MPT' }], 
                 optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
             });
+
+            // 開始連線
             const server = await printerDevice.gatt.connect();
             const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
             printerCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-            document.getElementById('bt-status').className = "conn-status connected";
+
+            // 更新 UI
+            btStatus.className = "conn-status connected";
             btText.innerText = "已連線";
+
+            // 監聽斷線
             printerDevice.addEventListener('gattserverdisconnected', () => {
-                document.getElementById('bt-status').className = "conn-status disconnected";
+                btStatus.className = "conn-status disconnected";
                 btText.innerText = "未連線";
+                printerCharacteristic = null;
             });
+            
+            alert("列印機連線成功！");
         } catch (error) {
-            document.getElementById('bt-status').className = "conn-status disconnected";
-            document.getElementById('bt-text').innerText = "連線失敗";
+            console.error(error);
+            btStatus.className = "conn-status disconnected";
+            btText.innerText = "連線失敗";
+            alert("找不到列印機，請確保藍牙已開啟。");
         }
     }
 
     async function finalizePrint() {
-        if (!printerCharacteristic) { alert("請先連接藍牙打印機"); return; }
+        if (!printerCharacteristic) {
+            alert("請先點擊右上角連接藍牙列印機");
+            return;
+        }
+
         const encoder = new TextEncoder();
-        const INIT = '\x1B\x40', CH_ON = '\x1C\x26', CENTER = '\x1B\x61\x01', LEFT = '\x1B\x61\x00', RIGHT = '\x1B\x61\x02', BIG = '\x1B\x21\x30', MED = '\x1B\x21\x10', NORMAL = '\x1B\x21\x00';
-        let p = INIT + CH_ON + '\x1B\x33\x18';
-        p += CENTER + BIG + "Million\nFishBall Noodle\n" + NORMAL + "--------------------------------\n";
+        
+        // ESC/POS 指令集 (Ver 2.9.9 穩定版)
+        const INIT = '\x1B\x40';           
+        const CHINESE_ON = '\x1C\x26';     
+        const CENTER = '\x1B\x61\x01';     
+        const LEFT = '\x1B\x61\x00';       
+        const RIGHT = '\x1B\x61\x02';      
+        const BIG_FONT = '\x1B\x21\x30';   
+        const MED_FONT = '\x1B\x21\x10';   
+        const NORMAL_FONT = '\x1B\x21\x00';
+        const LINE_SPACE = '\x1B\x33\x18'; 
+
+        let p = INIT + CHINESE_ON + LINE_SPACE;
+        p += CENTER + BIG_FONT + "Million\nFishBall Noodle\n" + NORMAL_FONT + "--------------------------------\n";
 
         cart.forEach((item, idx) => {
-            p += LEFT + MED + `[${idx+1}] ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})\n` + NORMAL;
+            p += LEFT + MED_FONT + `[${idx+1}] ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})\n` + NORMAL_FONT;
             p += `    ${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(',')}\n`;
             if(item.specialKeys.length > 0) p += `    REQ: ${item.specialKeys.map(k=>getItemName(k)).join(',')}\n`;
             if(item.noExtraKeys.length > 0) p += `    NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')}\n`;
@@ -231,7 +262,6 @@
             let addsStr = "";
             Object.entries(item.additionKeys).forEach(([key, val]) => {
                 if(val > 0) {
-                    // 關鍵修正：加入單位
                     const unit = getItemUnit(key);
                     addsStr += `${getItemName(key)}x${val*getItemRatio(key)}${unit} `;
                 }
@@ -240,14 +270,22 @@
             p += "--------------------------------\n";
         });
 
-        p += RIGHT + MED + `TOTAL: $${document.getElementById('cart-total-sum').innerText}\n\n` + CENTER + NORMAL + "THANK YOU!\n\n\n\n";
+        p += RIGHT + MED_FONT + `TOTAL: $${document.getElementById('cart-total-sum').innerText}\n\n` + CENTER + NORMAL_FONT + "THANK YOU!\n\n\n\n";
+
         try {
             const data = encoder.encode(p);
-            for (let i = 0; i < data.length; i += 20) { await printerCharacteristic.writeValue(data.slice(i, i + 20)); }
-            alert("打印完成！"); location.reload();
-        } catch (e) { alert("打印失敗：" + e.message); }
+            const chunkSize = 20;
+            for (let i = 0; i < data.length; i += chunkSize) {
+                await printerCharacteristic.writeValue(data.slice(i, i + chunkSize));
+            }
+            alert("單據已發送！");
+            location.reload();
+        } catch (e) {
+            alert("打印失敗：" + e.message);
+        }
     }
 
+    // --- 資料字典 ---
     const dictionary = {
         ui: {
             zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 列印單據', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
