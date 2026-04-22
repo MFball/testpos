@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.5.6</title>
+    <title>Million FishBall Noodle - ver 3.5.5</title>
     
     <style>
         :root { 
@@ -93,7 +93,7 @@
 
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.5.6</span>
+        <span>MILLION 麵店 v3.5.5</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
@@ -243,20 +243,20 @@
         handleFinalizeAndPrint(printLang);
     }
 
-    // --- 列印排版 (修正置中與底部空白) ---
+    // --- 列印排版 (Ver 3.5.5: 置中修正 & 底部空間縮減) ---
     function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        // 【修正】縮減總高度預留，減少底部空白
+        // 【優化】縮減畫布高度緩衝，減少物理留白
         const dynamicHeight = 220 + (cart.length * 280) + 50; 
         canvas.height = dynamicHeight;
         
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
         ctx.textBaseline = "top"; ctx.fillStyle = "black"; 
         
-        // 【關鍵】核心對齊設定
+        // 【關鍵】核心對齊：所有文字以 192 (中心點) 置中
         ctx.textAlign = "center"; 
-        const centerX = 192; // 384px 的正中央
-
+        const centerX = 192; 
+        
         ctx.font = "bold 26px sans-serif";
         ctx.fillText("Million FishBall Noodle", centerX, 20);
         ctx.font = "18px sans-serif";
@@ -276,22 +276,22 @@
             const pSauces = item.sauceKeys.map(k => getName(k)).join(',');
             const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
             
-            // 1. 主食名稱 (42px)
+            // 1. 主食名稱
             ctx.font = "bold 42px sans-serif"; 
             ctx.fillText(`${pMain} (${item.qty}${unit})`, centerX, y); y += 50;
             
-            // 2. 麵種/醬料/大小 (32px)
+            // 2. 麵種/醬料
             ctx.font = "bold 32px sans-serif";
             ctx.fillText(`[${pSize}] ${pNoodle} ${pSauces}`, centerX, y); y += 45;
             
-            // 3. 特別要求 (32px)
+            // 3. 特別要求
             if(item.specialKeys.length > 0) {
                 const pSpecials = item.specialKeys.map(k => getName(k)).join(',');
                 ctx.font = "bold 32px sans-serif";
                 ctx.fillText(`★ ${pSpecials}`, centerX, y); y += 45;
             }
 
-            // 4. 加料區 (30px)
+            // 4. 加料區
             let addsStr = Object.entries(item.additionKeys)
                 .filter(([k,v])=>v>0)
                 .map(([k,v])=>`${getName(k)}(${v*getItemRatio(k)}${getItemUnit(k, printLang)})`)
@@ -302,7 +302,7 @@
                 ctx.fillText(`${printLang==='zh'?'+加料':'+Add'}: ${addsStr}`, centerX, y); y += 45;
             }
             
-            // 5. 不要區 (30px)
+            // 5. 不要區
             if(item.noExtraKeys.length > 0) {
                 const pNo = item.noExtraKeys.map(k => getName(k)).join(',');
                 ctx.font = "bold 30px sans-serif";
@@ -344,7 +344,7 @@
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
             }
-            // 【修正】將 0x06 改為 0x02，縮短切紙前的空白
+            // 【優化】最後走紙從 0x06 改為 0x02，節省紙張空間
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x02, 0x1D, 0x56, 0x00])); 
             
             orderData.num++;
@@ -358,7 +358,7 @@
         }
     }
 
-    // --- 購物車增減 ---
+    // --- 購物車增減功能 ---
     function changeQty(index, delta) {
         let item = cart[index];
         if (item.qty + delta < 1) {
@@ -461,7 +461,6 @@
     }
 
     function changeMainQty(n, s, d) { const k = `${n}-${s}`; mainCounts[k] = Math.max(0, (mainCounts[k] || 0) + d); document.getElementById(s==='小的'?`ms-${n}`:`ml-${n}`).innerText = mainCounts[k]; }
-    
     function checkFoodFlow() {
         session.sequence = []; Object.entries(mainCounts).forEach(([k, v]) => { if (v > 0) { const [n, s] = k.split('-'); for(let i=0; i<v; i++) session.sequence.push({ name: n, size: s }); } });
         if (session.sequence.length === 0) return alert(userLang==='zh'?"請選擇數量":"Select Qty");
@@ -503,7 +502,6 @@
     }
 
     function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert(userLang==='zh'?"請選擇醬料":"Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
-    
     function renderNoExtraList() {
         const cont = document.getElementById('grid-noExtra'); cont.innerHTML = '';
         Object.entries(config.noExtraImgs).forEach(([key, img]) => {
