@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.4.4</title>
+    <title>Million FishBall Noodle - ver 3.4.5</title>
     
     <style>
         :root { 
@@ -20,7 +20,6 @@
             padding-bottom: 150px; min-height: 95vh; position: relative; 
         }
 
-        /* 連線狀態燈號 UI */
         .conn-status {
             display: inline-flex; align-items: center; gap: 5px; font-size: 10px;
             padding: 2px 8px; border-radius: 10px; float: right; margin-top: -5px; cursor: pointer;
@@ -90,7 +89,7 @@
 
 <div class="container">
     <div id="top-bar">
-        <span id="status-tag" style="font-size: 11px; color: var(--price-tag); font-weight: bold;">● MILLION 麵店 ver 3.4.4</span>
+        <span id="status-tag" style="font-size: 11px; color: var(--price-tag); font-weight: bold;">● MILLION 麵店 ver 3.4.5</span>
         <div id="bt-status" class="conn-status disconnected" onclick="initBluetooth()">
             <div class="status-dot"></div>
             <span id="bt-text">未連線</span>
@@ -112,7 +111,7 @@
         <h2 id="t-select-cat">1. 請選擇類別</h2>
         <div class="grid">
             <div class="opt" onclick="setCategory('湯')">
-                <div class="img-box"><img src="https://i.ibb.co/TMFvjFRN/Minced.png"></div>
+                <div class="img-box"><img src="https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru"></div>
                 <span id="t-cat-soup" style="padding:10px; font-weight:bold; text-align:center;">湯品類</span>
             </div>
             <div class="opt" onclick="setCategory('面')">
@@ -190,7 +189,6 @@
 </div>
 
 <script>
-    // --- 藍牙核心控制 (Ver 2.9.9 穩定邏輯移植) ---
     let printerDevice = null;
     let printerCharacteristic = null;
 
@@ -198,100 +196,58 @@
         try {
             const btText = document.getElementById('bt-text');
             btText.innerText = "搜尋中...";
-            
             printerDevice = await navigator.bluetooth.requestDevice({
                 filters: [{ namePrefix: 'MPT' }], 
                 optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb']
             });
-
             const server = await printerDevice.gatt.connect();
             const service = await server.getPrimaryService('000018f0-0000-1000-8000-00805f9b34fb');
             printerCharacteristic = await service.getCharacteristic('00002af1-0000-1000-8000-00805f9b34fb');
-
             document.getElementById('bt-status').className = "conn-status connected";
             btText.innerText = "已連線";
-
             printerDevice.addEventListener('gattserverdisconnected', () => {
                 document.getElementById('bt-status').className = "conn-status disconnected";
                 btText.innerText = "未連線";
             });
         } catch (error) {
-            console.error(error);
             document.getElementById('bt-status').className = "conn-status disconnected";
             document.getElementById('bt-text').innerText = "連線失敗";
         }
     }
 
     async function finalizePrint() {
-        if (!printerCharacteristic) {
-            alert("請先點擊右上角連接藍牙打印機");
-            return;
-        }
-
+        if (!printerCharacteristic) { alert("請先連接藍牙打印機"); return; }
         const encoder = new TextEncoder();
-        
-        // 打印機指令設定 (ESC/POS)
-        const INIT = '\x1B\x40';           // 初始化
-        const CHINESE_ON = '\x1C\x26';     // 進入中文模式 (解決亂碼)
-        const CENTER = '\x1B\x61\x01';     // 居中
-        const LEFT = '\x1B\x61\x00';       // 左對齊
-        const RIGHT = '\x1B\x61\x02';      // 右對齊
-        const BIG_FONT = '\x1B\x21\x30';   // 倍高倍寬
-        const MED_FONT = '\x1B\x21\x10';   // 倍高
-        const NORMAL_FONT = '\x1B\x21\x00';// 普通字體
-        const LINE_SPACE = '\x1B\x33\x18'; // 行間距設定
+        const INIT = '\x1B\x40', CH_ON = '\x1C\x26', CENTER = '\x1B\x61\x01', LEFT = '\x1B\x61\x00', RIGHT = '\x1B\x61\x02', BIG = '\x1B\x21\x30', MED = '\x1B\x21\x10', NORMAL = '\x1B\x21\x00';
+        let p = INIT + CH_ON + '\x1B\x33\x18';
+        p += CENTER + BIG + "Million\nFishBall Noodle\n" + NORMAL + "--------------------------------\n";
 
-        let p = INIT + CHINESE_ON + LINE_SPACE;
-        
-        // 標題
-        p += CENTER + BIG_FONT + "Million\nFishBall Noodle\n" + NORMAL_FONT + "--------------------------------\n";
-
-        // 購物車內容循環
         cart.forEach((item, idx) => {
-            p += LEFT + MED_FONT + `[${idx+1}] ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})\n` + NORMAL_FONT;
-            
-            // 麵種與醬料 (Ver 2.9.9 放置邏輯)
+            p += LEFT + MED + `[${idx+1}] ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})\n` + NORMAL;
             p += `    ${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(',')}\n`;
-            
-            // 特別要求
-            if(item.specialKeys.length > 0) {
-                p += `    REQ: ${item.specialKeys.map(k=>getItemName(k)).join(',')}\n`;
-            }
-            
-            // 不要區 (正確顯示檢查)
-            if(item.noExtraKeys.length > 0) {
-                p += `    NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')}\n`;
-            }
+            if(item.specialKeys.length > 0) p += `    REQ: ${item.specialKeys.map(k=>getItemName(k)).join(',')}\n`;
+            if(item.noExtraKeys.length > 0) p += `    NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')}\n`;
 
-            // 加料區 (數量抓取檢查)
             let addsStr = "";
             Object.entries(item.additionKeys).forEach(([key, val]) => {
                 if(val > 0) {
-                    addsStr += `${getItemName(key)}x${val*getItemRatio(key)} `;
+                    // 關鍵修正：加入單位
+                    const unit = getItemUnit(key);
+                    addsStr += `${getItemName(key)}x${val*getItemRatio(key)}${unit} `;
                 }
             });
             if(addsStr) p += `    + ${addsStr}\n`;
-            
             p += "--------------------------------\n";
         });
 
-        const total = document.getElementById('cart-total-sum').innerText;
-        p += RIGHT + MED_FONT + `TOTAL: $${total}\n\n` + CENTER + NORMAL_FONT + "THANK YOU!\n\n\n\n";
-
+        p += RIGHT + MED + `TOTAL: $${document.getElementById('cart-total-sum').innerText}\n\n` + CENTER + NORMAL + "THANK YOU!\n\n\n\n";
         try {
             const data = encoder.encode(p);
-            const chunkSize = 20;
-            for (let i = 0; i < data.length; i += chunkSize) {
-                await printerCharacteristic.writeValue(data.slice(i, i + chunkSize));
-            }
-            alert("單據已發送！");
-            location.reload();
-        } catch (e) {
-            alert("打印失敗：" + e.message);
-        }
+            for (let i = 0; i < data.length; i += 20) { await printerCharacteristic.writeValue(data.slice(i, i + 20)); }
+            alert("打印完成！"); location.reload();
+        } catch (e) { alert("打印失敗：" + e.message); }
     }
 
-    // --- 資料字典 (包含新湯品) ---
     const dictionary = {
         ui: {
             zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 列印單據', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
@@ -342,6 +298,7 @@
 
     function getItemName(key) { return (dictionary.items[key] && dictionary.items[key][userLang]) ? dictionary.items[key][userLang] : key; }
     function getItemRatio(key) { return (dictionary.items[key] && dictionary.items[key].ratio) ? dictionary.items[key].ratio : 1; }
+    function getItemUnit(key) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[userLang] : ''; }
     function goNext(id) { document.querySelectorAll('.step').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
     function setCategory(v) { session.category = v; mainCounts = {}; if (v === '湯') { renderSoupList(); goNext('step-soup-select'); } else { renderFoodList(); goNext('step-food-select'); } }
 
@@ -449,7 +406,7 @@
         const cont = document.getElementById('cart-list-cont'); let total = 0;
         cont.innerHTML = cart.map((item, idx) => {
             const itemTotal = item.price * item.cartQty; total += itemTotal;
-            const addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}x${v*getItemRatio(k)}`).join(', ');
+            const addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}x${v*getItemRatio(k)}${getItemUnit(k)}`).join(', ');
             return `<div style="border-bottom:1.5px solid #eee; padding:12px 0;">
                 <div style="display:flex; justify-content:space-between; font-weight:900;"><span>${getItemName(item.mainKey)} [${getItemName(item.sizeKey)}]</span><span style="color:var(--price-tag);">$${itemTotal.toFixed(2)}</span></div>
                 <div style="font-size:0.85rem; color:#111; font-weight:bold; margin-top:4px;">${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(', ')}</div>
