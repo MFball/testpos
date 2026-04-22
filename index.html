@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - ver 3.4.8</title>
+    <title>Million FishBall Noodle - ver 3.4.9</title>
     
     <style>
         :root { 
@@ -88,7 +88,7 @@
 
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.4.8</span>
+        <span>MILLION 麵店 v3.4.9</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
@@ -187,36 +187,26 @@
 <canvas id="printCanvas" width="384"></canvas>
 
 <script>
-    // --- 全局變數 (保留狀態) ---
     let savedDevice = null, savedCharacteristic = null, isFastMode = false;
     let userLang = 'zh'; 
     let cart = [], session = { category: '', sequence: [], currentIdx: 0 }, mainCounts = {}; 
     let tempItem = { mainKey:'', sizeKey:'', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: 0 };
 
-    // --- 藍牙持久化連線邏輯 ---
+    // --- 藍牙持久化連線 ---
     async function getPrinter() {
-        // 如果已經連線，直接返回特性
-        if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) {
-            return savedCharacteristic;
-        }
-        
+        if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
         document.getElementById('status-text').innerText = "🔍 搜尋印表機...";
         try {
             savedDevice = await navigator.bluetooth.requestDevice({ 
                 acceptAllDevices: true, 
                 optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb'] 
             });
-            
             const server = await savedDevice.gatt.connect();
             const services = await server.getPrimaryServices();
-            
             for (const s of services) {
                 const chars = await s.getCharacteristics();
                 savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
-                if (savedCharacteristic) { 
-                    isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); 
-                    break;
-                }
+                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
             }
             document.getElementById('status-text').innerText = "● 藍牙已連線";
             document.getElementById('status-text').style.color = "#34a853";
@@ -228,15 +218,18 @@
         }
     }
 
-    // --- 恢復 2.9.9 經典列印版面 ---
+    // --- 大字體置中列印排版 (Ver 3.4.9 修改點) ---
     function drawPrintCanvas() {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        const dynamicHeight = 250 + (cart.length * 200) + 150; 
+        // 由於字體變大，動態增加畫布高度
+        const dynamicHeight = 300 + (cart.length * 350) + 150; 
         canvas.height = dynamicHeight;
         
-        ctx.fillStyle = "white";
-        ctx.fillRect(0, 0, 384, canvas.height);
-        ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center"; 
+        ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
+        ctx.textBaseline = "top"; ctx.fillStyle = "black"; 
+        
+        // 全部置中對齊
+        ctx.textAlign = "center"; 
         
         ctx.font = "bold 30px sans-serif";
         ctx.fillText("Million FishBall Noodle", 192, 20);
@@ -245,57 +238,54 @@
         ctx.font = "bold 22px sans-serif";
         ctx.fillText("------------------------------------------", 192, 90);
         
-        let y = 130;
-        ctx.textAlign = "left";
+        let y = 140;
         cart.forEach((item, i) => {
-            ctx.font = "bold 34px sans-serif"; // 舊版大字體
-            ctx.fillText(`${i+1}. ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})`, 10, y); y += 45;
+            // 1. 選擇麵食（放大 0.5 位：34 -> 52px）
+            ctx.font = "bold 52px sans-serif"; 
+            ctx.fillText(`${i+1}. ${getItemName(item.mainKey)} (${getItemName(item.sizeKey)})`, 192, y); y += 70;
             
-            ctx.font = "28px sans-serif";
-            ctx.fillText(`   ${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(',')}`, 10, y); y += 40;
+            // 2. 麵種 & 醬料（放大 2 倍：28 -> 56px）
+            ctx.font = "56px sans-serif";
+            ctx.fillText(`${getItemName(item.noodleKey)} / ${item.sauceKeys.map(k=>getItemName(k)).join(',')}`, 192, y); y += 70;
             
+            // 3. 特別要求（放大 2 倍：24 -> 48px）
             if(item.specialKeys.length > 0) {
-                ctx.font = "bold 24px sans-serif";
-                ctx.fillText(`   REQ: ${item.specialKeys.map(k=>getItemName(k)).join(',')}`, 10, y); y += 35;
+                ctx.font = "bold 48px sans-serif";
+                ctx.fillText(`REQ: ${item.specialKeys.map(k=>getItemName(k)).join(',')}`, 192, y); y += 60;
             }
 
+            // 4. 加料區（放大 2 倍：24 -> 48px）
             let addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}x${v*getItemRatio(k)}${getItemUnit(k)}`).join(', ');
             if(addsStr) {
-                ctx.font = "italic 24px sans-serif";
-                ctx.fillText(`   + ${addsStr}`, 10, y); y += 35;
+                ctx.font = "italic 48px sans-serif";
+                ctx.fillText(`+ ${addsStr}`, 192, y); y += 60;
             }
             
+            // 5. 不要區（放大 2 倍：22 -> 44px）
             if(item.noExtraKeys.length > 0) {
-                ctx.font = "22px sans-serif";
-                ctx.fillText(`   (NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')})`, 10, y); y += 30;
+                ctx.font = "44px sans-serif";
+                ctx.fillText(`(NO: ${item.noExtraKeys.map(k=>getItemName(k)).join(',')})`, 192, y); y += 55;
             }
-            y += 25;
+            y += 40; // 品項間隔
         });
 
-        ctx.textAlign = "center";
         ctx.font = "bold 22px sans-serif";
-        ctx.fillText("------------------------------------------", 192, y); y += 40;
-        ctx.font = "bold 40px sans-serif";
+        ctx.fillText("------------------------------------------", 192, y); y += 50;
+        ctx.font = "bold 42px sans-serif";
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, 192, y);
     }
 
     async function handleImagePrint() {
         const btn = document.getElementById('printBtn');
-        const canvas = document.getElementById('printCanvas');
-        const ctx = canvas.getContext('2d');
-
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
             document.getElementById('status-text').innerText = "📤 列印中...";
-            
             drawPrintCanvas();
-
-            const pixels = ctx.getImageData(0, 0, 384, canvas.height).data;
+            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40])); 
-            
             const widthBytes = 48;
-            for (let y = 0; y < canvas.height; y++) {
+            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
                 let row = new Uint8Array(8 + widthBytes);
                 row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
                 for (let x = 0; x < widthBytes; x++) {
@@ -306,28 +296,21 @@
                     }
                     row[8 + x] = b;
                 }
-                if (isFastMode) await targetChar.writeValueWithoutResponse(row);
-                else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
+                if (y % 15 === 0) await new Promise(r => setTimeout(r, 45)); // 慢一點防止緩存溢出
             }
-            
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x06, 0x1D, 0x56, 0x00])); 
             document.getElementById('status-text').innerText = "✅ 完成";
             alert("列印成功！");
-            clearWholeOrder(); // 列印後不 reload，直接重置訂單
+            clearWholeOrder();
         } catch (e) {
             alert("列印失敗：" + e.message);
             btn.disabled = false;
         }
     }
 
-    // --- 語言與重置邏輯 ---
-    function selectLanguage(lang) {
-        userLang = lang; 
-        updateUIText();
-        goNext('step-start');
-    }
-
+    // --- UI 與 語言控制 ---
+    function selectLanguage(lang) { userLang = lang; updateUIText(); goNext('step-start'); }
     function updateUIText() {
         const u = dictionary.ui[userLang];
         document.getElementById('t-select-cat').innerText = u.select_cat;
@@ -344,22 +327,14 @@
     }
 
     function clearWholeOrder() {
-        cart = [];
-        mainCounts = {};
-        session = { category: '', sequence: [], currentIdx: 0 };
-        tempItem = { mainKey:'', sizeKey:'', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: 0 };
-        
-        // 重置所有數值顯示
+        cart = []; mainCounts = {}; session = { category: '', sequence: [], currentIdx: 0 };
         document.querySelectorAll('.qty-val').forEach(v => v.innerText = '0');
         document.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
         document.querySelectorAll('.sauce-btn').forEach(b => b.classList.remove('selected'));
         document.getElementById('printBtn').disabled = false;
-        
-        // 直接跳回類別選擇頁，不回語言選擇頁，也不重連藍牙
         goNext('step-start');
     }
 
-    // --- 資料字典與核心邏輯 ---
     const dictionary = {
         ui: {
             zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 確認列印', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
@@ -389,7 +364,6 @@
         additions: [ { key: '魚圓', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru' }, { key: '肉圓', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru' }, { key: '魚餃', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru' }, { key: '蝦', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru' }, { key: '西刀魚餅', price: 1.5, img: 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru' }, { key: '小魚香', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru' }, { key: '香菇加', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru' }, { key: '肉碎加', price: 1, img: 'https://i.ibb.co/TMFvjFRN/Minced.png' } ]
     };
 
-    // --- 通用 UI 函數 ---
     function getItemName(key) { return (dictionary.items[key] && dictionary.items[key][userLang]) ? dictionary.items[key][userLang] : key; }
     function getItemRatio(key) { return (dictionary.items[key] && dictionary.items[key].ratio) ? dictionary.items[key].ratio : 1; }
     function getItemUnit(key) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[userLang] : ''; }
@@ -415,8 +389,8 @@
             const div = document.createElement('div'); div.className = 'opt';
             div.innerHTML = `<div class="img-box"><div class="price-circle">$${config.prices[key]}</div><img src="${config.foodImgs[key]}"></div><span style="padding:10px; font-weight:bold;">${getItemName(key)}</span>
             <div class="qty-input-overlay" onclick="event.stopPropagation()">
-                <div class="qty-row">${userLang==='zh'?'小的':'S'}<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','小的',-1)">-</button><span class="qty-val" id="ms-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','小的',1)">+</button></div></div>
-                <div class="qty-row">${userLang==='zh'?'大的':'L'}<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','大的',-1)">-</button><span class="qty-val" id="ml-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','大的',1)">+</button></div></div>
+                <div class="qty-row">S<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','小的',-1)">-</button><span class="qty-val" id="ms-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','小的',1)">+</button></div></div>
+                <div class="qty-row">L<div style="display:flex;align-items:center;"><button class="qty-btn" onclick="changeMainQty('${key}','大的',-1)">-</button><span class="qty-val" id="ml-${key}">0</span><button class="qty-btn" onclick="changeMainQty('${key}','大的',1)">+</button></div></div>
             </div>`;
             cont.appendChild(div);
         });
@@ -424,16 +398,14 @@
 
     function changeMainQty(n, s, d) { const k = `${n}-${s}`; mainCounts[k] = Math.max(0, (mainCounts[k] || 0) + d); document.getElementById(s==='小的'?`ms-${n}`:`ml-${n}`).innerText = mainCounts[k]; }
     function checkFoodFlow() {
-        session.sequence = [];
-        Object.entries(mainCounts).forEach(([k, v]) => { if (v > 0) { const [n, s] = k.split('-'); for(let i=0; i<v; i++) session.sequence.push({ name: n, size: s }); } });
+        session.sequence = []; Object.entries(mainCounts).forEach(([k, v]) => { if (v > 0) { const [n, s] = k.split('-'); for(let i=0; i<v; i++) session.sequence.push({ name: n, size: s }); } });
         if (session.sequence.length === 0) return alert("Select Qty");
         session.currentIdx = 0; startItemProcess();
     }
 
     function startItemProcess() {
         const cur = session.sequence[session.currentIdx];
-        const titleMsg = userLang === 'zh' ? `分配中 (${session.currentIdx+1}/${session.sequence.length}):` : `Assigning (${session.currentIdx+1}/${session.sequence.length}):`;
-        document.getElementById('assign-title').innerHTML = `${titleMsg}<br><b style="color:red; font-size:1.4rem;">${getItemName(cur.name)} [${getItemName(cur.size)}]</b>`;
+        document.getElementById('assign-title').innerHTML = `${userLang==='zh'?'分配中':'Assigning'} (${session.currentIdx+1}/${session.sequence.length}):<br><b style="color:red; font-size:1.4rem;">${getItemName(cur.name)} [${getItemName(cur.size)}]</b>`;
         tempItem = { mainKey: cur.name, sizeKey: cur.size, noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, price: config.prices[cur.name] + config.prices[cur.size] };
         renderNoodleTypeList(); goNext('step-noodle-type');
     }
@@ -465,7 +437,6 @@
     }
 
     function checkSauceFlow() { if(tempItem.sauceKeys.length === 0) return alert("Select Sauce"); renderNoExtraList(); goNext('step-no-extra'); }
-
     function renderNoExtraList() {
         const cont = document.getElementById('grid-noExtra'); cont.innerHTML = '';
         Object.entries(config.noExtraImgs).forEach(([key, img]) => {
@@ -488,10 +459,8 @@
     }
 
     function changeAddQty(k, d) { tempItem.additionKeys[k] = Math.max(0, (tempItem.additionKeys[k] || 0) + d); document.getElementById(`aq-${k}`).innerText = tempItem.additionKeys[k]; }
-
     function confirmOneItem() {
-        let extraP = 0;
-        config.additions.forEach(item => { if(tempItem.additionKeys[item.key]) extraP += item.price * tempItem.additionKeys[item.key]; });
+        let extraP = 0; config.additions.forEach(item => { if(tempItem.additionKeys[item.key]) extraP += item.price * tempItem.additionKeys[item.key]; });
         cart.push({ ...tempItem, price: tempItem.price + extraP, sauceKeys:[...tempItem.sauceKeys], specialKeys:[...tempItem.specialKeys], noExtraKeys:[...tempItem.noExtraKeys], additionKeys:{...tempItem.additionKeys} });
         session.currentIdx++; if(session.currentIdx < session.sequence.length) startItemProcess(); else { renderFinalCart(); goNext('step-finish'); }
     }
