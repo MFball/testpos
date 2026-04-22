@@ -246,7 +246,7 @@
     // --- 列印排版 (完全依照 2.9.9 字體大小，並加入多語言切換) ---
     function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        const dynamicHeight = 300 + (cart.length * 280) + 150; 
+        const dynamicHeight = 300 + (cart.length * 280) + 100; 
         canvas.height = dynamicHeight;
         
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
