@@ -342,7 +342,7 @@
             }
 
             // --- 這裡套用您要求的切紙指令 ---
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x02, 0x1D, 0x56, 0x00])); 
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x01, 0x1D, 0x56, 0x00])); 
             
             if (!isReprint) {
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
@@ -363,7 +363,7 @@
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
         
         // --- 這裡套用您要求的高度計算 ---
-        const dynamicHeight = 300 + (cart.length * 250) + 100; 
+        const dynamicHeight = 320 + (cart.length * 280) + 100; 
         canvas.height = dynamicHeight;
         
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
