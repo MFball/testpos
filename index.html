@@ -174,17 +174,17 @@
                 <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
             </div>
 
-            <div class="quick-btn" onclick="quickPrint('肉脞面', '小的', '面薄', ['辣椒'])">
+            <div class="quick-btn" onclick="quickPrint('香菇肉碎面', '小的', '面薄', ['辣椒'])">
                 <div class="quick-info">
-                    <div class="quick-title" id="q-t2">肉脞面 (小)</div>
+                    <div class="quick-title" id="q-t2">香菇肉碎面 (小)</div>
                     <div class="quick-desc" id="q-d2">面薄 + 辣椒</div>
                 </div>
-                <div style="font-weight:bold; color:var(--price-tag);">$4.50</div>
+                <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
             </div>
 
             <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
                 <div class="quick-info">
-                    <div class="quick-title" id="q-t3">魚圓面湯 (小)</div>
+                    <div class="quick-title" id="q-t3"> 魚圓粿條面湯 (小)</div>
                     <div class="quick-desc" id="q-d3">粿條面 + 湯</div>
                 </div>
                 <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
@@ -528,30 +528,43 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
     }
 
     /* --- UI 切換與按鈕邏輯 --- */
-    function selectLanguage(lang) { 
-        userLang = lang; 
-        const u = dictionary.ui[userLang];
-        document.getElementById('t-select-cat').innerText = u.select_cat;
-        document.getElementById('t-cat-soup').innerText = u.cat_soup; 
-        document.getElementById('t-cat-noodle').innerText = u.cat_noodle;
-        document.getElementById('t-select-soup').innerText = u.select_soup; 
-        document.getElementById('t-select-food').innerText = u.select_food;
-        document.getElementById('t-select-noodle').innerText = u.select_noodle; 
-        document.getElementById('t-select-sauce').innerText = u.select_sauce;
-        document.getElementById('t-select-no').innerText = u.select_no; 
-        document.getElementById('t-select-add').innerText = u.select_add;
-        document.getElementById('t-cart-title').innerText = u.cart_title; 
-        document.getElementById('t-total').innerText = u.total;
-        document.getElementById('t-special-label').innerText = u.special_label;
-        document.getElementById('btn-next-assign').innerText = u.next; 
-        document.getElementById('btn-sauce-next').innerText = u.next;
-        document.getElementById('btn-no-next').innerText = u.next; 
-        document.getElementById('btn-confirm-item').innerText = u.confirm;
-        document.getElementById('btn-clear').innerText = u.clear; 
-        document.getElementById('btn-continue').innerText = u.continue;
-        document.getElementById('printBtn').innerText = u.print;
-        goNext('step-start'); 
+   function selectLanguage(lang) {
+    userLang = lang;
+    
+    // 1. 更新原本介面的基礎文字
+    document.getElementById('t-select-cat').innerText = (lang === 'zh') ? "1. 請選擇類別" : "1. Select Category";
+    document.getElementById('t-cat-soup').innerText = (lang === 'zh') ? "湯品類" : "Soup Series";
+    document.getElementById('t-cat-noodle').innerText = (lang === 'zh') ? "麵食類" : "Noodle Series";
+
+    // 2. 快捷鍵翻譯字典
+    const qTexts = {
+        'zh': {
+            h: "⚡ 快捷列印 (一鍵出單)",
+            t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
+            t2: "香菇肉碎面 (小)", d2: "面薄 + 辣椒",
+            t3: " 魚圓粿條面湯 (小)", d3: "粿條面 + 湯"
+        },
+        'en': {
+            h: "⚡ Quick Print (One-Tap)",
+            t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
+            t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
+            t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
+        }
+    };
+    
+    // 3. 執行翻譯切換 (對接到上面第一步設好的 id)
+    if (document.getElementById('q-header')) {
+        document.getElementById('q-header').innerText = qTexts[lang].h;
+        document.getElementById('q-t1').innerText = qTexts[lang].t1;
+        document.getElementById('q-d1').innerText = qTexts[lang].d1;
+        document.getElementById('q-t2').innerText = qTexts[lang].t2;
+        document.getElementById('q-d2').innerText = qTexts[lang].d2;
+        document.getElementById('q-t3').innerText = qTexts[lang].t3;
+        document.getElementById('q-d3').innerText = qTexts[lang].d3;
     }
+
+    goNext('step-start');
+}
 
     function clearWholeOrder() {
         cart = []; mainCounts = {}; session = { category: '', sequence: [], currentIdx: 0, isEditing: false, editTargetIdx: -1 };
