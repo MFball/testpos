@@ -283,40 +283,37 @@
         if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; } 
         return data; 
     }
-// --- 全取代開始 ---
-async function saveOrderData(data) {
-    // 1. 先照舊存入本地平板 (保證店內運作正常)
+    async function saveOrderData(data) {
+    // A. 先存本地平板（保證沒網也能印單）
     localStorage.setItem('million_order_data', JSON.stringify(data));
 
-    // 2. 準備雲端地址 (請確保這是你的地址)
+    // B. 你的雲端地址
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
 
-    // 3. 獲取最後一筆訂單內容
+    // C. 拿最後一筆單的資料
     if (data.history && data.history.length > 0) {
         const lastOrder = data.history[data.history.length - 1];
         
-        // 幫這筆訂單貼上「時間」和「同步狀態」
+        // 整理要寄出的信件內容
         const orderToSync = {
-            ...lastOrder,
             orderNo: data.currentOrderNo,
-            syncTime: new Date().toLocaleString()
+            summary: lastOrder.summary,
+            totalPrice: lastOrder.totalPrice,
+            syncTime: new Date().toLocaleString() // 加入時間
         };
 
-        // 4. 嘗試傳送到雲端
+        // D. 寄去雲端（如果不成功會自動跳過，不影響印單）
         try {
-            const response = await fetch(CLOUD_URL, {
+            await fetch(CLOUD_URL, {
                 method: 'POST',
                 body: JSON.stringify(orderToSync)
             });
-            if (response.ok) {
-                console.log("✅ 雲端同步成功");
-            }
+            console.log("雲端同步成功");
         } catch (error) {
-            console.log("❌ 暫時斷線，資料已存在平板，連線後會補填");
+            console.log("網路斷線中，資料暫存平板");
         }
     }
 }
-// --- 全取代結束 ---
 
     function toggleHistory() {
         const p = document.getElementById('history-panel');
