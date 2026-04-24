@@ -191,58 +191,6 @@
             </div>
         </div>
     </div> ```
-
----
-
-### 3. 修復 JavaScript 語言切換 (防止再次卡死)
-請移動到檔案下方（約第 210 行），找到 **`function selectLanguage(lang) {`**。
-
-**🔵 覆蓋範圍（從這句開始）：**
-```javascript
-function selectLanguage(lang) {
-
-(一直到該函數結尾的 } 符號)
-
-✅ 覆蓋為這段代碼：
-JavaScript
-
-    function selectLanguage(lang) {
-        userLang = lang;
-        
-        // 更新標題文字
-        document.getElementById('t-select-cat').innerText = (lang === 'zh') ? "1. 請選擇類別" : "1. Select Category";
-        document.getElementById('t-cat-soup').innerText = (lang === 'zh') ? "湯品類" : "Soup Series";
-        document.getElementById('t-cat-noodle').innerText = (lang === 'zh') ? "麵食類" : "Noodle Series";
-
-        // --- 快捷鍵語言轉換 ---
-        const qTexts = {
-            'zh': {
-                h: "⚡ 快捷列印 (一鍵出單)",
-                t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
-                t2: "肉脞面 (小)", d2: "面薄 + 辣椒",
-                t3: "魚圓面湯 (小)", d3: "粿條面 + 湯"
-            },
-            'en': {
-                h: "⚡ Quick Print (One-Tap)",
-                t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
-                t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
-                t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
-            }
-        };
-        
-        if(document.getElementById('q-header')) {
-            document.getElementById('q-header').innerText = qTexts[lang].h;
-            document.getElementById('q-t1').innerText = qTexts[lang].t1;
-            document.getElementById('q-d1').innerText = qTexts[lang].d1;
-            document.getElementById('q-t2').innerText = qTexts[lang].t2;
-            document.getElementById('q-d2').innerText = qTexts[lang].d2;
-            document.getElementById('q-t3').innerText = qTexts[lang].t3;
-            document.getElementById('q-d3').innerText = qTexts[lang].d3;
-        }
-
-        goNext('step-start');
-    }
-
     <div class="step" id="step-soup-select">
         <button class="back-btn-top" onclick="goNext('step-start')">←</button>
         <h2 id="t-select-soup" style="margin-left: 55px;">2. 請選擇湯品</h2>
