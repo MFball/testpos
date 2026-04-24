@@ -340,29 +340,49 @@
         }
     }
 
-/* --- 修正版：快捷列印函數（含存檔與跳號） --- */
-    async function quickPrint(main, size, noodle, sauces) {
-        // 1. 自動根據您的 config.prices 計算價格
-        const itemPrice = (config.prices[main] || 0) + (config.prices[size] || 0);
-        
-        // 2. 建立訂單物件
-        const newItem = {
-            mainKey: main,
-            sizeKey: size,
-            noodleKey: noodle,
-            sauceKeys: sauces,
-            qty: 1,
-            price: itemPrice,
-            time: new Date().toLocaleString()
-        };
+/* --- 修正版：單一快捷列印函數（對接現有數據結構） --- */
+async function quickPrint(main, size, noodle, sauces) {
+    console.log("觸發快捷列印:", main, size);
+    
+    // 1. 取得現有訂單數據
+    const orderData = getOrderData(); 
+    const currentNo = orderData.num;
 
-        // 3. 更新購物車並取得當前單號
-        cart = [newItem];
-        const currentOrderNo = orderCount;
+    // 2. 自動根據 config 計算價格
+    const itemPrice = (config.prices[main] || 0) + (config.prices[size] || 0);
 
-        // 4. 【🚩 核心修正】執行存檔到歷史紀錄
-        saveOrderToHistory(currentOrderNo, itemPrice);
+    // 3. 建立符合您系統架構的品項物件
+    const quickItem = {
+        mainKey: main,
+        sizeKey: size,
+        noodleKey: noodle,
+        sauceKeys: sauces,
+        specialKeys: [],
+        noExtraKeys: [],
+        additionKeys: {},
+        price: itemPrice,
+        qty: 1,
+        category: (main.includes('湯')) ? '湯' : '面'
+    };
 
+    // 4. 暫時存入購物車進行列印
+    let originalCart = [...cart];
+    cart = [quickItem];
+    document.getElementById('cart-total-sum').innerText = itemPrice.toFixed(2);
+
+    try {
+        // 5. 執行列印（傳入當前單號，並設定為非重印模式以觸發存檔）
+        // 注意：這裡使用 false 讓它跑完正常的存檔與跳號流程
+        await handleFinalizeAndPrint('zh', currentNo, false);
+        console.log("快捷列印指令已發送");
+    } catch (e) {
+        alert("快速列印失敗: " + e.message);
+    } finally {
+        // 6. 還原購物車，確保不影響原本的操作
+        cart = originalCart;
+        renderFinalCart();
+    }
+}
         // 5. 【🚩 核心修正】單號加一，並存入手機內存 (LocalStorage)
         orderCount++;
         localStorage.setItem('m_order_count', orderCount);
