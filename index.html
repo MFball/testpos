@@ -164,30 +164,84 @@
             </div>
         </div>
 <div class="quick-grid">
-        <div style="font-weight:bold; color:#666; font-size:0.9rem;">⚡ 快捷列印 (一鍵出單)</div>
-        <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '面薄', ['辣椒'])">
-            <div class="quick-info">
-                <div class="quick-title "id="q-title-1">魚圓面 (小)</div>
-                <div class="quick-desc" id="q-desc-1">面薄 + 辣椒</div>
+            <div style="font-weight:bold; color:#666; font-size:0.9rem;" id="q-header">⚡ 快捷列印 (一鍵出單)</div>
+            
+            <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '面薄', ['辣椒'])">
+                <div class="quick-info">
+                    <div class="quick-title" id="q-t1">魚圓面 (小)</div>
+                    <div class="quick-desc" id="q-d1">面薄 + 辣椒</div>
+                </div>
+                <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
             </div>
-            <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
-        </div>
-        <div class="quick-btn" onclick="quickPrint('香菇肉碎面', '小的', '面薄', ['辣椒'])">
-            <div class="quick-info">
-                <div class="quick-title" "id="q-title-1">香菇肉碎面 (小)</div>
-                <div class="quick-desc" id="q-desc-1">面薄 + 辣椒</div>
+
+            <div class="quick-btn" onclick="quickPrint('肉脞面', '小的', '面薄', ['辣椒'])">
+                <div class="quick-info">
+                    <div class="quick-title" id="q-t2">肉脞面 (小)</div>
+                    <div class="quick-desc" id="q-d2">面薄 + 辣椒</div>
+                </div>
+                <div style="font-weight:bold; color:var(--price-tag);">$4.50</div>
             </div>
-            <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
+
+            <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
+                <div class="quick-info">
+                    <div class="quick-title" id="q-t3">魚圓面湯 (小)</div>
+                    <div class="quick-desc" id="q-d3">粿條面 + 湯</div>
+                </div>
+                <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
+            </div>
         </div>
-	<div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
-	    <div class="quick-info">
- 	       <div class="quick-title" "id="q-title-1">魚圓面湯 (小)</div>
-	        <div class="quick-desc" id="q-desc-1">粿條面 + 湯</div>
-	    </div>
-   	 <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
-	</div>
-    </div>
-    </div>
+    </div> ```
+
+---
+
+### 3. 修復 JavaScript 語言切換 (防止再次卡死)
+請移動到檔案下方（約第 210 行），找到 **`function selectLanguage(lang) {`**。
+
+**🔵 覆蓋範圍（從這句開始）：**
+```javascript
+function selectLanguage(lang) {
+
+(一直到該函數結尾的 } 符號)
+
+✅ 覆蓋為這段代碼：
+JavaScript
+
+    function selectLanguage(lang) {
+        userLang = lang;
+        
+        // 更新標題文字
+        document.getElementById('t-select-cat').innerText = (lang === 'zh') ? "1. 請選擇類別" : "1. Select Category";
+        document.getElementById('t-cat-soup').innerText = (lang === 'zh') ? "湯品類" : "Soup Series";
+        document.getElementById('t-cat-noodle').innerText = (lang === 'zh') ? "麵食類" : "Noodle Series";
+
+        // --- 快捷鍵語言轉換 ---
+        const qTexts = {
+            'zh': {
+                h: "⚡ 快捷列印 (一鍵出單)",
+                t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
+                t2: "肉脞面 (小)", d2: "面薄 + 辣椒",
+                t3: "魚圓面湯 (小)", d3: "粿條面 + 湯"
+            },
+            'en': {
+                h: "⚡ Quick Print (One-Tap)",
+                t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
+                t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
+                t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
+            }
+        };
+        
+        if(document.getElementById('q-header')) {
+            document.getElementById('q-header').innerText = qTexts[lang].h;
+            document.getElementById('q-t1').innerText = qTexts[lang].t1;
+            document.getElementById('q-d1').innerText = qTexts[lang].d1;
+            document.getElementById('q-t2').innerText = qTexts[lang].t2;
+            document.getElementById('q-d2').innerText = qTexts[lang].d2;
+            document.getElementById('q-t3').innerText = qTexts[lang].t3;
+            document.getElementById('q-d3').innerText = qTexts[lang].d3;
+        }
+
+        goNext('step-start');
+    }
 
     <div class="step" id="step-soup-select">
         <button class="back-btn-top" onclick="goNext('step-start')">←</button>
@@ -340,15 +394,6 @@
 
 /* --- 快速列印碼：放在 askPrintLanguage 之前 --- */
 async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
-	    // ... 前面的資料組合保持不變 ...
-    try {
-        // 這裡改為 userLang，列印出來才會跟隨當前語言
-        await handleFinalizeAndPrint(userLang, null, true); 
-    } catch (e) {
-        alert("列印失敗: " + e.message);
-    }
-    // ...
-}
     // 1. 建立一個臨時品項，結構必須跟你的 tempItem 一致
     const quickItem = {
         mainKey: mainKey,
@@ -447,7 +492,7 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
                     row[8 + x] = b;
                 }
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+                if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
             }
 
             // --- 這裡套用您要求的切紙指令 ---
@@ -536,21 +581,6 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
 
     /* --- UI 切換與按鈕邏輯 --- */
     function selectLanguage(lang) { 
-		// 快捷鍵語言轉換
-    const qTexts = {
-        'zh': {
-            h: "⚡ 快捷列印 (一鍵出單)",
-            t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
-            t2: "肉脞面 (小)", d2: "面薄 + 辣椒",
-            t3: "魚圓面湯 (小)", d3: "粿條面 + 湯"
-        },
-        'en': {
-            h: "⚡ Quick Print (One-Tap)",
-            t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
-            t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
-            t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
-        }
-    };
         userLang = lang; 
         const u = dictionary.ui[userLang];
         document.getElementById('t-select-cat').innerText = u.select_cat;
