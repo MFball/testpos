@@ -303,9 +303,10 @@
             throw e;
         }
     }
-/* --- 快速列印碼 (貼在 askPrintLanguage 之前) --- */
+
+/* --- 快速列印碼：放在 askPrintLanguage 之前 --- */
 async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
-    // 1. 建立一個臨時品項
+    // 1. 建立一個臨時品項，結構必須跟你的 tempItem 一致
     const quickItem = {
         mainKey: mainKey,
         sizeKey: sizeKey,
@@ -314,25 +315,27 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
         specialKeys: [],
         noExtraKeys: [],
         additionKeys: {},
+        // 從 config 抓取價格
         price: config.prices[mainKey] + config.prices[sizeKey],
         qty: qty,
         category: '面'
     };
 
-    // 2. 暫時替換購物車內容
+    // 2. 暫時替換購物車
     let originalCart = [...cart];
     cart = [quickItem];
 
-    // 3. 更新總計顯示 (繪圖時會用到)
+    // 3. 更新介面上的總計顯示 (避免列印時抓到舊數據)
     document.getElementById('cart-total-sum').innerText = quickItem.price.toFixed(2);
 
-    // 4. 執行列印 (預設中文)
+    // 4. 執行列印
     try {
-        await handleFinalizeAndPrint('zh', null, true); // true 代表重印模式，不儲存記錄也不清空原購物車
+        // 使用 'zh' 中文列印，最後一個參數 true 表示「重印模式」，不會清空購物車或增加編號
+        await handleFinalizeAndPrint('zh', null, true); 
     } catch (e) {
         alert("快速列印失敗: " + e.message);
     } finally {
-        // 5. 還原原始購物車與總計
+        // 5. 還原原始購物車狀態
         cart = originalCart;
         renderFinalCart(); 
     }
