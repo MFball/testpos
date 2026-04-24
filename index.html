@@ -159,6 +159,10 @@
                 <span id="t-cat-soup" style="padding:10px; font-weight:bold;">湯品類</span>
             </div>
             <div class="opt" onclick="setCategory('面')">
+                <div class="img-box"><img src="https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru"></div>
+                <span id="t-cat-noodle" style="padding:10px; font-weight:bold;">麵食類</span>
+            </div>
+        </div>
 <div class="quick-grid">
         <div style="font-weight:bold; color:#666; font-size:0.9rem;">⚡ 快捷列印 (一鍵出單)</div>
         <div class="quick-btn" onclick="quickPrint('魚圓麵', '小的', '薄麵', ['辣椒'])">
@@ -173,13 +177,9 @@
                 <div class="quick-title">肉脞麵 (小)</div>
                 <div class="quick-desc">薄麵 + 辣椒</div>
             </div>
-            <div style="font-weight:bold; color:var(--price-tag);">$5</div>
+            <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
         </div>
     </div>
-                <div class="img-box"><img src="https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru"></div>
-                <span id="t-cat-noodle" style="padding:10px; font-weight:bold;">麵食類</span>
-            </div>
-        </div>
     </div>
 
     <div class="step" id="step-soup-select">
@@ -396,6 +396,7 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
         renderFinalCart();
     }
 }
+
     function askPrintLanguage() {
         if (cart.length === 0) return;
         const choice = confirm("選擇列印語言:\n【確定/OK】 = 中文\n【取消/Cancel】 = English");
