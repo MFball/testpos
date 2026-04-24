@@ -167,22 +167,22 @@
         <div style="font-weight:bold; color:#666; font-size:0.9rem;">⚡ 快捷列印 (一鍵出單)</div>
         <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '面薄', ['辣椒'])">
             <div class="quick-info">
-                <div class="quick-title">魚圓面 (小)</div>
-                <div class="quick-desc">面薄 + 辣椒</div>
+                <div class="quick-title "id="q-title-1">魚圓面 (小)</div>
+                <div class="quick-desc" id="q-desc-1">面薄 + 辣椒</div>
             </div>
             <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
         </div>
         <div class="quick-btn" onclick="quickPrint('香菇肉碎面', '小的', '面薄', ['辣椒'])">
             <div class="quick-info">
-                <div class="quick-title">香菇肉碎面 (小)</div>
-                <div class="quick-desc">面薄 + 辣椒</div>
+                <div class="quick-title" "id="q-title-1">香菇肉碎面 (小)</div>
+                <div class="quick-desc" id="q-desc-1">面薄 + 辣椒</div>
             </div>
             <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
         </div>
 	<div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
 	    <div class="quick-info">
- 	       <div class="quick-title">魚圓面湯 (小)</div>
-	        <div class="quick-desc">粿條面 + 湯</div>
+ 	       <div class="quick-title" "id="q-title-1">魚圓面湯 (小)</div>
+	        <div class="quick-desc" id="q-desc-1">粿條面 + 湯</div>
 	    </div>
    	 <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
 	</div>
@@ -340,6 +340,15 @@
 
 /* --- 快速列印碼：放在 askPrintLanguage 之前 --- */
 async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
+	    // ... 前面的資料組合保持不變 ...
+    try {
+        // 這裡改為 userLang，列印出來才會跟隨當前語言
+        await handleFinalizeAndPrint(userLang, null, true); 
+    } catch (e) {
+        alert("列印失敗: " + e.message);
+    }
+    // ...
+}
     // 1. 建立一個臨時品項，結構必須跟你的 tempItem 一致
     const quickItem = {
         mainKey: mainKey,
@@ -527,6 +536,21 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
 
     /* --- UI 切換與按鈕邏輯 --- */
     function selectLanguage(lang) { 
+		// 快捷鍵語言轉換
+    const qTexts = {
+        'zh': {
+            h: "⚡ 快捷列印 (一鍵出單)",
+            t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
+            t2: "肉脞面 (小)", d2: "面薄 + 辣椒",
+            t3: "魚圓面湯 (小)", d3: "粿條面 + 湯"
+        },
+        'en': {
+            h: "⚡ Quick Print (One-Tap)",
+            t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
+            t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
+            t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
+        }
+    };
         userLang = lang; 
         const u = dictionary.ui[userLang];
         document.getElementById('t-select-cat').innerText = u.select_cat;
