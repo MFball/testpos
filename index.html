@@ -164,32 +164,32 @@
             </div>
         </div>
 <div class="quick-grid">
-    <div id="q-header" style="font-weight:bold; color:#666; margin-bottom:5px;">⚡ 快捷列印 (自動存檔跳號)</div>
-    
-    <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '面薄', ['辣椒'])">
-        <div class="quick-info">
-            <div class="quick-title" id="q-t1">魚圓面 (小)</div>
-            <div class="quick-desc" id="q-d1">面薄 + 辣椒</div>
-        </div>
-        <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
-    </div>
+            <div style="font-weight:bold; color:#666; font-size:0.9rem;" id="q-header">⚡ 快捷列印 (一鍵出單)</div>
+            
+            <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '面薄', ['辣椒'])">
+                <div class="quick-info">
+                    <div class="quick-title" id="q-t1">魚圓面 (小)</div>
+                    <div class="quick-desc" id="q-d1">面薄 + 辣椒</div>
+                </div>
+                <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
+            </div>
 
-    <div class="quick-btn" onclick="quickPrint('香菇肉碎面', '小的', '面薄', ['辣椒'])">
-        <div class="quick-info">
-            <div class="quick-title" id="q-t2">香菇肉碎面 (小)</div>
-            <div class="quick-desc" id="q-d2">面薄 + 辣椒</div>
-        </div>
-        <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
-    </div>
+            <div class="quick-btn" onclick="quickPrint('香菇肉碎面', '小的', '面薄', ['辣椒'])">
+                <div class="quick-info">
+                    <div class="quick-title" id="q-t2">香菇肉碎面 (小)</div>
+                    <div class="quick-desc" id="q-d2">面薄 + 辣椒</div>
+                </div>
+                <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
+            </div>
 
-    <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
-        <div class="quick-info">
-            <div class="quick-title" id="q-t3">魚圓粿條面湯 (小)</div>
-            <div class="quick-desc" id="q-d3">粿條面 + 湯</div>
+            <div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
+                <div class="quick-info">
+                    <div class="quick-title" id="q-t3"> 魚圓粿條面湯 (小)</div>
+                    <div class="quick-desc" id="q-d3">粿條面 + 湯</div>
+                </div>
+                <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
+            </div>
         </div>
-        <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
-    </div>
-</div>
     </div> 
     <div class="step" id="step-soup-select">
         <button class="back-btn-top" onclick="goNext('step-start')">←</button>
@@ -340,79 +340,71 @@
         }
     }
 
-/* --- 修正版：單一快捷列印函數（對接現有數據結構） --- */
-async function quickPrint(main, size, noodle, sauces) {
-    console.log("觸發快捷列印:", main, size);
-    
-    // 1. 取得現有訂單數據
-    const orderData = getOrderData(); 
-    const currentNo = orderData.num;
-
-    // 2. 自動根據 config 計算價格
-    const itemPrice = (config.prices[main] || 0) + (config.prices[size] || 0);
-
-    // 3. 建立符合您系統架構的品項物件
+/* --- 快速列印碼：放在 askPrintLanguage 之前 --- */
+async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
+    // 1. 建立一個臨時品項，結構必須跟你的 tempItem 一致
     const quickItem = {
-        mainKey: main,
-        sizeKey: size,
-        noodleKey: noodle,
-        sauceKeys: sauces,
+        mainKey: mainKey,
+        sizeKey: sizeKey,
+        noodleKey: noodleKey,
+        sauceKeys: sauceKeys,
         specialKeys: [],
         noExtraKeys: [],
         additionKeys: {},
-        price: itemPrice,
-        qty: 1,
-        category: (main.includes('湯')) ? '湯' : '面'
+        // 從 config 抓取價格
+        price: config.prices[mainKey] + config.prices[sizeKey],
+        qty: qty,
+        category: '面'
     };
 
-    // 4. 暫時存入購物車進行列印
+    // 2. 暫時替換購物車
     let originalCart = [...cart];
     cart = [quickItem];
-    document.getElementById('cart-total-sum').innerText = itemPrice.toFixed(2);
 
+    // 3. 更新介面上的總計顯示 (避免列印時抓到舊數據)
+    document.getElementById('cart-total-sum').innerText = quickItem.price.toFixed(2);
+
+    // 4. 執行列印
     try {
-        // 5. 執行列印（傳入當前單號，並設定為非重印模式以觸發存檔）
-        // 注意：這裡使用 false 讓它跑完正常的存檔與跳號流程
-        await handleFinalizeAndPrint('zh', currentNo, false);
-        console.log("快捷列印指令已發送");
+        // 使用 'zh' 中文列印，最後一個參數 true 表示「重印模式」，不會清空購物車或增加編號
+        await handleFinalizeAndPrint('zh', null, true); 
     } catch (e) {
         alert("快速列印失敗: " + e.message);
     } finally {
-        // 6. 還原購物車，確保不影響原本的操作
+        // 5. 還原原始購物車狀態
         cart = originalCart;
+        renderFinalCart(); 
+    }
+}
+/* --- ⚡ 快捷列印處理邏輯 ⚡ --- */
+async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
+    const quickItem = {
+        mainKey: mainKey,
+        sizeKey: sizeKey,
+        noodleKey: noodleKey,
+        sauceKeys: sauceKeys,
+        specialKeys: [],
+        noExtraKeys: [],
+        additionKeys: {},
+        price: (config.prices[mainKey] || 0) + (config.prices[sizeKey] || 0),
+        qty: 1,
+        category: '面'
+    };
+    let backupCart = [...cart];
+    cart = [quickItem];
+    if(document.getElementById('cart-total-sum')) {
+        document.getElementById('cart-total-sum').innerText = quickItem.price.toFixed(2);
+    }
+    try {
+        // 直接觸發列印程序，true 代表不影響流水號
+        await handleFinalizeAndPrint('zh', null, true); 
+    } catch (e) {
+        alert("列印失敗: " + e.message);
+    } finally {
+        cart = backupCart;
         renderFinalCart();
     }
 }
-        // 5. 【🚩 核心修正】單號加一，並存入手機內存 (LocalStorage)
-        orderCount++;
-        localStorage.setItem('m_order_count', orderCount);
-
-        // 6. 執行藍牙列印
-        try {
-            // 注意：這裡調用您原本檔案中已有的列印函數
-            await handleFinalizeAndPrint(userLang, currentOrderNo, true);
-        } catch (e) {
-            console.error("列印失敗，但訂單已記錄:", e);
-        } finally {
-            cart = []; // 完成後清空購物車
-        }
-    }
-
-    /* --- 確保您也有這個存檔函數 --- */
-    function saveOrderToHistory(no, total) {
-        const historyEntry = {
-            no: no,
-            items: JSON.parse(JSON.stringify(cart)), 
-            total: total,
-            time: new Date().toISOString(),
-            type: 'Quick' // 標記為快捷單
-        };
-        // 假設您的歷史紀錄變數名為 orderHistory
-        if (typeof orderHistory !== 'undefined') {
-            orderHistory.push(historyEntry);
-            localStorage.setItem('m_history', JSON.stringify(orderHistory));
-        }
-    }
 
     function askPrintLanguage() {
         if (cart.length === 0) return;
@@ -535,51 +527,45 @@ async function quickPrint(main, size, noodle, sauces) {
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 20);
     }
 
-/* --- 快捷列印核心函數：負責計算、存檔、跳號、列印 --- */
-async function quickPrint(main, size, noodle, sauces) {
-    console.log("快捷鍵觸發:", main, size, noodle, sauces); // 用於檢查是否有執行
-
-    // 1. 從 config 抓取價格並計算
-    const itemPrice = (config.prices[main] || 0) + (config.prices[size] || 0);
+    /* --- UI 切換與按鈕邏輯 --- */
+   function selectLanguage(lang) {
+    userLang = lang;
     
-    // 2. 建立訂單物件 (對接您的系統格式)
-    const newItem = {
-        mainKey: main,
-        sizeKey: size,
-        noodleKey: noodle,
-        sauceKeys: sauces,
-        qty: 1,
-        price: itemPrice,
-        time: new Date().toLocaleString()
+    // 1. 更新原本介面的基礎文字
+    document.getElementById('t-select-cat').innerText = (lang === 'zh') ? "1. 請選擇類別" : "1. Select Category";
+    document.getElementById('t-cat-soup').innerText = (lang === 'zh') ? "湯品類" : "Soup Series";
+    document.getElementById('t-cat-noodle').innerText = (lang === 'zh') ? "麵食類" : "Noodle Series";
+
+    // 2. 快捷鍵翻譯字典
+    const qTexts = {
+        'zh': {
+            h: "⚡ 快捷列印 (一鍵出單)",
+            t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
+            t2: "香菇肉碎面 (小)", d2: "面薄 + 辣椒",
+            t3: " 魚圓粿條面湯 (小)", d3: "粿條面 + 湯"
+        },
+        'en': {
+            h: "⚡ Quick Print (One-Tap)",
+            t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
+            t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
+            t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
+        }
     };
-
-    // 3. 更新購物車與單號
-    cart = [newItem];
-    const currentOrderNo = orderCount;
-
-    // 4. 執行存檔與跳號 (解決沒紀錄、不跳號問題)
-    if (typeof saveOrderToHistory === 'function') {
-        saveOrderToHistory(currentOrderNo, itemPrice);
-    } else {
-        // 如果沒有 saveOrderToHistory 函數，則執行基本存檔
-        const historyEntry = { no: currentOrderNo, items: [newItem], total: itemPrice, time: new Date().toISOString() };
-        orderHistory.push(historyEntry);
-        localStorage.setItem('m_history', JSON.stringify(orderHistory));
+    
+    // 3. 執行翻譯切換 (對接到上面第一步設好的 id)
+    if (document.getElementById('q-header')) {
+        document.getElementById('q-header').innerText = qTexts[lang].h;
+        document.getElementById('q-t1').innerText = qTexts[lang].t1;
+        document.getElementById('q-d1').innerText = qTexts[lang].d1;
+        document.getElementById('q-t2').innerText = qTexts[lang].t2;
+        document.getElementById('q-d2').innerText = qTexts[lang].d2;
+        document.getElementById('q-t3').innerText = qTexts[lang].t3;
+        document.getElementById('q-d3').innerText = qTexts[lang].d3;
     }
 
-    orderCount++;
-    localStorage.setItem('m_order_count', orderCount);
-
-    // 5. 呼叫藍牙列印函數
-    try {
-        // 請確保您的檔案中有 handleFinalizeAndPrint 這個函數
-        await handleFinalizeAndPrint(userLang, currentOrderNo, true);
-    } catch (e) {
-        alert("列印失敗: " + e.message);
-    } finally {
-        cart = []; // 完成後清空
-    }
+    goNext('step-start');
 }
+
     function clearWholeOrder() {
         cart = []; mainCounts = {}; session = { category: '', sequence: [], currentIdx: 0, isEditing: false, editTargetIdx: -1 };
         document.querySelectorAll('.qty-val').forEach(v => v.innerText = '0');
