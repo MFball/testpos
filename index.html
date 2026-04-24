@@ -190,6 +190,7 @@
         <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
     </div>
 </div>
+    </div> 
     <div class="step" id="step-soup-select">
         <button class="back-btn-top" onclick="goNext('step-start')">←</button>
         <h2 id="t-select-soup" style="margin-left: 55px;">2. 請選擇湯品</h2>
@@ -550,45 +551,51 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 20);
     }
 
-    /* --- UI 切換與按鈕邏輯 --- */
-   function selectLanguage(lang) {
-    userLang = lang;
-    
-    // 1. 更新原本介面的基礎文字
-    document.getElementById('t-select-cat').innerText = (lang === 'zh') ? "1. 請選擇類別" : "1. Select Category";
-    document.getElementById('t-cat-soup').innerText = (lang === 'zh') ? "湯品類" : "Soup Series";
-    document.getElementById('t-cat-noodle').innerText = (lang === 'zh') ? "麵食類" : "Noodle Series";
+/* --- 快捷列印核心函數：負責計算、存檔、跳號、列印 --- */
+async function quickPrint(main, size, noodle, sauces) {
+    console.log("快捷鍵觸發:", main, size, noodle, sauces); // 用於檢查是否有執行
 
-    // 2. 快捷鍵翻譯字典
-    const qTexts = {
-        'zh': {
-            h: "⚡ 快捷列印 (一鍵出單)",
-            t1: "魚圓面 (小)", d1: "面薄 + 辣椒",
-            t2: "香菇肉碎面 (小)", d2: "面薄 + 辣椒",
-            t3: " 魚圓粿條面湯 (小)", d3: "粿條面 + 湯"
-        },
-        'en': {
-            h: "⚡ Quick Print (One-Tap)",
-            t1: "Fishball Noodle (S)", d1: "Mee Pok + Chilli",
-            t2: "Minced Meat Noodle (S)", d2: "Mee Pok + Chilli",
-            t3: "Fishball Noodle Soup (S)", d3: "Kway Teow Mee + Soup"
-        }
-    };
+    // 1. 從 config 抓取價格並計算
+    const itemPrice = (config.prices[main] || 0) + (config.prices[size] || 0);
     
-    // 3. 執行翻譯切換 (對接到上面第一步設好的 id)
-    if (document.getElementById('q-header')) {
-        document.getElementById('q-header').innerText = qTexts[lang].h;
-        document.getElementById('q-t1').innerText = qTexts[lang].t1;
-        document.getElementById('q-d1').innerText = qTexts[lang].d1;
-        document.getElementById('q-t2').innerText = qTexts[lang].t2;
-        document.getElementById('q-d2').innerText = qTexts[lang].d2;
-        document.getElementById('q-t3').innerText = qTexts[lang].t3;
-        document.getElementById('q-d3').innerText = qTexts[lang].d3;
+    // 2. 建立訂單物件 (對接您的系統格式)
+    const newItem = {
+        mainKey: main,
+        sizeKey: size,
+        noodleKey: noodle,
+        sauceKeys: sauces,
+        qty: 1,
+        price: itemPrice,
+        time: new Date().toLocaleString()
+    };
+
+    // 3. 更新購物車與單號
+    cart = [newItem];
+    const currentOrderNo = orderCount;
+
+    // 4. 執行存檔與跳號 (解決沒紀錄、不跳號問題)
+    if (typeof saveOrderToHistory === 'function') {
+        saveOrderToHistory(currentOrderNo, itemPrice);
+    } else {
+        // 如果沒有 saveOrderToHistory 函數，則執行基本存檔
+        const historyEntry = { no: currentOrderNo, items: [newItem], total: itemPrice, time: new Date().toISOString() };
+        orderHistory.push(historyEntry);
+        localStorage.setItem('m_history', JSON.stringify(orderHistory));
     }
 
-    goNext('step-start');
-}
+    orderCount++;
+    localStorage.setItem('m_order_count', orderCount);
 
+    // 5. 呼叫藍牙列印函數
+    try {
+        // 請確保您的檔案中有 handleFinalizeAndPrint 這個函數
+        await handleFinalizeAndPrint(userLang, currentOrderNo, true);
+    } catch (e) {
+        alert("列印失敗: " + e.message);
+    } finally {
+        cart = []; // 完成後清空
+    }
+}
     function clearWholeOrder() {
         cart = []; mainCounts = {}; session = { category: '', sequence: [], currentIdx: 0, isEditing: false, editTargetIdx: -1 };
         document.querySelectorAll('.qty-val').forEach(v => v.innerText = '0');
