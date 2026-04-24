@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - Ver 3.7.3</title>
+    <title>Million FishBall Noodle - Ver 3.7.4</title>
     
     <style>
         /* --- 顏色與變數設定 --- */
@@ -283,7 +283,33 @@
         if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; } 
         return data; 
     }
-// 請在您的點餐機代碼中，將這段 saveOrderData 徹底替換：
+// --- 修改後的 quickOrder ---
+function quickOrder(title, desc, price) {
+    const data = getOrderData();
+    const orderNo = data.currentOrderNo;
+    const summary = `${title} (${desc})`;
+
+    // 1. 執行列印
+    document.getElementById('print-order-no').innerText = '#' + orderNo;
+    document.getElementById('print-content').innerText = summary;
+    document.getElementById('print-total').innerText = price.toFixed(2);
+    window.print();
+
+    // 2. 準備要存檔和同步的資料 (名稱必須嚴格統一)
+    const newOrder = { 
+        no: orderNo, 
+        summary: summary, 
+        totalPrice: price.toFixed(2) 
+    };
+
+    data.history.push(newOrder);
+    data.currentOrderNo++;
+
+    // 3. 呼叫存檔與上傳
+    saveOrderData(data);
+}
+
+// --- 修改後的 saveOrderData ---
 async function saveOrderData(data) {
     localStorage.setItem('million_order_data', JSON.stringify(data));
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
@@ -291,24 +317,19 @@ async function saveOrderData(data) {
     if (data.history && data.history.length > 0) {
         const last = data.history[data.history.length - 1];
         
-        // 【修正核心】直接手動構建乾淨的 JSON，不引用外部變數
+        // 強制構建與後台 100% 對應的標籤
         const payload = {
             orderNo: String(last.no),
             summary: String(last.summary),
             totalPrice: String(last.totalPrice),
-            syncTime: new Date().toLocaleString('zh-SG', { hour12: false })
+            time: new Date().toLocaleString('zh-SG', { hour12: false })
         };
 
-        try {
-            await fetch(CLOUD_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            console.log("✅ 成功傳送:", payload);
-        } catch (err) {
-            console.error("❌ 失敗:", err);
-        }
+        await fetch(CLOUD_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
     }
 }
     function toggleHistory() {
