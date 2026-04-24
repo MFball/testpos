@@ -179,6 +179,13 @@
             </div>
             <div style="font-weight:bold; color:var(--price-tag);">$5.00</div>
         </div>
+	<div class="quick-btn" onclick="quickPrint('魚圓面', '小的', '粿條面', ['湯'])">
+	    <div class="quick-info">
+ 	       <div class="quick-title">魚圓面湯 (小)</div>
+	        <div class="quick-desc">粿條面 + 湯</div>
+	    </div>
+   	 <div style="font-weight:bold; color:var(--price-tag);">$4.00</div>
+	</div>
     </div>
     </div>
 
@@ -431,7 +438,7 @@ async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys) {
                     row[8 + x] = b;
                 }
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
+                if (y % 30 === 0) await new Promise(r => setTimeout(r, 40));
             }
 
             // --- 這裡套用您要求的切紙指令 ---
