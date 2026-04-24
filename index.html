@@ -283,8 +283,61 @@
         if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; } 
         return data; 
     }
-    function saveOrderData(data) { localStorage.setItem('million_order_data', JSON.stringify(data)); }
+// 1. 修正後的出單函式
+function quickOrder(title, desc, price) {
+    const data = getOrderData();
+    const currentNo = data.currentOrderNo;
+    const currentSummary = `${title} (${desc})`;
+    const currentPrice = price.toFixed(2);
 
+    // 執行實體列印
+    document.getElementById('print-order-no').innerText = '#' + currentNo;
+    document.getElementById('print-content').innerText = currentSummary;
+    document.getElementById('print-total').innerText = currentPrice;
+    window.print();
+
+    // 將資料壓入歷史記錄
+    data.history.push({ 
+        no: currentNo, 
+        summary: currentSummary, 
+        totalPrice: currentPrice 
+    });
+    
+    data.currentOrderNo++;
+    
+    // 執行存檔與雲端同步
+    saveOrderData(data);
+}
+
+// 2. 修正後的雲端同步函式
+async function saveOrderData(data) {
+    // 存入手機/電腦本地
+    localStorage.setItem('million_order_data', JSON.stringify(data));
+    
+    const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
+    
+    if (data.history && data.history.length > 0) {
+        const last = data.history[data.history.length - 1];
+        
+        // 【關鍵】這裡的標籤必須跟後台網頁完全一致
+        const payload = {
+            orderNo: String(last.no),
+            summary: String(last.summary),
+            totalPrice: String(last.totalPrice),
+            time: new Date().toLocaleString('zh-SG', { hour12: false })
+        };
+
+        try {
+            await fetch(CLOUD_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {
+            console.error("雲端傳送失敗");
+        }
+    }
+}
     function toggleHistory() {
         const p = document.getElementById('history-panel');
         if (p.style.display === 'block') { p.style.display = 'none'; return; }
