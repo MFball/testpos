@@ -283,34 +283,31 @@
         if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; } 
         return data; 
     }
-// 請在點餐機檔案中找到 saveOrderData 函式，直接替換成這段：
+// 請在您的點餐機代碼中，將這段 saveOrderData 徹底替換：
 async function saveOrderData(data) {
-    // 1. 存本地
     localStorage.setItem('million_order_data', JSON.stringify(data));
-
-    // 2. 雲端地址
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
     
-    // 3. 抓取最後一筆單
     if (data.history && data.history.length > 0) {
-        const lastOrder = data.history[data.history.length - 1];
+        const last = data.history[data.history.length - 1];
         
-        // 強制格式化，確保後台 100% 讀得到
-        const orderToSync = {
-            orderNo: String(lastOrder.no || data.currentOrderNo),
-            summary: String(lastOrder.summary),
-            totalPrice: parseFloat(lastOrder.totalPrice) || 0,
+        // 【修正核心】直接手動構建乾淨的 JSON，不引用外部變數
+        const payload = {
+            orderNo: String(last.no),
+            summary: String(last.summary),
+            totalPrice: String(last.totalPrice),
             syncTime: new Date().toLocaleString('zh-SG', { hour12: false })
         };
 
         try {
             await fetch(CLOUD_URL, {
                 method: 'POST',
-                body: JSON.stringify(orderToSync)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
-            console.log("雲端同步成功");
-        } catch (error) {
-            console.error("雲端同步失敗", error);
+            console.log("✅ 成功傳送:", payload);
+        } catch (err) {
+            console.error("❌ 失敗:", err);
         }
     }
 }
