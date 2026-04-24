@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - Ver 3.7.1</title>
+    <title>Million FishBall Noodle - Ver 3.7.2 完整修復版</title>
     
     <style>
         /* --- 顏色與變數設定 --- */
@@ -64,7 +64,7 @@
         .opt { 
             background: #fff; border: 2.5px solid #f1f3f4; border-radius: 16px; 
             cursor: pointer; position: relative; display: flex; flex-direction: column; 
-            overflow: hidden; min-height: 160px; text-align: center;
+            overflow: hidden; min-height: 160px; text-align: center; transition: 0.2s;
         }
         .opt.selected { border-color: var(--primary); background: #f1f8ff; }
 
@@ -131,7 +131,7 @@
 
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.7.1</span>
+        <span>MILLION 麵店 v3.7.2</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
@@ -276,9 +276,27 @@
 
     const config = {
         prices: { '魚圓麵': 3.5, '肉脞麵': 4, '肉圓麵': 4, '特製麵': 5.5, '小的': 0.5, '大的': 1.5, '肉丸湯': 4, '魚圓湯': 4, '紫菜湯': 4, '麵': 0.5, '肉丸': 1, '魚圓': 1, '鮑魚片': 1, '紫菜': 1, '香菇': 1, '肉碎': 1, '香菇加': 1, '肉碎加': 1 },
-        foodImgs: { '魚圓麵': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '肉脞麵': 'https://i.ibb.co/TMFvjFRN/Minced.png', '肉圓麵': 'https://lh3.googleusercontent.com/pw/AP1GczPRrBESQHr4MjJaDdiXYFda03b72aUrxqrO--coLUrariBXksy0KTPNNaXhzOmmrVhkbChOGKQFqiR8zRRcPZWSd7Hk-inOhSXStOXgC8d0a85lycU=w2400?source=screenshot.guru', '特製麵': 'https://lh3.googleusercontent.com/pw/AP1GczOVfyFF0BVjs49utoC4oxktdqpCblSROVp-z7A0aH5pjECVNDmcaKulF2YA7DBUEDZxzEij53427j1LqfZYPzUSFGdUM2_Zt-aYxIYJY40qAfH5wq8=w2400?source=screenshot.guru' },
-        soupImgs: { '肉丸湯': 'https://lh3.googleusercontent.com/pw/AP1GczPI477AgneL3f4pcuLKg25GQlwB9XCNdxRaABOxwTvciSuYeGzbEu1cez6OIb25ZSS6RMchPIuuTEFHKttxXRnvYboZ5PQh-0HJH1MtI49AWBL1GDA=w2400?source=screenshot.guru', '魚圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczO2J-xP5sDqsYL-5nFYQgmYldq26dabn-ezwb-vCUGDZ-S5nq_i7dsnWNmsswG5ippV0aBSwxf3zx6lfCHrhVOehydel1JSOBnr0aXMXmInJ1_9gnM=w2400?source=screenshot.guru', '紫菜湯': 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru' },
-        noodleTypeImgs: { '幼麵': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '薄麵': 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', '麵線': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '黃麵': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '米粉': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '粿條': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '粿條麵': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '老鼠粉': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru' },
+        foodImgs: { 
+            '魚圓麵': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', 
+            '肉脞麵': 'https://i.ibb.co/TMFvjFRN/Minced.png', 
+            '肉圓麵': 'https://lh3.googleusercontent.com/pw/AP1GczPRrBESQHr4MjJaDdiXYFda03b72aUrxqrO--coLUrariBXksy0KTPNNaXhzOmmrVhkbChOGKQFqiR8zRRcPZWSd7Hk-inOhSXStOXgC8d0a85lycU=w2400?source=screenshot.guru', 
+            '特製麵': 'https://lh3.googleusercontent.com/pw/AP1GczOVfyFF0BVjs49utoC4oxktdqpCblSROVp-z7A0aH5pjECVNDmcaKulF2YA7DBUEDZxzEij53427j1LqfZYPzUSFGdUM2_Zt-aYxIYJY40qAfH5wq8=w2400?source=screenshot.guru' 
+        },
+        soupImgs: { 
+            '肉丸湯': 'https://lh3.googleusercontent.com/pw/AP1GczPI477AgneL3f4pcuLKg25GQlwB9XCNdxRaABOxwTvciSuYeGzbEu1cez6OIb25ZSS6RMchPIuuTEFHKttxXRnvYboZ5PQh-0HJH1MtI49AWBL1GDA=w2400?source=screenshot.guru', 
+            '魚圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczO2J-xP5sDqsYL-5nFYQgmYldq26dabn-ezwb-vCUGDZ-S5nq_i7dsnWNmsswG5ippV0aBSwxf3zx6lfCHrhVOehydel1JSOBnr0aXMXmInJ1_9gnM=w2400?source=screenshot.guru', 
+            '紫菜湯': 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru' 
+        },
+        noodleTypeImgs: { 
+            '幼麵': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', 
+            '薄麵': 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', 
+            '麵線': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', 
+            '黃麵': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', 
+            '米粉': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', 
+            '粿條': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', 
+            '粿條麵': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', 
+            '老鼠粉': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru' 
+        },
         sauces: ['辣椒', '黑醬', '番茄', '辣加番茄', '不要辣', '湯麵'],
         specials: ['面要爛', '面要硬', '多醋', '不要醋', '多油', '不要油'],
         noExtras: ['蔥花', '炸蔥', '豬油渣', '冬菜'],
@@ -328,11 +346,10 @@
         cart = [item];
         document.getElementById('cart-total-sum').innerText = item.price.toFixed(2);
         
-        // 快捷鍵強制使用中文列印，不彈窗
         await handleFinalizeAndPrint('zh');
     }
 
-    /* --- 歷史記錄與數據 --- */
+    /* --- 數據存儲 --- */
     function getOrderData() { 
         const today = new Date().toLocaleDateString();
         let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO, history: [] };
@@ -370,7 +387,7 @@
         cart = originalCart; renderFinalCart(); toggleHistory();
     }
 
-    /* --- 藍牙與列印核心 --- */
+    /* --- 藍牙核心 --- */
     async function getPrinter() {
         if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
         document.getElementById('status-text').innerText = "🔍 搜尋印表機...";
@@ -425,7 +442,7 @@
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 50));
             }
 
-            // --- 更新切紙指令 ---
+            // 新切紙指令
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x02, 0x1D, 0x56, 0x00]));
 
             if (!isReprint) {
@@ -458,25 +475,21 @@
             const getName = (k) => (dictionary.items[k] && dictionary.items[k][printLang]) ? dictionary.items[k][printLang] : k;
             const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
             
-            // 主品項名稱字體更新
             ctx.font = (printLang === 'en') ? "bold 34px sans-serif" : "bold 42px sans-serif";
             ctx.fillText(`${getName(item.mainKey)} (${item.qty}${unit})`, centerX, y, maxW); 
             y += 50;
 
-            // 麵種與醬料 28px
             ctx.font = "bold 28px sans-serif"; 
             let detailStr = `[${getName(item.sizeKey).replace('的','')}] ${item.noodleKey==='湯品'?'':getName(item.noodleKey)} ${item.sauceKeys.map(k=>getName(k)).join(',')}`;
             ctx.fillText(detailStr, centerX, y, maxW);
             y += 40;
             
-            // 特別要求 26px
             if(item.specialKeys.length) { 
                 ctx.font = "bold 26px sans-serif";
                 ctx.fillText(`★ ${item.specialKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); 
                 y += 35; 
             }
 
-            // 加料/不要 24px
             let addsStr = Object.entries(item.additionKeys).filter(([k,v])=>v>0).map(([k,v])=>`${getName(k)}`).join(',');
             if(addsStr) { 
                 ctx.font = "bold 24px sans-serif";
@@ -492,7 +505,6 @@
             y += 40;
         });
 
-        // 總計 42px
         ctx.font = "bold 42px sans-serif";
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 20);
     }
@@ -543,7 +555,7 @@
         if (stepId === 'step-finish') renderFinalCart();
     }
 
-    /* --- 列表渲染與流程控制 --- */
+    /* --- 列表渲染 --- */
     function renderSoupList() {
         const cont = document.getElementById('grid-soupItems'); cont.innerHTML = '';
         Object.entries(config.soupImgs).forEach(([key, img]) => {
