@@ -340,82 +340,49 @@
         }
     }
 
-/* --- 快速列印碼：放在 askPrintLanguage 之前 --- */
-async function quickPrint(mainKey, sizeKey, noodleKey, sauceKeys, qty = 1) {
-    // 1. 建立一個臨時品項，結構必須跟你的 tempItem 一致
-    const quickItem = {
-        mainKey: mainKey,
-        sizeKey: sizeKey,
-        noodleKey: noodleKey,
-        sauceKeys: sauceKeys,
-        specialKeys: [],
-        noExtraKeys: [],
-        additionKeys: {},
-        // 從 config 抓取價格
-        price: config.prices[mainKey] + config.prices[sizeKey],
-        qty: qty,
-        category: '面'
-    };
-
-    // 2. 暫時替換購物車
-    let originalCart = [...cart];
-    cart = [quickItem];
-
-    // 3. 更新介面上的總計顯示 (避免列印時抓到舊數據)
-    document.getElementById('cart-total-sum').innerText = quickItem.price.toFixed(2);
-
-    // 4. 執行列印
+/* --- 修正版：快捷列印函數（整合現有存檔系統） --- */
+async function quickPrint(main, size, noodle, sauces) {
+    console.log("執行快捷列印:", main, size, noodle, sauces);
+    
     try {
-        // 使用 'zh' 中文列印，最後一個參數 true 表示「重印模式」，不會清空購物車或增加編號
-        await handleFinalizeAndPrint('zh', null, true); 
-    } catch (e) {
-        alert("快速列印失敗: " + e.message);
-    } finally {
-        // 5. 還原原始購物車狀態
-        cart = originalCart;
-        renderFinalCart(); 
-    }
-}
-/* --- 修正版：快捷列印函數（含存檔與跳號） --- */
-    async function quickPrint(main, size, noodle, sauces) {
-        // 1. 自動根據您的 config.prices 計算價格
+        // 1. 取得目前單號 (使用您檔案中現有的 getOrderData)
+        let orderData = getOrderData();
+        const currentNo = orderData.num;
+
+        // 2. 計算價格
         const itemPrice = (config.prices[main] || 0) + (config.prices[size] || 0);
         
-        // 2. 建立訂單物件
+        // 3. 建立符合您系統格式的品項
         const newItem = {
             mainKey: main,
             sizeKey: size,
             noodleKey: noodle,
             sauceKeys: sauces,
-            qty: 1,
+            specialKeys: [],
+            noExtraKeys: [],
+            additionKeys: {},
             price: itemPrice,
-            time: new Date().toLocaleString()
+            qty: 1,
+            category: '面'
         };
 
-        // 3. 更新購物車並取得當前單號
+        // 4. 暫時存入購物車進行列印
+        let originalCart = [...cart];
         cart = [newItem];
-        const currentOrderNo = orderCount;
 
-        // 4. 【🚩 核心修正】執行存檔到歷史紀錄
-        saveOrderToHistory(currentOrderNo, itemPrice);
+        // 5. 執行列印 (呼叫您現有的 handleFinalizeAndPrint)
+        // 注意：這裡傳入 false 表示正式下單，會自動跳號存檔
+        await handleFinalizeAndPrint('zh', currentNo, false);
 
-        // 5. 【🚩 核心修正】單號加一，並存入手機內存 (LocalStorage)
-        orderCount++;
-        localStorage.setItem('m_order_count', orderCount);
+        // 6. 還原購物車
+        cart = originalCart;
+        renderFinalCart();
 
-        // 6. 執行藍牙列印
-        try {
-            // 注意：這裡調用您原本檔案中已有的列印函數
-            await handleFinalizeAndPrint(userLang, currentOrderNo, true);
-        } catch (e) {
-            console.error("列印失敗，但訂單已記錄:", e);
-        } finally {
-            cart = []; // 完成後清空購物車
-        }
+    } catch (e) {
+        console.error("快捷列印失敗:", e);
+        alert("錯誤: " + e.message);
     }
-
-    /* --- 確保您也有這個存檔函數 --- */
-    function saveOrderToHistory(no, total) {
+}    function saveOrderToHistory(no, total) {
         const historyEntry = {
             no: no,
             items: JSON.parse(JSON.stringify(cart)), 
