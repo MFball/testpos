@@ -411,7 +411,7 @@
                     row[8 + x] = b;
                 }
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 30 === 0) await new Promise(r => setTimeout(r, 40));
+                if (y % 25 === 0) await new Promise(r => setTimeout(r, 50));
             }
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x01, 0x1D, 0x56, 0x00]));  /* 進 3 行後切紙 */
             if (!isReprint) {
