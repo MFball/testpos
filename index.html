@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Million FishBall Noodle - Ver 3.7.7</title>
+    <title>Million FishBall Noodle - Ver 3.8.3</title>
     
     <style>
         :root { 
@@ -41,7 +41,8 @@
         .qty-row { display: flex; justify-content: space-around; align-items: center; font-size: 0.8rem; font-weight: bold; }
         .qty-btn { width: 34px; height: 34px; border-radius: 8px; border: 1px solid #ccc; background: white; color: var(--primary); font-weight: bold; font-size: 1.2rem; display:flex; align-items:center; justify-content:center; }
         .qty-val { font-size: 1.1rem; margin: 0 8px; min-width: 20px; display: inline-block; }
-        .nav-btns { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px 12px 25px 12px; display: flex; gap: 10px; max-width: 600px; margin: auto; box-shadow: 0 -5px 15px rgba(0,0,0,0.08); z-index: 1000; }
+        .nav-btns { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 12px 12px 22px 12px; max-width: 600px; margin: auto; box-shadow: 0 -5px 15px rgba(0,0,0,0.08); z-index: 1000; }
+        .nav-btns-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .main-action { flex: 1; padding: 18px 5px; border-radius: 12px; border: none; font-size: 1.1rem; cursor: pointer; font-weight: 900; color: white; }
         .sauce-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
         .sauce-btn { padding: 15px 2px; border: 2.2px solid #eee; border-radius: 12px; background: white; font-weight: 900; font-size: 0.85rem; }
@@ -64,7 +65,7 @@
 
 <div class="container">
     <div id="status-bar">
-        <span>MILLION 麵店 v3.7.7</span>
+        <span>MILLION 麵店 v3.8.3</span>
         <span id="status-text">● 藍牙待機中</span>
     </div>
 
@@ -130,7 +131,7 @@
         <button class="back-btn-top" onclick="goNext('step-start')">←</button>
         <h2 id="t-select-food" style="margin-left: 55px;">2. 選擇麵食與數量</h2>
         <div class="grid" id="grid-foodItems"></div>
-        <div class="nav-btns">
+        <div class="nav-btns" style="display:flex;">
             <button class="main-action" style="background:var(--primary)" onclick="checkFoodFlow()" id="btn-next-assign">下一步</button>
         </div>
     </div>
@@ -150,7 +151,7 @@
             <div id="t-special-label" style="font-weight:900; font-size:0.9rem; color:#f57c00; margin-bottom:10px;">特別要求：</div>
             <div id="special-cont" class="grid" style="grid-template-columns: 1fr 1fr; gap: 8px;"></div>
         </div>
-        <div class="nav-btns">
+        <div class="nav-btns" style="display:flex;">
             <button class="main-action" style="background:var(--primary)" onclick="checkSauceFlow()" id="btn-sauce-next">下一步</button>
         </div>
     </div>
@@ -159,7 +160,7 @@
         <button class="back-btn-top" onclick="handleNoExtraBack()">←</button>
         <h2 id="t-select-no" style="margin-left: 55px;">5. 不要什麼？</h2>
         <div class="grid" id="grid-noExtra"></div>
-        <div class="nav-btns">
+        <div class="nav-btns" style="display:flex;">
             <button class="main-action" style="background:var(--primary)" onclick="goNext('step-additions')" id="btn-no-next">下一步</button>
         </div>
     </div>
@@ -168,7 +169,7 @@
         <button class="back-btn-top" onclick="goNext('step-no-extra')">←</button>
         <h2 id="t-select-add" style="margin-left: 55px;">6. 加料區</h2>
         <div class="grid" id="grid-additions"></div>
-        <div class="nav-btns">
+        <div class="nav-btns" style="display:flex;">
             <button class="main-action" style="background:var(--success)" onclick="confirmOneItem()" id="btn-confirm-item">✅ 確定此份</button>
         </div>
     </div>
@@ -184,9 +185,16 @@
             <span id="t-total">總計</span>: $<span id="cart-total-sum">0.00</span>
         </div>
         <div class="nav-btns">
-            <button class="main-action" style="background:var(--price-tag)" onclick="clearWholeOrder()" id="btn-clear">❌ 清空</button>
-            <button class="main-action" style="background:var(--add)" onclick="goNext('step-start')" id="btn-continue">➕ 繼續</button>
-            <button class="main-action" style="background:var(--primary)" id="printBtn" onclick="askPrintLanguage()">🖨️ 確認列印</button>
+            <div class="nav-btns-grid">
+                <!-- 左上：清空 -->
+                <button class="main-action" style="background:var(--price-tag)" onclick="clearWholeOrder()" id="btn-clear">❌ 清空</button>
+                <!-- 右上：繼續 -->
+                <button class="main-action" style="background:var(--add)" onclick="goNext('step-start')" id="btn-continue">➕ 繼續</button>
+                <!-- 左下：不用收據（新增）-->
+                <button class="main-action" style="background:#607d8b" onclick="handleNoReceipt()" id="btn-no-receipt">🚫 不用收據</button>
+                <!-- 右下：確認列印 -->
+                <button class="main-action" style="background:var(--primary)" id="printBtn" onclick="askPrintLanguage()">🖨️ 確認列印</button>
+            </div>
         </div>
     </div>
 </div>
@@ -343,6 +351,36 @@
         }
     }
 
+    /* --- 不用收據：跳號存檔，不觸發列印 --- */
+    async function handleNoReceipt() {
+        if (cart.length === 0) return;
+        const confirmMsg = userLang === 'zh'
+            ? '確認不列印收據？\n系統仍會記錄此訂單並更新流水號。'
+            : 'Confirm no receipt?\nOrder will still be saved and sequence number updated.';
+        if (!confirm(confirmMsg)) return;
+
+        /* 取得目前單號，存入歷史並跳號（與正常結帳相同的資料庫邏輯）*/
+        const orderData = getOrderData();
+        const currentNo = orderData.num;
+        orderData.history.unshift({
+            num:   currentNo,
+            total: document.getElementById('cart-total-sum').innerText,
+            items: JSON.parse(JSON.stringify(cart))
+        });
+        orderData.num++;
+        await saveOrderData(orderData);   /* 本地存檔 + 雲端同步，與正常列印一致 */
+
+        /* 更新畫面狀態提示 */
+        document.getElementById('status-text').innerText = `● No. ${currentNo} 已記錄（不列印）`;
+        document.getElementById('status-text').style.color = '#607d8b';
+
+        const doneMsg = userLang === 'zh'
+            ? `訂單 No. ${currentNo} 已記錄，流水號已更新。`
+            : `Order No. ${currentNo} saved. Sequence updated.`;
+        alert(doneMsg);
+        clearWholeOrder();   /* 清空購物車，回首頁 */
+    }
+
     function askPrintLanguage() {
         if (cart.length === 0) return;
         const choice = confirm("選擇列印語言:\n【確定/OK】 = 中文\n【取消/Cancel】 = English");
@@ -375,7 +413,7 @@
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
             }
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x01, 0x1D, 0x56, 0x00]));
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));  /* 進 3 行後切紙，節省紙張 */
             if (!isReprint) {
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
                 orderData.num++;
@@ -393,11 +431,12 @@
 
     function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
-        const dynamicHeight = 280 + (cart.length * 220) + 80;
+        /* 畫布高度：每項多估 30px 供大字標示，縮減底部留白從 80 → 50 */
+        const dynamicHeight = 280 + (cart.length * 250) + 50;
         canvas.height = dynamicHeight;
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
         ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center";
-        const centerX = 192, maxW = 360;
+        const centerX = 192, maxW = 300;
         ctx.font = "bold 26px sans-serif"; ctx.fillText("Million FishBall Noodle", centerX, 20);
         ctx.font = "18px sans-serif"; ctx.fillText(new Date().toLocaleString(), centerX, 55);
         ctx.font = "bold 44px sans-serif"; ctx.fillText(`No. ${orderNo}`, centerX, 85);
@@ -406,18 +445,65 @@
         cart.forEach((item) => {
             const getName = (k) => (dictionary.items[k] && dictionary.items[k][printLang]) ? dictionary.items[k][printLang] : k;
             const unit = item.category === '湯' ? (printLang==='zh'?'碗':'bowl') : (printLang==='zh'?'份':'qty');
+
+            /* ── 主食名稱（主欄位，左對齊留右側空間給「大」字）── */
+            ctx.textAlign = "center";
             ctx.font = printLang === 'en' ? "bold 36px sans-serif" : "bold 42px sans-serif";
-            ctx.fillText(`${getName(item.mainKey)} (${item.qty}${unit})`, centerX, y, maxW); y += 45;
+            ctx.fillText(`${getName(item.mainKey)} (${item.qty}${unit})`, centerX, y, maxW); 
+
+            /* ── ✅ 新增「大」字醒目標示 ── */
+            if (item.sizeKey === '大的') {
+                ctx.save();
+                ctx.textAlign = "right";
+                ctx.font = "bold 40px sans-serif";
+                ctx.fillStyle = "black";
+                ctx.fillText("大", 375, y);
+                ctx.restore();
+            }
+            y += 45;
+
+            /* ── 大小 + 麵種 + 醬料 ── */
+            ctx.textAlign = "center";
             ctx.font = "bold 30px sans-serif";
+            ctx.fillStyle = "black";
             ctx.fillText(`[${getName(item.sizeKey).replace('的','')}] ${item.noodleKey==='湯品'?'':getName(item.noodleKey)} ${item.sauceKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 40;
-            if(item.specialKeys && item.specialKeys.length) { ctx.fillText(`★ ${item.specialKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 40; }
+
+            /* ── 特別要求 ── */
+            if (item.specialKeys && item.specialKeys.length) {
+                ctx.fillText(`★ ${item.specialKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 40;
+            }
+
+            /* ── 加料 ── */
             let addsStr = Object.entries(item.additionKeys || {}).filter(([k,v])=>v>0).map(([k,v])=>`${getName(k)}(${v*getItemRatio(k)}${getItemUnit(k,printLang)})`).join(',');
-            if(addsStr) { ctx.fillText(`+${printLang==='zh'?'加':'Add'}: ${addsStr}`, centerX, y, maxW); y += 40; }
-            if(item.noExtraKeys && item.noExtraKeys.length) { ctx.font = "bold 24px sans-serif"; ctx.fillText(`[${printLang==='zh'?'不要':'No'}: ${item.noExtraKeys.map(k=>getName(k)).join(',')}]`, centerX, y, maxW); y += 40; }
-            y += 25;
+            if (addsStr) {
+                ctx.fillText(`+${printLang==='zh'?'加':'Add'}: ${addsStr}`, centerX, y, maxW); y += 40;
+            }
+
+            /* ── 走料 ── */
+            if (item.noExtraKeys && item.noExtraKeys.length) {
+                ctx.font = "bold 24px sans-serif";
+                ctx.fillText(`[${printLang==='zh'?'不要':'No'}: ${item.noExtraKeys.map(k=>getName(k)).join(',')}]`, centerX, y, maxW); y += 40;
+            }
+
+            /* ── ✅ 品項間分隔線 ── */
+            ctx.save();
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);          /* 虛線：4px 實線，4px 空白 */
+            ctx.beginPath();
+            ctx.moveTo(0, y + 8);
+            ctx.lineTo(384, y + 8);
+            ctx.stroke();
+            ctx.setLineDash([]);              /* 重置虛線，避免影響後續繪圖 */
+            ctx.restore();
+            y += 22;                          /* 分隔線後向下 22px（原為 25px，節省少量空間）*/
         });
+
+        /* ── 總金額（縮減上方間距從 +20 → +12）── */
+        ctx.textAlign = "center";
         ctx.font = "bold 42px sans-serif";
-        ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 20);
+        ctx.fillStyle = "black";
+        ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 12);
     }
 
     function clearWholeOrder() {
@@ -575,8 +661,8 @@
     /* --- 資料字典與設定 --- */
     const dictionary = {
         ui: {
-            zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', print:'🖨️ 確認列印', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
-            en: { cat_soup:'Soup', cat_noodle:'Noodle', next:'Next', confirm:'✅ Confirm', total:'Total', clear:'❌ Clear', continue:'➕ Add More', print:'🖨️ Print Receipt', select_cat:'1. Category', select_soup:'2. Soup', select_food:'2. Item & Qty', select_noodle:'3. Noodle Type', select_sauce:'4. Sauce', select_no:'5. No Extras?', select_add:'6. Additions', cart_title:'🛒 Order Details', special_label:'Special Request:' }
+            zh: { cat_soup:'湯品類', cat_noodle:'麵食類', next:'下一步', confirm:'✅ 確定此份', total:'總計', clear:'❌ 清空', continue:'➕ 繼續', no_receipt:'🚫 不用收據', print:'🖨️ 確認列印', select_cat:'1. 請選擇類別', select_soup:'2. 請選擇湯品', select_food:'2. 選擇麵食與數量', select_noodle:'3. 請選擇麵種', select_sauce:'4. 選擇醬料與要求', select_no:'5. 不要什麼？', select_add:'6. 加料區', cart_title:'🛒 購物車明細', special_label:'特別要求：' },
+            en: { cat_soup:'Soup', cat_noodle:'Noodle', next:'Next', confirm:'✅ Confirm', total:'Total', clear:'❌ Clear', continue:'➕ Add More', no_receipt:'🚫 No Receipt', print:'🖨️ Print Receipt', select_cat:'1. Category', select_soup:'2. Soup', select_food:'2. Item & Qty', select_noodle:'3. Noodle Type', select_sauce:'4. Sauce', select_no:'5. No Extras?', select_add:'6. Additions', cart_title:'🛒 Order Details', special_label:'Special Request:' }
         },
         items: {
             '魚圓面':{zh:'魚圓面', en:'Fishball Noodle'}, '香菇肉碎面':{zh:'香菇肉碎面', en:'Mushroom Minced Noodle'}, '招牌面':{zh:'招牌面', en:'Signature Noodle'}, '餐餐面':{zh:'餐餐面', en:'Can Can Noodle'}, '肉圓面':{zh:'肉圓面', en:'Meatball Noodle'}, '蝦魚面':{zh:'蝦魚面', en:'Prawn Fish Noodle'}, '西刀魚面':{zh:'西刀魚面', en:'Saito Fish Noodle'}, '香菇面':{zh:'香菇面', en:'Mushroom Noodle'}, '魚餃面':{zh:'魚餃面', en:'Fish Dumpling Noodle'}, '(純)肉碎面':{zh:'(純)肉碎面', en:'Pure Minced Noodle'}, '小魚香面':{zh:'小魚香面', en:'Small Fish Noodle'},
@@ -639,6 +725,7 @@
         document.getElementById('btn-confirm-item').innerText = ui.confirm;
         document.getElementById('btn-clear').innerText = ui.clear;
         document.getElementById('btn-continue').innerText = ui.continue;
+        document.getElementById('btn-no-receipt').innerText = ui.no_receipt;
         document.getElementById('printBtn').innerText = ui.print;
         if (lang === 'en') {
             document.getElementById('q-header').innerText = '⚡ Quick Print (Auto Save & Number)';
