@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.2 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.4 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -107,7 +107,7 @@
 
     /* ── 底部固定操作列 ── */
     #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
-    #cart-summary-mini { font-weight: 900; font-size: 1rem; white-space: nowrap; }
+    #cart-summary-mini { font-weight: 900; font-size: 1rem; white-space: nowrap; background: #fff3e0; border: 2px solid var(--hot); border-radius: 12px; padding: 12px 14px; color: #222; }
     #cart-summary-mini span#cart-total-sum { color: var(--price-tag); font-size: 1.2rem; }
     .bb-btn { flex: 1; padding: 16px 6px; border-radius: 12px; border: none; font-weight: 900; color: #fff; font-size: 0.95rem; white-space: nowrap; }
 
@@ -115,6 +115,11 @@
     #history-panel { display:none; position:fixed; top:6%; left:5%; right:5%; bottom:6%; background:white; z-index:2000; border-radius:24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); padding:20px; border:3px solid var(--primary); overflow-y:auto; }
     .hist-item { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee; }
     #preview-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center; padding:20px; }
+    #cart-view-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2800; align-items:center; justify-content:center; padding:20px; }
+
+    /* ── 「已加入購物車」小提示：加入後停留原面板，用這個做明確的成功回饋 ── */
+    #added-toast { position: fixed; top: 96px; left: 50%; transform: translateX(-50%) translateY(-12px); background: rgba(30,30,30,0.94); color: #fff; padding: 11px 24px; border-radius: 30px; font-weight: 900; font-size: 0.95rem; z-index: 4000; opacity: 0; pointer-events: none; transition: opacity 0.22s ease, transform 0.22s ease; white-space: nowrap; }
+    #added-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     canvas { display: none; }
 
     @media (max-width: 480px) {
@@ -148,6 +153,7 @@
 </style>
 </head>
 <body>
+<div id="added-toast"></div>
 
 <div id="app">
     <div id="topbar">
@@ -174,13 +180,24 @@
 
     <div id="bottombar">
         <button class="bb-btn" style="background:var(--price-tag); flex:0.7;" onclick="clearWholeOrder()">❌ 清空</button>
-        <div id="cart-summary-mini">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span></div>
+        <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span></button>
         <button class="bb-btn" style="background:#607d8b; flex:0.9;" onclick="handleNoReceipt()">🚫 不收據</button>
         <button class="bb-btn" id="printBtn" style="background:var(--primary); flex:1.3;" onclick="askPrintLanguage()">🖨️ 確認送出</button>
     </div>
 </div>
 
 <canvas id="printCanvas" width="384"></canvas>
+
+<div id="cart-view-modal">
+    <div style="background:white; border-radius:20px; padding:15px; max-width:480px; width:100%; max-height:85vh; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;">🛒 目前購物車</h3>
+            <button onclick="closeCartModal()" style="background:#eee; border:none; border-radius:50%; width:34px; height:34px; font-size:18px; cursor:pointer;">✕</button>
+        </div>
+        <div id="cart-modal-body" style="overflow-y:auto; flex:1;"></div>
+        <button onclick="closeCartModal()" style="margin-top:12px; background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">關閉 Close</button>
+    </div>
+</div>
 
 <div id="preview-modal">
     <div style="background:white; border-radius:20px; padding:15px; max-width:420px; width:100%; max-height:90vh; display:flex; flex-direction:column;">
@@ -692,6 +709,19 @@
         return base;
     }
 
+    /* 目前只有西刀魚餅有買多折扣，未來如有其他品項也要打折，把 key 加進這裡即可 */
+    function hasTieredPricing(key) { return key === '西刀魚餅'; }
+
+    /* 統一的「總價」計算：小食類別若命中優惠品項，直接用級距總價（不是單價 x 數量），
+       確保「加料」與「小食」兩邊算出來的西刀魚餅價錢完全同步 */
+    function computeTempTotalPrice(t) {
+        if (t.category === '小食' && hasTieredPricing(t.mainKey)) {
+            return tieredUnitTotal(t.mainKey, t.qty) + (t.isTakeaway ? 0.30 * t.qty : 0);
+        }
+        const unitPrice = computeTempUnitPrice(t);
+        return (unitPrice + (t.isTakeaway ? 0.30 : 0)) * t.qty;
+    }
+
     function buildSummaryText(t) {
         const parts = [getItemName(t.mainKey)];
         if (t.category === '面') parts.push(`(${getItemName(t.sizeKey)}) ${getItemName(t.noodleKey)}`);
@@ -709,8 +739,7 @@
     function renderCustomizePanel() {
         if (!tempItem) return;
         const t = tempItem;
-        const unitPrice = computeTempUnitPrice(t);
-        const totalPrice = (unitPrice + (t.isTakeaway ? 0.30 : 0)) * t.qty;
+        const totalPrice = computeTempTotalPrice(t);
 
         let html = `<div class="cz-header">
             <div class="cz-title">${getItemName(t.mainKey)}<small>${editingIndex >= 0 ? (userLang==='zh'?'修改購物車項目':'Editing cart item') : (userLang==='zh'?'新增品項（已套用快速預設值）':'New item (quick defaults applied)')}</small></div>
@@ -790,30 +819,59 @@
     /* ═══════════════ 加入購物車 / 取消修改 ═══════════════ */
     function confirmAddToCart() {
         if (!tempItem) return;
-        const unitPrice = computeTempUnitPrice(tempItem);
+        /* 一般狀況：item.price 是「單價」，之後畫面/收據都用 price x qty 計算；
+           但西刀魚餅買多有折扣、不是單純倍數，所以存入購物車時改存「這批數量換算出來的等效單價」，
+           讓 price x qty 依然等於正確的級距總價（例：3個共$5.1，等效單價=5.1/3=1.7） */
+        let unitPrice;
+        if (tempItem.category === '小食' && hasTieredPricing(tempItem.mainKey)) {
+            unitPrice = tieredUnitTotal(tempItem.mainKey, tempItem.qty) / tempItem.qty;
+        } else {
+            unitPrice = computeTempUnitPrice(tempItem);
+        }
         const finalItem = {
             ...tempItem, price: unitPrice,
             sauceKeys: [...tempItem.sauceKeys], specialKeys: [...tempItem.specialKeys],
             noExtraKeys: [...tempItem.noExtraKeys], additionKeys: {...tempItem.additionKeys}
         };
-        if (editingIndex >= 0) { cart[editingIndex] = finalItem; editingIndex = -1; }
+        const wasEditing = editingIndex >= 0;
+        const addedMainKey = tempItem.mainKey;
+        if (wasEditing) { cart[editingIndex] = finalItem; editingIndex = -1; }
         else cart.push(finalItem);
-        tempItem = null;
         renderSideList();
-        renderPanelCartSummary();
         updateBottomBar();
+        const modal = document.getElementById('cart-view-modal');
+        if (modal.style.display === 'flex') document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
+
+        if (wasEditing) {
+            /* 修改既有購物車項目：完成後回到購物車總覽，方便核對整體內容 */
+            tempItem = null;
+            renderPanelCartSummary();
+        } else {
+            /* 新增品項：停留在同一個自訂面板，重置回該品項的預設值，方便馬上點下一份（同一道菜也可以再選別的做法）
+               並跳出「已加入」小提示，讓收銀員清楚知道剛剛真的有加入成功 */
+            showAddedToast();
+            selectItem(addedMainKey);
+        }
+    }
+
+    let addedToastTimer = null;
+    function showAddedToast() {
+        const el = document.getElementById('added-toast');
+        el.textContent = userLang === 'zh' ? '✅ 已加入購物車' : '✅ Added to cart';
+        el.classList.add('show');
+        clearTimeout(addedToastTimer);
+        addedToastTimer = setTimeout(() => el.classList.remove('show'), 1200);
     }
 
     function cancelEdit() { tempItem = null; editingIndex = -1; renderSideList(); renderPanelCartSummary(); }
 
     /* ═══════════════ 購物車面板（右側面板在「沒有正在自訂品項」時的預設畫面） ═══════════════ */
-    function renderPanelCartSummary() {
-        const panel = document.getElementById('panel');
+    /* 抽出共用的購物車列表 HTML，右側主面板與「查看購物車」彈窗都用同一份，避免重複維護 */
+    function buildCartRowsHtml() {
         if (cart.length === 0) {
-            panel.innerHTML = `<div class="empty-hint">👈 ${userLang==='zh' ? '請從左側選擇餐點開始點餐<br>（點擊後會自動套用常用預設值，確認即可送出）' : 'Select an item on the left to start.<br>Quick defaults are applied automatically.'}</div>`;
-            return;
+            return `<div class="empty-hint">👈 ${userLang==='zh' ? '請從左側選擇餐點開始點餐<br>（點擊後會自動套用常用預設值，確認即可送出）' : 'Select an item on the left to start.<br>Quick defaults are applied automatically.'}</div>`;
         }
-        const rows = cart.map((item, idx) => {
+        return cart.map((item, idx) => {
             const fee = item.isTakeaway ? 0.30 * item.qty : 0;
             const line = item.price * item.qty + fee;
             const adds = Object.entries(item.additionKeys||{}).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}(${v*getItemRatio(k)}${getItemUnit(k)})`).join(', ');
@@ -830,17 +888,44 @@
                 <div style="display:flex; align-items:center; background:#eee; border-radius:10px;"><button class="qty-btn" onclick="changeCartQty(${idx},-1)">-</button><span style="padding:0 10px; font-weight:bold;">${item.qty}</span><button class="qty-btn" onclick="changeCartQty(${idx},1)">+</button></div>
                 <button class="edit-btn" onclick="editCartLine(${idx})">${userLang==='zh'?'修改':'Edit'}</button></div></div></div>`;
         }).join('');
-        panel.innerHTML = `<div style="font-weight:900; font-size:1.15rem; margin-bottom:10px;">🛒 ${userLang==='zh'?'購物車明細':'Cart Details'}</div>${rows}`;
+    }
+
+    function renderPanelCartSummary() {
+        const panel = document.getElementById('panel');
+        panel.innerHTML = cart.length === 0 ? buildCartRowsHtml() :
+            `<div style="font-weight:900; font-size:1.15rem; margin-bottom:10px;">🛒 ${userLang==='zh'?'購物車明細':'Cart Details'}</div>${buildCartRowsHtml()}`;
+    }
+
+    /* ── 查看購物車彈窗：不管目前面板是不是正在自訂某個品項，都能隨時彈出看目前購物車內容 ── */
+    function showCartModal() {
+        document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
+        document.getElementById('cart-view-modal').style.display = 'flex';
+    }
+    function closeCartModal() { document.getElementById('cart-view-modal').style.display = 'none'; }
+
+    /* 統一刷新：購物車有變動時呼叫，會視情況更新主面板／彈窗，不會打斷正在自訂中的品項面板 */
+    function refreshCartViews() {
+        updateBottomBar();
+        if (!tempItem) renderPanelCartSummary();
+        const modal = document.getElementById('cart-view-modal');
+        if (modal.style.display === 'flex') document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
     }
 
     function changeCartQty(idx, d) {
         const item = cart[idx];
         if (item.qty + d < 1) { if (confirm(userLang==='zh'?'移除此項？':'Remove?')) cart.splice(idx, 1); }
-        else item.qty += d;
-        renderPanelCartSummary(); updateBottomBar();
+        else {
+            item.qty += d;
+            /* 購物車內直接調整份數時，若為套用級距折扣的小食（如西刀魚餅），重新換算等效單價 */
+            if (item.category === '小食' && hasTieredPricing(item.mainKey)) {
+                item.price = tieredUnitTotal(item.mainKey, item.qty) / item.qty;
+            }
+        }
+        refreshCartViews();
     }
 
     function editCartLine(idx) {
+        closeCartModal();
         tempItem = JSON.parse(JSON.stringify(cart[idx]));
         editingIndex = idx;
         currentCategory = tempItem.category;
@@ -857,6 +942,7 @@
     function clearWholeOrder(force = false) {
         if (!force && cart.length > 0 && !confirm(userLang==='zh' ? '確定清空目前購物車？' : 'Clear the current cart?')) return;
         cart = []; tempItem = null; editingIndex = -1;
+        closeCartModal();
         renderSideList();
         renderPanelCartSummary();
         updateBottomBar();
