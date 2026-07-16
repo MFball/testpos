@@ -2,8 +2,8 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Million FishBall Noodle - Ver 5.1.0 (收銀快速版)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Million FishBall Noodle - Ver 5.1.11 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -23,10 +23,11 @@
     body { font-family: -apple-system, "Helvetica Neue", "PingFang TC", sans-serif; background: var(--secondary); user-select: none; }
     button { font-family: inherit; cursor: pointer; }
 
-    #app { display: flex; flex-direction: column; height: 100vh; }
+    /* iOS Safari 的 100vh 常常算錯（會被網址列/工具列擠壓），改用JS量測的 --app-height，並保留 100vh 作為備援 */
+    #app { display: flex; flex-direction: column; height: 100vh; height: var(--app-height, 100vh); }
 
-    /* ── 頂部：單號 + 分類 + 語言 ── */
-    #topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border-bottom: 2px solid #eee; flex-wrap: nowrap; }
+    /* ── 頂部：單號 + 分類 + 語言（含瀏海機安全區域內縮） ── */
+    #topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); background: #fff; border-bottom: 2px solid #eee; flex-wrap: wrap; row-gap: 6px; }
     #order-badge { background: #111; color: #fff; font-weight: 900; font-size: 1.25rem; padding: 8px 16px; border-radius: 12px; white-space: nowrap; }
     #status-text { font-size: 0.68rem; color: #888; font-weight: bold; white-space: nowrap; }
     #cat-tabs { display: flex; gap: 6px; flex: 1; overflow-x: auto; }
@@ -49,7 +50,7 @@
     .side-item.active { background: #ffe4d9; border-left: 5px solid var(--price-tag); }
 
     #panel { flex: 1; overflow-y: auto; padding: 16px 16px 20px 16px; background: #fff; position: relative; }
-    #panel::after { content: ''; display: block; height: 90px; }
+    #panel::after { content: ''; display: block; height: 110px; }
 
     .empty-hint { text-align: center; color: #999; padding: 60px 20px; font-size: 1.05rem; line-height: 1.8; }
 
@@ -61,6 +62,11 @@
 
     .section { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 2px dashed #eee; }
     .section-label { font-weight: 900; color: #555; margin-bottom: 8px; font-size: 0.92rem; }
+    .section-label.collapsible { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 6px 2px; margin-bottom: 4px; }
+    .section-label.collapsible .tri { font-size: 0.75rem; color: #999; transition: transform 0.15s; }
+    .section-label.collapsible .sel-count { margin-left: auto; background: var(--primary); color: #fff; font-size: 0.72rem; font-weight: 900; padding: 2px 9px; border-radius: 10px; }
+    .collapse-body { overflow: hidden; }
+    .collapse-body.closed { display: none; }
     .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { padding: 11px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fff; font-weight: 900; font-size: 0.92rem; color: #444; }
     .chip.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
@@ -102,7 +108,7 @@
     .hot-count { font-size: 0.72rem; color: #999; margin-top: 4px; }
 
     /* ── 底部固定操作列 ── */
-    #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px 16px 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
+    #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
     #cart-summary-mini { font-weight: 900; font-size: 1rem; white-space: nowrap; }
     #cart-summary-mini span#cart-total-sum { color: var(--price-tag); font-size: 1.2rem; }
     .bb-btn { flex: 1; padding: 16px 6px; border-radius: 12px; border: none; font-weight: 900; color: #fff; font-size: 0.95rem; white-space: nowrap; }
@@ -117,6 +123,28 @@
         #order-badge { font-size: 1rem; padding: 6px 10px; }
         .cat-tab { padding: 8px 10px; font-size: 0.82rem; }
         .hot-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── iPhone X (375px) / iPhone 12 (390px) 等窄螢幕：分類頁籤自動換到第二行，確保完整可見 ── */
+    @media (max-width: 430px) {
+        #topbar { padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top)); gap: 6px; }
+        #order-badge { font-size: 0.9rem; padding: 6px 9px; border-radius: 9px; }
+        #status-text { display: none; }             /* 空間有限，隱藏次要文字，優先確保分類可見 */
+        #lang-toggle button { padding: 6px 8px; font-size: 0.72rem; }
+        .icon-btn { width: 34px; height: 34px; font-size: 0.9rem; }
+        #cat-tabs { order: 3; flex-basis: 100%; width: 100%; gap: 5px; }
+        .cat-tab { padding: 9px 8px; font-size: 0.78rem; border-radius: 9px; }
+        #side-list { min-width: 84px; }
+        .side-item { padding: 11px 6px; }
+        .side-item .nm { font-size: 0.8rem; }
+        .side-item .pr { font-size: 0.7rem; }
+        #panel { padding: 12px 10px; }
+        .cz-title { font-size: 1.1rem; }
+        .cz-price { font-size: 1.25rem; }
+        .chip { padding: 9px 12px; font-size: 0.85rem; }
+        .chip.big { padding: 12px 16px; font-size: 0.92rem; }
+        .bb-btn { padding: 13px 4px; font-size: 0.82rem; }
+        #cart-summary-mini { font-size: 0.85rem; }
     }
 </style>
 </head>
@@ -175,6 +203,14 @@
 </div>
 
 <script>
+    /* ═══════════════ iOS 適配：動態量測實際可視高度（解決 iPhone Safari 100vh 誤差） ═══════════════ */
+    function setAppHeight() {
+        document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    }
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+    window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 100));
+
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
     const SALES_KEY = "million_sales_data";
@@ -185,6 +221,7 @@
     let currentCategory = '面';
     let tempItem = null;       /* 目前正在自訂的品項（尚未加入購物車）*/
     let editingIndex = -1;     /* >=0 代表正在修改購物車內第幾項 */
+    let panelCollapse = { special: true, noExtra: true, additions: true };  /* 特別要求/不要什麼/加料 預設收合，縮短畫面長度 */
 
     /* ═══════════════ 訂單編號 / 歷史記錄（沿用 ver3.10.0 邏輯，未變動） ═══════════════ */
     function getOrderData() {
@@ -293,9 +330,29 @@
         saveSalesData(data);
     }
 
+    /* 首次開啟（尚無當日銷售紀錄）或紀錄不足6筆時，用這份預設人氣清單補滿畫面，
+       避免「人氣」分類一開始是空白 —— 一旦有真實銷售紀錄，會優先顯示真實熱銷排序 */
+    function getDefaultCombos() {
+        return [
+            { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, isTakeaway: false, category: '面', count: 0, isDefault: true },
+            { mainKey: '香菇肉碎面', sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, isTakeaway: false, category: '面', count: 0, isDefault: true },
+            { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '粿條', sauceKeys: ['湯'], specialKeys: [], noExtraKeys: [], additionKeys: {}, isTakeaway: false, category: '面', count: 0, isDefault: true }
+        ];
+    }
+
     function getTopCombos(n = 6) {
         const data = getSalesData();
-        return Object.values(data.combos).sort((a, b) => b.count - a.count).slice(0, n);
+        const real = Object.values(data.combos).sort((a, b) => b.count - a.count);
+        if (real.length === 0) return getDefaultCombos().slice(0, n);
+        if (real.length < n) {
+            const existingKeys = new Set(real.map(buildComboKey));
+            for (const d of getDefaultCombos()) {
+                if (real.length >= n) break;
+                const k = buildComboKey(d);
+                if (!existingKeys.has(k)) { real.push(d); existingKeys.add(k); }
+            }
+        }
+        return real.slice(0, n);
     }
     /* ═══════════════ 藍牙連接與列印（沿用 ver3.10.0，邏輯未變動） ═══════════════ */
     async function getPrinter() {
@@ -342,7 +399,7 @@
 
         const doneMsg = userLang === 'zh' ? `訂單 No. ${currentNo} 已記錄，流水號已更新。` : `Order No. ${currentNo} saved. Sequence updated.`;
         alert(doneMsg);
-        clearWholeOrder();
+        clearWholeOrder(true);
     }
 
     function askPrintLanguage() {
@@ -396,7 +453,7 @@
                 recordSale(cart);
                 await saveOrderData(orderData);
                 alert("列印成功！");
-                clearWholeOrder();
+                clearWholeOrder(true);
             } else {
                 alert(successMsg || "重印成功！");
             }
@@ -587,6 +644,7 @@
     /* ═══════════════ 步驟2：點品項後立即帶入「快速預設值」，右側面板即時顯示 ═══════════════ */
     function selectItem(key) {
         editingIndex = -1;
+        panelCollapse = { special: true, noExtra: true, additions: true };
         if (currentCategory === '湯') {
             /* 湯品類：完全比照原本邏輯，固定小份、湯品、湯底，不需另外選麵種/醬料 */
             tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '湯品', sauceKeys: ['湯'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '湯', isTakeaway: false };
@@ -656,21 +714,31 @@
                 ${config.sauces.map(k => `<button class="chip ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
             </div></div>`;
 
-            html += `<div class="section"><div class="section-label">⚠️ ${userLang==='zh'?'特別要求':'Special Request'}</div><div class="chip-row">
+            html += `<div class="section"><div class="section-label collapsible" onclick="toggleSection('special')">
+                <span class="tri">${panelCollapse.special?'▶':'▼'}</span> ⚠️ ${userLang==='zh'?'特別要求':'Special Request'}
+                ${t.specialKeys.length ? `<span class="sel-count">${userLang==='zh'?'已選':''} ${t.specialKeys.length}</span>` : ''}
+            </div><div class="chip-row collapse-body ${panelCollapse.special?'closed':''}">
                 ${config.specials.map(k => `<button class="chip warn ${t.specialKeys.includes(k)?'selected':''}" onclick="toggleTempSpecial('${k}')">${getItemName(k)}</button>`).join('')}
             </div></div>`;
         }
 
         if (t.category !== '小食') {
-            html += `<div class="section"><div class="section-label">🚫 ${userLang==='zh'?'不要什麼':'No Extras'}</div><div class="chip-row">
+            html += `<div class="section"><div class="section-label collapsible" onclick="toggleSection('noExtra')">
+                <span class="tri">${panelCollapse.noExtra?'▶':'▼'}</span> 🚫 ${userLang==='zh'?'不要什麼':'No Extras'}
+                ${t.noExtraKeys.length ? `<span class="sel-count">${userLang==='zh'?'已選':''} ${t.noExtraKeys.length}</span>` : ''}
+            </div><div class="chip-row collapse-body ${panelCollapse.noExtra?'closed':''}">
                 ${Object.keys(config.noExtraImgs).map(k => `<button class="chip warn ${t.noExtraKeys.includes(k)?'selected':''}" onclick="toggleTempNoExtra('${k}')">${getItemName(k)}</button>`).join('')}
             </div></div>`;
 
-            html += `<div class="section"><div class="section-label">➕ ${userLang==='zh'?'加料':'Additions'}</div>
+            const addCount = Object.values(t.additionKeys||{}).reduce((s,v)=>s+(v>0?v:0),0);
+            html += `<div class="section"><div class="section-label collapsible" onclick="toggleSection('additions')">
+                <span class="tri">${panelCollapse.additions?'▶':'▼'}</span> ➕ ${userLang==='zh'?'加料':'Additions'}
+                ${addCount ? `<span class="sel-count">${userLang==='zh'?'已選':''} ${addCount}</span>` : ''}
+            </div><div class="collapse-body ${panelCollapse.additions?'closed':''}">
                 ${config.additions.map(a => `<div class="qty-line"><span>${getItemName(a.key)} <span style="color:var(--add); font-weight:bold;">(+$${a.price})</span></span>
                     <div class="qty-ctrl"><button class="qty-btn2" onclick="changeTempAddQty('${a.key}',-1)">-</button><span class="qty-val2">${t.additionKeys[a.key]||0}</span><button class="qty-btn2" onclick="changeTempAddQty('${a.key}',1)">+</button></div>
                 </div>`).join('')}
-            </div>`;
+            </div></div>`;
         }
 
         html += `<div class="section"><div class="section-label">🍽 ${userLang==='zh'?'用餐方式':'Dine Method'}</div><div class="chip-row">
@@ -695,6 +763,7 @@
     function setTempSize(v) { tempItem.sizeKey = v; renderCustomizePanel(); }
     function setTempNoodle(v) { tempItem.noodleKey = v; renderCustomizePanel(); }
     function toggleTempSauce(k) { const i = tempItem.sauceKeys.indexOf(k); if (i>=0) tempItem.sauceKeys.splice(i,1); else tempItem.sauceKeys.push(k); renderCustomizePanel(); }
+    function toggleSection(name) { panelCollapse[name] = !panelCollapse[name]; renderCustomizePanel(); }
     function toggleTempSpecial(k) { const i = tempItem.specialKeys.indexOf(k); if (i>=0) tempItem.specialKeys.splice(i,1); else tempItem.specialKeys.push(k); renderCustomizePanel(); }
     function toggleTempNoExtra(k) { const i = tempItem.noExtraKeys.indexOf(k); if (i>=0) tempItem.noExtraKeys.splice(i,1); else tempItem.noExtraKeys.push(k); renderCustomizePanel(); }
     function changeTempAddQty(k, d) { tempItem.additionKeys[k] = Math.max(0, (tempItem.additionKeys[k]||0) + d); renderCustomizePanel(); }
@@ -758,13 +827,18 @@
         tempItem = JSON.parse(JSON.stringify(cart[idx]));
         editingIndex = idx;
         currentCategory = tempItem.category;
+        panelCollapse = {
+            special: !(tempItem.specialKeys && tempItem.specialKeys.length),
+            noExtra: !(tempItem.noExtraKeys && tempItem.noExtraKeys.length),
+            additions: !Object.values(tempItem.additionKeys || {}).some(v => v > 0)
+        };
         document.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === currentCategory));
         renderSideList();
         renderCustomizePanel();
     }
 
-    function clearWholeOrder() {
-        if (cart.length > 0 && !confirm(userLang==='zh' ? '確定清空目前購物車？' : 'Clear the current cart?')) return;
+    function clearWholeOrder(force = false) {
+        if (!force && cart.length > 0 && !confirm(userLang==='zh' ? '確定清空目前購物車？' : 'Clear the current cart?')) return;
         cart = []; tempItem = null; editingIndex = -1;
         renderSideList();
         renderPanelCartSummary();
@@ -789,7 +863,7 @@
             const sauceText = c.sauceKeys.map(k=>getItemName(k)).join('/');
             const snackText = c.category === '小食' ? `${getItemRatio(c.mainKey)}${getItemUnit(c.mainKey)}` : '';
             return `<button class="hot-card" onclick="quickOrderCombo(${i})">
-                <div class="hot-rank">🔥 No.${i+1} · ${userLang==='zh'?'今日售出':'sold'} ${c.count} ${userLang==='zh'?'份':''}</div>
+                <div class="hot-rank">${c.isDefault ? `⭐ No.${i+1} · ${userLang==='zh'?'熱門推薦':'Recommended'}` : `🔥 No.${i+1} · ${userLang==='zh'?'今日售出':'sold'} ${c.count} ${userLang==='zh'?'份':''}`}</div>
                 <div class="hot-name">${getItemName(c.mainKey)}${c.category==='面' ? ` (${getItemName(c.sizeKey)})` : ''}</div>
                 <div class="hot-desc">${noodleText} ${sauceText} ${snackText}</div>
                 <div class="hot-loc" style="background:${c.isTakeaway?'var(--takeaway)':'var(--success)'};">${c.isTakeaway?'🥡外賣':'🍽堂食'}</div>
@@ -852,7 +926,7 @@
     /* ═══════════════ 初始化 ═══════════════ */
     window.addEventListener('DOMContentLoaded', () => {
         updateOrderBadge();
-        selectCategory('面');
+        selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
     });
 
