@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.4 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.5 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -43,7 +43,8 @@
 
     /* ── 主區：左側清單 + 右側面板 ── */
     #main-row { flex: 1; display: flex; overflow: hidden; }
-    #side-list { width: 20%; min-width: 108px; max-width: 200px; overflow-y: auto; border-right: 2px solid #eee; background: #fafafa; flex-shrink: 0; }
+    #side-list { width: 20%; min-width: 108px; max-width: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; border-right: 2px solid #eee; background: #fafafa; flex-shrink: 0; padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+    .side-loop-divider { text-align: center; font-size: 0.62rem; color: #999; padding: 10px 4px; background: #eee; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; line-height: 1.3; }
     .side-item { display: block; width: 100%; text-align: left; padding: 14px 10px; border: none; border-bottom: 1px solid #eee; background: #fff; }
     .side-item .nm { font-weight: 900; font-size: 0.92rem; display: block; color: #222; line-height: 1.3; }
     .side-item .pr { color: var(--price-tag); font-weight: bold; font-size: 0.78rem; }
@@ -97,7 +98,12 @@
 
     /* ── 人氣熱銷面板 ── */
     .hot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .hot-card { text-align: left; background: #fff; border: 3px solid var(--hot); border-radius: 16px; padding: 14px; position: relative; }
+    .hot-card { text-align: left; background: #fff; border: 3px solid var(--hot); border-radius: 16px; padding: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+    .hot-img { height: 92px; background-size: cover; background-position: center; background-color: #ffe0b2; flex-shrink: 0; }
+    .hot-img-marquee { display: flex; align-items: center; overflow: hidden; white-space: nowrap; background: linear-gradient(135deg, #fff3e0, #ffe0b2); }
+    .hot-img-marquee span { display: inline-block; padding-left: 100%; font-weight: 900; color: var(--hot); font-size: 1.05rem; animation: hotMarquee 6s linear infinite; }
+    @keyframes hotMarquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+    .hot-card-body { padding: 10px 12px 12px 12px; }
     .hot-rank { font-weight: 900; color: var(--hot); font-size: 0.85rem; margin-bottom: 4px; }
     .hot-name { font-weight: 900; font-size: 1.1rem; color: #222; }
     .hot-desc { font-size: 0.82rem; color: #666; margin: 4px 0; }
@@ -621,6 +627,14 @@
     function getItemRatio(key) { return (dictionary.items[key] && dictionary.items[key].ratio) ? dictionary.items[key].ratio : 1; }
     function getItemUnit(key, lang = userLang) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[lang] : ''; }
 
+    /* 取得品項的實際圖片（沿用 v4.2.0 的 foodImgs/soupImgs 連結庫）；
+       如果是新貨品沒有圖片（或只是佔位用的假連結），回傳 null，改用跑馬燈顯示名字 */
+    function getItemImage(key) {
+        const url = config.foodImgs[key] || config.soupImgs[key];
+        if (!url || url.includes('placeholder')) return null;
+        return url;
+    }
+
     function updateOrderBadge() { document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`; }
 
     function updateBottomBar() {
@@ -649,13 +663,18 @@
         else if (currentCategory === '面') { keys = Object.keys(config.foodImgs); priceOf = k => config.prices[k]; }
         else { keys = config.additions.map(a => a.key); priceOf = k => getAdditionPrice(k); } /* 小食：來源為加料清單 */
         const suffix = currentCategory==='面' ? (userLang==='zh'?' 起':'+') : '';
-        cont.innerHTML = keys.map(key => {
+        const buildBtn = key => {
             const active = (tempItem && tempItem.mainKey === key && editingIndex === -1);
             return `<button class="side-item ${active ? 'active' : ''}" onclick="selectItem('${key}')">
                 <span class="nm">${getItemName(key)}</span>
                 <span class="pr">$${priceOf(key)}${suffix}</span>
             </button>`;
-        }).join('');
+        };
+        /* iPhone 上原本捲到底最後一項（如兒童餐）常被底部固定操作列擋住點不到，
+           除了補上底部安全內距外，這裡結尾再重複一輪清單，捲動起來更順暢、不會卡在死角 */
+        cont.innerHTML = keys.map(buildBtn).join('')
+            + `<div class="side-loop-divider">🔁 ${userLang==='zh'?'從頭開始':'Back to top'}</div>`
+            + keys.map(buildBtn).join('');
     }
 
     /* ═══════════════ 步驟2：點品項後立即帶入「快速預設值」，右側面板即時顯示 ═══════════════ */
@@ -965,12 +984,19 @@
             const noodleText = c.category === '面' ? getItemName(c.noodleKey) : '';
             const sauceText = c.sauceKeys.map(k=>getItemName(k)).join('/');
             const snackText = c.category === '小食' ? `${getItemRatio(c.mainKey)}${getItemUnit(c.mainKey)}` : '';
+            const img = getItemImage(c.mainKey);
+            const mediaHtml = img
+                ? `<div class="hot-img" style="background-image:url('${img}')"></div>`
+                : `<div class="hot-img hot-img-marquee"><span>${getItemName(c.mainKey)}</span></div>`;
             return `<button class="hot-card" onclick="quickOrderCombo(${i})">
+                ${mediaHtml}
+                <div class="hot-card-body">
                 <div class="hot-rank">${c.isDefault ? `⭐ No.${i+1} · ${userLang==='zh'?'熱門推薦':'Recommended'}` : `🔥 No.${i+1} · ${userLang==='zh'?'今日售出':'sold'} ${c.count} ${userLang==='zh'?'份':''}`}</div>
                 <div class="hot-name">${getItemName(c.mainKey)}${c.category==='面' ? ` (${getItemName(c.sizeKey)})` : ''}</div>
                 <div class="hot-desc">${noodleText} ${sauceText} ${snackText}</div>
                 <div class="hot-loc" style="background:${c.isTakeaway?'var(--takeaway)':'var(--success)'};">${c.isTakeaway?'🥡外賣':'🍽堂食'}</div>
                 <div class="hot-price">$${price.toFixed(2)}</div>
+                </div>
             </button>`;
         }).join('')}</div>`;
     }
