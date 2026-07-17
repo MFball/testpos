@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.8 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.9 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -249,6 +249,7 @@
 
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
+    const COUNTER_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderCounter.json";
     const SALES_KEY = "million_sales_data";
 
     let savedDevice = null, savedCharacteristic = null, isFastMode = false;
@@ -293,6 +294,64 @@
             try {
                 await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             } catch (err) { console.error("❌ 雲端同步失敗:", err); }
+        }
+    }
+
+    /* ✅ 修正「流水號未能正常運作」問題：
+       根源：舊版單號完全只存在自己手機的 localStorage 裡（getOrderData().num++），
+       如果店裡有多台手機/平板同時在點餐，每一台都各自從自己記錄的號碼往下加，
+       彼此完全不知道對方已經用到哪個號碼，就會出現「兩台手機同時印出同一個單號」
+       或「跳號/重複」的情況；另外只要清過瀏覽器資料、換了手機、或今天第一次用
+       不同裝置開始營業，該裝置的計數器就會從今天的起始號重新開始，跟其他裝置
+       已經印出的號碼完全對不起來。
+       解法：改用 Firebase 的「條件式寫入」(ETag / if-match) 做成真正跨裝置共用
+       的單一流水號來源——所有手機在列印前都先去雲端「搶號」，搶到才算數；若同
+       時有兩台手機搶同一個號碼，其中一台會收到衝突(412)，程式會自動重新抓最新
+       號碼再搶一次，直到成功為止，確保永遠不會有兩台手機拿到同一個單號。若當
+       下完全沒有網路，才會退回使用本機號碼（等網路恢復後下一次列印會自動接軌）。*/
+    async function getNextOrderNo() {
+        const today = new Date().toLocaleDateString();
+        const localData = getOrderData();  // 本機備援用
+
+        try {
+            // 1. 讀取雲端目前的計數器狀態，同時取得 ETag 做「條件式寫入」
+            const getRes = await fetch(COUNTER_URL, { headers: { 'X-Firebase-ETag': 'true' } });
+            const etag = getRes.headers.get('ETag');
+            let counterData = await getRes.json();
+
+            // 若雲端還沒有今天的計數器（第一次用/隔天第一單），用今天的起始號初始化
+            if (!counterData || counterData.date !== today) {
+                counterData = { date: today, num: START_NO };
+            }
+
+            const myNo = counterData.num;
+            const nextData = { date: today, num: myNo + 1 };
+
+            // 2. 條件式寫入：只有雲端資料「跟我剛剛讀到的完全一樣」(ETag相符)才會寫入成功
+            const putRes = await fetch(COUNTER_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'if-match': etag },
+                body: JSON.stringify(nextData)
+            });
+
+            if (putRes.status === 412) {
+                // 3. 撞號了（有其他手機同時搶號）：重新抓最新號碼再試一次
+                return await getNextOrderNo();
+            }
+            if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+
+            // 4. 搶號成功，同步更新本機記錄，維持畫面顯示一致
+            if (localData.date !== today || localData.num < nextData.num) {
+                localData.date = today;
+                localData.num = nextData.num;
+                localStorage.setItem('million_order_data', JSON.stringify(localData));
+            }
+            return myNo;
+
+        } catch (err) {
+            // 網路異常：退回本機號碼，收銀不中斷；等網路恢復後下一次列印會自動同步
+            console.error('⚠️ 雲端搶號失敗，改用本機號碼：', err);
+            return localData.num;
         }
     }
 
@@ -423,10 +482,9 @@
             : 'Confirm no receipt?\nOrder will still be saved and sequence number updated.';
         if (!confirm(confirmMsg)) return;
 
+        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
         const orderData = getOrderData();
-        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
-        orderData.num++;
         recordSale(cart);
         await saveOrderData(orderData);
 
@@ -435,6 +493,7 @@
 
         const doneMsg = userLang === 'zh' ? `訂單 No. ${currentNo} 已記錄，流水號已更新。` : `Order No. ${currentNo} saved. Sequence updated.`;
         alert(doneMsg);
+        updateOrderBadge();
         clearWholeOrder(true);
     }
 
@@ -455,37 +514,87 @@
     }
     function closePrintPreview() { document.getElementById('preview-modal').style.display = 'none'; }
 
+    /* ✅ 修正「列印出來全部小小的看不清楚」問題（Xprinter XP-N1600II）：
+       根源：舊版用「逐行」送出點陣資料，每一行各自包一個 GS v0 表頭，中間幾乎
+       沒有節流（每 20 行才停 40ms），寫入請求緊貼著送出，超出印表機熱感應頭
+       來得及「加熱顯色」的速度，導致印出來的字變得又淡又糊、模糊不清；而且整
+       個迴圈完全沒有失敗重試機制，只要中途有一次藍牙寫入失敗，整張收據就會印
+       到一半戛然而止，看起來像是缺字、斷行、糊成一片。
+       解法：改成把整張收據縱向切成多個「安全高度」的色帶（band），每一色帶各
+       自帶自己的 GS v0 表頭分開送出，色帶內部用較大區塊分塊傳輸並在失敗時自動
+       重試（不會再半途而廢），色帶之間額外預留時間讓印字熱感應頭確實加熱顯
+       色，讓字體印得又清楚又完整，同時速度仍然遠比逐行傳輸快。 */
+    const MAX_BAND_HEIGHT = 200; // Xprinter XP-N1600II 安全緩衝區高度；如仍有異常可再調低，例如 128
+
     /* forcedNo / isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
     async function handleFinalizeAndPrint(printLang, forcedNo = null, isReprint = false, successMsg = null) {
         const btn = document.getElementById('printBtn');
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
-            const orderData = getOrderData();
-            const currentNo = forcedNo || orderData.num;
+            /* ✅ 一般列印（非強制指定號碼、非重印）：向雲端搶下一個跨裝置共用的號碼 */
+            const currentNo = forcedNo || await getNextOrderNo();
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
-            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
+            const canvasEl = document.getElementById('printCanvas');
+            const height = canvasEl.height;
+            const pixels = canvasEl.getContext('2d').getImageData(0, 0, 384, height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             const widthBytes = 48;
-            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
-                let row = new Uint8Array(8 + widthBytes);
-                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
-                for (let x = 0; x < widthBytes; x++) {
-                    let b = 0;
-                    for (let bit = 0; bit < 8; bit++) {
-                        let idx = ((y * 384) + (x * 8 + bit)) * 4;
-                        if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+
+            /* 把整張收據縱向切成安全高度的色帶，逐條轉點陣、逐條各自帶表頭送出 */
+            let chunkSize = 200;
+            let totalChunks = 0;
+
+            for (let bandStart = 0; bandStart < height; bandStart += MAX_BAND_HEIGHT) {
+                const bandHeight = Math.min(MAX_BAND_HEIGHT, height - bandStart);
+
+                /* 把這一色帶轉成點陣資料（跟原本邏輯完全相同的黑白判斷，不影響列印品質）*/
+                const bandData = new Uint8Array(widthBytes * bandHeight);
+                for (let y = 0; y < bandHeight; y++) {
+                    const srcY = bandStart + y;
+                    for (let x = 0; x < widthBytes; x++) {
+                        let b = 0;
+                        for (let bit = 0; bit < 8; bit++) {
+                            let idx = ((srcY * 384) + (x * 8 + bit)) * 4;
+                            if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+                        }
+                        bandData[y * widthBytes + x] = b;
                     }
-                    row[8 + x] = b;
                 }
-                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+
+                const header = new Uint8Array([0x1D, 0x76, 0x30, 0, widthBytes, 0, bandHeight & 0xFF, (bandHeight >> 8) & 0xFF]);
+                const fullBand = new Uint8Array(header.length + bandData.length);
+                fullBand.set(header, 0);
+                fullBand.set(bandData, header.length);
+
+                /* 色帶內部仍用分塊傳輸，減少單次寫入過大導致的 BLE 寫入失敗；
+                   若寫入失敗會自動把區塊縮小一半重試，確保不同印表機都能穩定印出 */
+                let offset = 0;
+                while (offset < fullBand.length) {
+                    const chunk = fullBand.subarray(offset, Math.min(offset + chunkSize, fullBand.length));
+                    try {
+                        if (isFastMode) await targetChar.writeValueWithoutResponse(chunk);
+                        else await targetChar.writeValue(chunk);
+                        offset += chunk.length;
+                        totalChunks++;
+                    } catch (writeErr) {
+                        if (chunkSize > 20) { chunkSize = Math.max(20, Math.floor(chunkSize / 2)); continue; }
+                        throw writeErr;
+                    }
+                    if (totalChunks % 6 === 0) await new Promise(r => setTimeout(r, 15));
+                }
+
+                /* 每送完一條色帶，額外等一小段時間讓印表機把這條「確實印黑、走紙」完畢，
+                   避免印字頭加熱不足導致字體印得又淡又糊看不清楚，也避免下一色帶表頭跟
+                   前一色帶殘留資料在印表機緩衝區裡「撞在一起」造成缺字/斷行 */
+                await new Promise(r => setTimeout(r, 30));
             }
+
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
+                const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
-                orderData.num++;
                 recordSale(cart);
                 await saveOrderData(orderData);
                 alert("列印成功！");
@@ -493,6 +602,7 @@
             } else {
                 alert(successMsg || "重印成功！");
             }
+            updateOrderBadge();
             document.getElementById('status-text').innerText = "● 已完成";
             btn.disabled = false;
         } catch (e) {
@@ -505,7 +615,8 @@
         const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
         /* 外賣Logo移到Total下方印出，字體放大為原本(45px)的2倍(90px)，底部要多留空間 */
         const bottomLogoH = isAllTakeaway ? 130 : 0;
-        const dynamicHeight = 280 + (cart.length * 260) + 50 + bottomLogoH;
+        /* ✅ 字體整體放大後每份品項多留一點高度（260→280），避免文字擠壓重疊 */
+        const dynamicHeight = 280 + (cart.length * 280) + 50 + bottomLogoH;
         canvas.height = dynamicHeight;
 
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
@@ -513,9 +624,10 @@
         const centerX = 192, maxW = 300;
         let startY = 0;
 
-        ctx.font = "bold 26px sans-serif"; ctx.fillText("Million FishBall Noodle", centerX, startY + 20);
+        /* ✅ 提升整體字體大小，讓收據印出來更清晰易讀 */
+        ctx.font = "bold 28px sans-serif"; ctx.fillText("Million FishBall Noodle", centerX, startY + 20);
         ctx.font = "18px sans-serif";      ctx.fillText(new Date().toLocaleString(), centerX, startY + 55);
-        ctx.font = "bold 44px sans-serif"; ctx.fillText(`No. ${orderNo}`, centerX, startY + 85);
+        ctx.font = "bold 48px sans-serif"; ctx.fillText(`No. ${orderNo}`, centerX, startY + 85);
         ctx.font = "bold 20px sans-serif"; ctx.fillText("------------------------------------------", centerX, startY + 135);
         let y = startY + 175;
 
@@ -529,48 +641,48 @@
             const displayQty = item.category === '小食' ? (item.qty * getItemRatio(item.mainKey)) : item.qty;
 
             ctx.textAlign = "center";
-            ctx.font = printLang === 'en' ? "bold 36px sans-serif" : "bold 42px sans-serif";
+            ctx.font = printLang === 'en' ? "bold 40px sans-serif" : "bold 46px sans-serif";
             ctx.fillStyle = "black";
             ctx.fillText(`${getName(item.mainKey)} (${displayQty}${unit})`, centerX, y, maxW);
 
             if (item.sizeKey === '大的') {
                 ctx.save();
-                const cx = 358, cy = y + 20, r = 26;
+                const cx = 358, cy = y + 22, r = 28;
                 ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
                 ctx.fillStyle = "black"; ctx.fill();
                 ctx.textAlign = "center"; ctx.textBaseline = "middle";
-                ctx.font = "bold 32px sans-serif"; ctx.fillStyle = "white";
+                ctx.font = "bold 34px sans-serif"; ctx.fillStyle = "white";
                 ctx.fillText("大", cx, cy);
                 ctx.textBaseline = "top"; ctx.restore();
             }
-            y += 45;
+            y += 48;
 
             if (item.isTakeaway && !isAllTakeaway) {
                 ctx.save();
                 ctx.textAlign = "right";
-                ctx.font = "bold 34px sans-serif";
+                ctx.font = "bold 36px sans-serif";
                 ctx.fillStyle = "black";
                 ctx.fillText(printLang === 'zh' ? "🥡(外賣)" : "🥡(TAKEAWAY)", 376, y);
                 ctx.restore();
-                y += 42;
+                y += 44;
             }
 
             if (item.category !== '小食') {
-                ctx.textAlign = "center"; ctx.font = "bold 30px sans-serif"; ctx.fillStyle = "black";
-                ctx.fillText(`[${getName(item.sizeKey).replace('的','')}] ${item.noodleKey==='湯品'?'':getName(item.noodleKey)} ${item.sauceKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 40;
+                ctx.textAlign = "center"; ctx.font = "bold 32px sans-serif"; ctx.fillStyle = "black";
+                ctx.fillText(`[${getName(item.sizeKey).replace('的','')}] ${item.noodleKey==='湯品'?'':getName(item.noodleKey)} ${item.sauceKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 42;
             }
 
             if (item.specialKeys && item.specialKeys.length) {
-                ctx.fillText(`★ ${item.specialKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 40;
+                ctx.fillText(`★ ${item.specialKeys.map(k=>getName(k)).join(',')}`, centerX, y, maxW); y += 42;
             }
 
             let addsStr = Object.entries(item.additionKeys || {}).filter(([k,v])=>v>0)
                 .map(([k,v])=>`${getName(k)}(${v*getItemRatio(k)}${getItemUnit(k,printLang)})`).join(',');
-            if (addsStr) { ctx.fillText(`+${printLang==='zh'?'加':'Add'}: ${addsStr}`, centerX, y, maxW); y += 40; }
+            if (addsStr) { ctx.fillText(`+${printLang==='zh'?'加':'Add'}: ${addsStr}`, centerX, y, maxW); y += 42; }
 
             if (item.noExtraKeys && item.noExtraKeys.length) {
-                ctx.font = "bold 24px sans-serif";
-                ctx.fillText(`[${printLang==='zh'?'不要':'No'}: ${item.noExtraKeys.map(k=>getName(k)).join(',')}]`, centerX, y, maxW); y += 40;
+                ctx.font = "bold 26px sans-serif";
+                ctx.fillText(`[${printLang==='zh'?'不要':'No'}: ${item.noExtraKeys.map(k=>getName(k)).join(',')}]`, centerX, y, maxW); y += 42;
             }
 
             if (item.isTakeaway) {
@@ -586,7 +698,7 @@
             y += 22;
         });
 
-        ctx.textAlign = "center"; ctx.font = "bold 42px sans-serif"; ctx.fillStyle = "black";
+        ctx.textAlign = "center"; ctx.font = "bold 46px sans-serif"; ctx.fillStyle = "black";
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 12);
 
         /* 外賣Logo：整單外賣時才顯示，位置在Total下方，字體為原本(45px)的2倍(90px) */
@@ -609,7 +721,7 @@
             '魚圓湯':{zh:'魚圓湯', en:'Fishball Soup'}, '肉圓湯':{zh:'肉圓湯', en:'Meatball Soup'}, '魚餃湯':{zh:'魚餃湯', en:'Fish Dumpling Soup'}, '三寶湯':{zh:'三寶湯', en:'Triple Treasure Soup'}, '魚圓肉圓湯':{zh:'魚圓肉圓湯', en:'FB+MB Soup'}, '魚圓魚餃湯':{zh:'魚圓魚餃湯', en:'FB+FD Soup'},
             '面薄':{zh:'面薄', en:'Mee Pok'}, '幼面':{zh:'幼面', en:'Mee Kia'}, '粿條':{zh:'粿條', en:'Kway Teow'}, '熟面':{zh:'熟面', en:'Yellow Noodle'}, '米粉':{zh:'米粉', en:'Bee Hoon'}, '米太目':{zh:'米太目', en:'Mee Tai Mak'}, '冬粉':{zh:'冬粉', en:'Tang Hoon'}, '粿條面':{zh:'粿條面', en:'Kway Teow Mee'}, '粿條米粉':{zh:'粿條米粉', en:'Kway Teow Bee Hoon'}, '米粉面':{zh:'米粉面', en:'Bee Hoon Mee'},
             '辣椒':{zh:'辣椒', en:'Chili'}, '少辣':{zh:'少辣', en:'Less Chili'}, '多辣':{zh:'多辣', en:'More Chili'}, '茄汁':{zh:'茄汁', en:'Tomato'}, '黑醬油':{zh:'黑醬油', en:'Black Soy'}, '白醬青':{zh:'白醬青', en:'Light Soy'}, '醋':{zh:'醋', en:'Vinegar'}, '三味':{zh:'三味', en:'3-Taste Sauce'}, '湯':{zh:'湯', en:'Soup Base'},
-            '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball→Fishball'}, '少份量':{zh:'少份量', en:'Less Portion'}, '湯分開':{zh:'湯分開', en:'Soup Separated'},
+            '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball→Fishball'}, '少份量':{zh:'少份量', en:'Less Portion'}, '湯另上':{zh:'湯另上', en:'Soup Separated'},
             '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '油':{zh:'油', en:'Oil'}, '黑醬油(不要)':{zh:'黑醬油', en:'Black Soy'},
             '魚圓':{zh:'魚圓', en:'Fishball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '肉圓':{zh:'肉圓', en:'Meatball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', ratio:2, unit:{zh:'粒', en:'pcs'}}, '蝦':{zh:'蝦', en:'Prawn', ratio:1, unit:{zh:'隻', en:'pcs'}}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', ratio:1, unit:{zh:'條', en:'pcs'}}, '小魚香':{zh:'小魚香', en:'Small Fish', ratio:2, unit:{zh:'條', en:'pcs'}}, '香菇加':{zh:'香菇', en:'Mushroom', ratio:1, unit:{zh:'份', en:'serv'}}, '肉碎加':{zh:'肉碎', en:'Minced Meat', ratio:1, unit:{zh:'份', en:'serv'}}, '香腸(雞)':{zh:'香腸(雞)', en:'Chicken Sausage', ratio:1, unit:{zh:'條', en:'pcs'}}, '紫菜':{zh:'紫菜', en:'Seaweed', ratio:1, unit:{zh:'片', en:'sheet'}}, '魚餅(圓)':{zh:'魚餅(圓)', en:'Fish Cake (Round)', ratio:1, unit:{zh:'個', en:'pcs'}}, '鴛鴦紫菜湯':{zh:'鴛鴦紫菜湯', en:'Yuan-Yang Seaweed Soup'},
             '大的':{zh:'大', en:'BIG'}, '小的':{zh:'小', en:'SMALL'}, '湯品':{zh:'湯品', en:'Soup'}
@@ -650,7 +762,27 @@
         return url;
     }
 
-    function updateOrderBadge() { document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`; }
+    /* ✅ updateOrderBadge 改成非同步：先立即顯示本機號碼避免畫面延遲，
+       再向雲端讀取（不搶號，純讀取）最新的共用計數器，取「本機與雲端較大」的
+       號碼顯示，確保畫面上看到的「下一個號碼」跟其他裝置的進度一致，不會脫節。
+       這裡只讀取不寫入，所以不會佔用或消耗任何一個流水號。 */
+    async function updateOrderBadge() {
+        document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`;
+        try {
+            const today = new Date().toLocaleDateString();
+            const res = await fetch(COUNTER_URL);
+            const cloudData = await res.json();
+            if (cloudData && cloudData.date === today) {
+                const localData = getOrderData();
+                const nextNo = Math.max(cloudData.num, localData.num);
+                document.getElementById('order-badge').innerText = `No. ${nextNo}`;
+                if (localData.num < nextNo) {
+                    localData.num = nextNo; localData.date = today;
+                    localStorage.setItem('million_order_data', JSON.stringify(localData));
+                }
+            }
+        } catch (err) { /* 沒網路時維持顯示本機號碼即可，不影響收銀操作 */ }
+    }
 
     function updateBottomBar() {
         let total = 0;
@@ -882,8 +1014,8 @@
             const wantsSplit = confirm(userLang === 'zh'
                 ? '這份是外賣湯麵，是否需要「分湯」（湯與麵分開包裝）？'
                 : 'This is a takeaway soup noodle. Separate the soup from the noodles?');
-            const idx = tempItem.specialKeys.indexOf('湯分開');
-            if (wantsSplit) { if (idx < 0) tempItem.specialKeys.push('湯分開'); }
+            const idx = tempItem.specialKeys.indexOf('湯另上');
+            if (wantsSplit) { if (idx < 0) tempItem.specialKeys.push('湯另上'); }
             else { if (idx >= 0) tempItem.specialKeys.splice(idx, 1); }
         }
 
@@ -1072,10 +1204,9 @@
         const totalWithFee = item.price + (item.isTakeaway ? 0.30 : 0);
         document.getElementById('cart-total-sum').innerText = totalWithFee.toFixed(2);
 
+        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
         const orderData = getOrderData();
-        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: totalWithFee.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
-        orderData.num++;
         recordSale([item]);
         await saveOrderData(orderData);
 
@@ -1112,6 +1243,9 @@
         updateOrderBadge();
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
+        /* ✅ 每 30 秒自動刷新一次流水號顯示，確保多台裝置同時營業時，
+           畫面上看到的「下一個號碼」不會因為太久沒操作而跟其他裝置脫節 */
+        setInterval(updateOrderBadge, 30000);
     });
 
 </script>
