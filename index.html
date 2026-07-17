@@ -664,7 +664,7 @@
             '魚圓湯':{zh:'魚圓湯', en:'Fishball Soup'}, '肉圓湯':{zh:'肉圓湯', en:'Meatball Soup'}, '魚餃湯':{zh:'魚餃湯', en:'Fish Dumpling Soup'}, '三寶湯':{zh:'三寶湯', en:'Triple Treasure Soup'}, '魚圓肉圓湯':{zh:'魚圓肉圓湯', en:'FB+MB Soup'}, '魚圓魚餃湯':{zh:'魚圓魚餃湯', en:'FB+FD Soup'},
             '面薄':{zh:'面薄', en:'Mee Pok'}, '幼面':{zh:'幼面', en:'Mee Kia'}, '粿條':{zh:'粿條', en:'Kway Teow'}, '熟面':{zh:'熟面', en:'Yellow Noodle'}, '米粉':{zh:'米粉', en:'Bee Hoon'}, '米太目':{zh:'米太目', en:'Mee Tai Mak'}, '冬粉':{zh:'冬粉', en:'Tang Hoon'}, '粿條面':{zh:'粿條面', en:'Kway Teow Mee'}, '粿條米粉':{zh:'粿條米粉', en:'Kway Teow Bee Hoon'}, '米粉面':{zh:'米粉面', en:'Bee Hoon Mee'},
             '辣椒':{zh:'辣椒', en:'Chili'}, '少辣':{zh:'少辣', en:'Less Chili'}, '多辣':{zh:'多辣', en:'More Chili'}, '茄汁':{zh:'茄汁', en:'Tomato'}, '黑醬油':{zh:'黑醬油', en:'Black Soy'}, '白醬青':{zh:'白醬青', en:'Light Soy'}, '醋':{zh:'醋', en:'Vinegar'}, '三味':{zh:'三味', en:'3-Taste Sauce'}, '湯':{zh:'湯', en:'Soup Base'},
-            '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball→Fishball'}, '少份量':{zh:'少份量', en:'Less Portion'}, '湯另上':{zh:'湯另上', en:'Soup Separated'},
+            '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball→Fishball'}, '少份量':{zh:'少份量', en:'Less Portion'}, '':{zh:'', en:'Soup Separated'},
             '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '油':{zh:'油', en:'Oil'}, '黑醬油(不要)':{zh:'黑醬油', en:'Black Soy'},
             '魚圓':{zh:'魚圓', en:'Fishball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '肉圓':{zh:'肉圓', en:'Meatball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', ratio:2, unit:{zh:'粒', en:'pcs'}}, '蝦':{zh:'蝦', en:'Prawn', ratio:1, unit:{zh:'隻', en:'pcs'}}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', ratio:1, unit:{zh:'條', en:'pcs'}}, '小魚香':{zh:'小魚香', en:'Small Fish', ratio:2, unit:{zh:'條', en:'pcs'}}, '香菇加':{zh:'香菇', en:'Mushroom', ratio:1, unit:{zh:'份', en:'serv'}}, '肉碎加':{zh:'肉碎', en:'Minced Meat', ratio:1, unit:{zh:'份', en:'serv'}}, '香腸(雞)':{zh:'香腸(雞)', en:'Chicken Sausage', ratio:1, unit:{zh:'條', en:'pcs'}}, '紫菜':{zh:'紫菜', en:'Seaweed', ratio:1, unit:{zh:'片', en:'sheet'}}, '魚餅(圓)':{zh:'魚餅(圓)', en:'Fish Cake (Round)', ratio:1, unit:{zh:'個', en:'pcs'}}, '鴛鴦紫菜湯':{zh:'鴛鴦紫菜湯', en:'Yuan-Yang Seaweed Soup'},
             '大的':{zh:'大', en:'BIG'}, '小的':{zh:'小', en:'SMALL'}, '湯品':{zh:'湯品', en:'Soup'}
@@ -935,14 +935,14 @@
     function confirmAddToCart() {
         if (!tempItem) return;
 
-        /* 麵食類 + 外賣 + 選了「湯」醬料 → 詢問是否分湯（湯另外包裝）
+        /* 麵食類 + 外賣 + 選了「湯」醬料 → 詢問是否分開湯（湯另外包裝）
            選「是」→ 加註備註，會印在收據上；選「否」→ 不加註，收據上不會多印這行 */
         if (tempItem.category === '面' && tempItem.isTakeaway && tempItem.sauceKeys.includes('湯')) {
             const wantsSplit = confirm(userLang === 'zh'
-                ? '這份是外賣湯麵，是否需要「分湯」（湯與麵分開包裝）？'
+                ? '這份是外賣湯麵，是否需要「分開湯」（湯與麵分開包裝）？'
                 : 'This is a takeaway soup noodle. Separate the soup from the noodles?');
-            const idx = tempItem.specialKeys.indexOf('湯另上');
-            if (wantsSplit) { if (idx < 0) tempItem.specialKeys.push('湯另上'); }
+            const idx = tempItem.specialKeys.indexOf('');
+            if (wantsSplit) { if (idx < 0) tempItem.specialKeys.push('分開湯'); }
             else { if (idx >= 0) tempItem.specialKeys.splice(idx, 1); }
         }
 
