@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.9 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.9-hotfix1 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -514,17 +514,21 @@
     }
     function closePrintPreview() { document.getElementById('preview-modal').style.display = 'none'; }
 
-    /* ✅ 修正「列印出來全部小小的看不清楚」問題（Xprinter XP-N1600II）：
-       根源：舊版用「逐行」送出點陣資料，每一行各自包一個 GS v0 表頭，中間幾乎
-       沒有節流（每 20 行才停 40ms），寫入請求緊貼著送出，超出印表機熱感應頭
-       來得及「加熱顯色」的速度，導致印出來的字變得又淡又糊、模糊不清；而且整
-       個迴圈完全沒有失敗重試機制，只要中途有一次藍牙寫入失敗，整張收據就會印
-       到一半戛然而止，看起來像是缺字、斷行、糊成一片。
-       解法：改成把整張收據縱向切成多個「安全高度」的色帶（band），每一色帶各
-       自帶自己的 GS v0 表頭分開送出，色帶內部用較大區塊分塊傳輸並在失敗時自動
-       重試（不會再半途而廢），色帶之間額外預留時間讓印字熱感應頭確實加熱顯
-       色，讓字體印得又清楚又完整，同時速度仍然遠比逐行傳輸快。 */
-    const MAX_BAND_HEIGHT = 200; // Xprinter XP-N1600II 安全緩衝區高度；如仍有異常可再調低，例如 128
+    /* ✅ 修正「按下列印後同一張單不停出紙」問題（Xprinter XP-N1600II）：
+       關鍵判斷：這不是 JavaScript 卡在無窮迴圈——下面這段 for 迴圈的結構保證會
+       結束（bandStart 每次遞增、超過 height 就跳出），所以按鈕會恢復、「列印成
+       功」提示也會照常跳出。會一直吐出「同一張、同樣單號同樣時間」的紙，代表
+       是印表機本身收到資料後，內部把收到的列印緩衝「重複播放」，這是廉價
+       ESC/POS 相容印表機常見的韌體毛病：當單一指令夾帶的圖片資料超過該機型
+       實際可承受的緩衝區大小（這個安全上限因機型而異，且往往遠比官方規格標示
+       的還小），印表機不會回報錯誤，而是把多出來的資料誤判、內部指標错亂，進
+       而不斷重播已經收到的那份資料——上一版設的 200 點高度對這台機器仍然太
+       大，這次大幅調低並加重節流。
+       解法：色帶高度大幅調低（200 → 40 點），色帶之間与每個分塊之間都拉長等
+       待時間，讓印表機確實把資料「消化＋印出＋走紙」完才送下一批，同時整個列
+       印工作結束後，額外送一個「初始化」指令，強制印表機清空自己內部殘留的緩
+       衝狀態，降低下一次列印被前一次殘留資料影響的機率。*/
+    const MAX_BAND_HEIGHT = 40; // 大幅調低：200 仍會重複列印，改用更保守的安全值；如仍有異常可再調更低，例如 24
 
     /* forcedNo / isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
     async function handleFinalizeAndPrint(printLang, forcedNo = null, isReprint = false, successMsg = null) {
@@ -543,7 +547,7 @@
             const widthBytes = 48;
 
             /* 把整張收據縱向切成安全高度的色帶，逐條轉點陣、逐條各自帶表頭送出 */
-            let chunkSize = 200;
+            let chunkSize = 100;               // ✅ 從 200 調降為 100，降低單次寫入過大的風險
             let totalChunks = 0;
 
             for (let bandStart = 0; bandStart < height; bandStart += MAX_BAND_HEIGHT) {
@@ -569,7 +573,9 @@
                 fullBand.set(bandData, header.length);
 
                 /* 色帶內部仍用分塊傳輸，減少單次寫入過大導致的 BLE 寫入失敗；
-                   若寫入失敗會自動把區塊縮小一半重試，確保不同印表機都能穩定印出 */
+                   若寫入失敗會自動把區塊縮小一半重試，確保不同印表機都能穩定印出。
+                   ✅ 現在改成「每一個分塊」都停頓，而不是每 6 個才停一次，
+                   讓印表機有更充裕的時間逐步消化資料，不會被瞬間灌爆緩衝區 */
                 let offset = 0;
                 while (offset < fullBand.length) {
                     const chunk = fullBand.subarray(offset, Math.min(offset + chunkSize, fullBand.length));
@@ -582,16 +588,23 @@
                         if (chunkSize > 20) { chunkSize = Math.max(20, Math.floor(chunkSize / 2)); continue; }
                         throw writeErr;
                     }
-                    if (totalChunks % 6 === 0) await new Promise(r => setTimeout(r, 15));
+                    await new Promise(r => setTimeout(r, 10));   // ✅ 每個分塊都停 10ms（原本每 6 個才停 15ms）
                 }
 
                 /* 每送完一條色帶，額外等一小段時間讓印表機把這條「確實印黑、走紙」完畢，
                    避免印字頭加熱不足導致字體印得又淡又糊看不清楚，也避免下一色帶表頭跟
-                   前一色帶殘留資料在印表機緩衝區裡「撞在一起」造成缺字/斷行 */
-                await new Promise(r => setTimeout(r, 30));
+                   前一色帶殘留資料在印表機緩衝區裡「撞在一起」造成重複列印／缺字/斷行。
+                   ✅ 延遲從 30ms 加長到 60ms，給印表機更充裕的處理時間 */
+                await new Promise(r => setTimeout(r, 60));
             }
 
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
+
+            /* ✅ 新增：列印+切紙完成後，額外送一次「初始化」指令(ESC @)，
+               強制印表機清空自己內部可能殘留的緩衝狀態，降低這次列印的殘留
+               資料影響到「下一次」列印（甚至造成下一次也跟著不停重印）的機率 */
+            await new Promise(r => setTimeout(r, 100));
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             if (!isReprint) {
                 const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
