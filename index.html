@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.11 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.12 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -187,6 +187,7 @@
         <div id="status-text">● 藍牙待機中</div>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
+        <button class="icon-btn" title="緊急停止/重置印表機" onclick="emergencyResetPrinter()">🛑</button>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -457,10 +458,21 @@
             });
             const server = await savedDevice.gatt.connect();
             const services = await server.getPrimaryServices();
+            /* ✅ 修正「不停出紙」根本成因之一：
+               這類廉價藍牙熱感印表機內部大多是 HM-10 / FFE0 系列的 BLE→UART 橋接晶片，
+               本身沒有硬體流控，且內部緩衝區極小（實測常見僅 20~60 bytes）。
+               若優先選用 writeWithoutResponse（無回應、無節流）狂送資料，只要瞬間灌入的量
+               超過這顆小晶片的緩衝區，多出來的位元組就會被直接丟棄/覆蓋，印表機收到的就是
+               「錯位」的點陣資料——它會把這些錯位資料誤判成一連串走紙/列印指令，因而出現
+               「不停出紙」。改成優先選用「有回應(write)」的特徵值：每次寫入都要等印表機確認
+               收到才送下一包，天生就有節流效果，穩定度遠高於無回應模式；真的找不到才退回
+               writeWithoutResponse（此時程式會用更保守的小封包+延遲來降低風險，見下方）。*/
             for (const s of services) {
                 const chars = await s.getCharacteristics();
-                savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
-                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
+                const writeChar = chars.find(c => c.properties.write);
+                const fastChar = chars.find(c => c.properties.writeWithoutResponse);
+                if (writeChar) { savedCharacteristic = writeChar; isFastMode = false; break; }
+                if (fastChar) { savedCharacteristic = fastChar; isFastMode = true; break; }
             }
             document.getElementById('status-text').innerText = "● 藍牙已連線";
             document.getElementById('status-text').style.color = "#34a853";
@@ -491,6 +503,27 @@
         const doneMsg = userLang === 'zh' ? `訂單 No. ${currentNo} 已記錄，流水號已更新。` : `Order No. ${currentNo} saved. Sequence updated.`;
         alert(doneMsg);
         clearWholeOrder(true);
+    }
+
+    /* 🛑 緊急停止/重置：萬一又遇到不停出紙，先送 ESC @ 初始化指令嘗試讓印表機中止目前的異常狀態；
+       這是軟體能做的第一步急救，若送出後仍持續出紙，代表印表機內部緩衝區已經卡死，
+       務必直接關閉印表機電源再重新開機，這樣一定能中止 */
+    async function emergencyResetPrinter() {
+        if (!savedCharacteristic) {
+            alert(userLang === 'zh' ? '目前尚未連接印表機。' : 'Printer not connected.');
+            return;
+        }
+        try {
+            await savedCharacteristic.writeValue(new Uint8Array([0x1B, 0x40]));
+            document.getElementById('status-text').innerText = userLang === 'zh' ? '● 已送出重置指令' : '● Reset sent';
+            document.getElementById('status-text').style.color = '#607d8b';
+            alert(userLang === 'zh'
+                ? '已送出重置指令。\n若印表機仍持續出紙，請直接關閉印表機電源後再開機。'
+                : 'Reset command sent.\nIf it keeps feeding paper, power-cycle the printer.');
+        } catch (e) {
+            alert((userLang === 'zh' ? '重置失敗：' : 'Reset failed: ') + e.message
+                + (userLang === 'zh' ? '\n請直接關閉印表機電源後再開機。' : '\nPlease power-cycle the printer.'));
+        }
     }
 
     function askPrintLanguage() {
@@ -540,7 +573,12 @@
             const widthBytes = 48;
 
             /* 把整張收據縱向切成安全高度的色帶，逐條轉點陣、逐條各自帶表頭送出 */
-            let chunkSize = 200;
+            /* ✅ 修正「不停出紙」：封包大小從 200 bytes 大幅縮小為 32 bytes。
+               廉價 BLE-UART 橋接晶片常見的實際內部緩衝區只有 20~60 bytes，遠小於藍牙本身
+               理論上限，200 bytes 對它來說太大，容易在瞬間灌爆緩衝區造成資料遺失/錯位。
+               32 bytes 是實務上相容性與速度間的安全折衷值，如果之後同一台印表機又出現異常，
+               可以再往下調到 20（BLE 預設 ATT MTU 扣除表頭後的可用大小，相容性最高但最慢）。 */
+            let chunkSize = 32;
             let totalChunks = 0;
 
             for (let bandStart = 0; bandStart < height; bandStart += MAX_BAND_HEIGHT) {
@@ -571,21 +609,29 @@
                 while (offset < fullBand.length) {
                     const chunk = fullBand.subarray(offset, Math.min(offset + chunkSize, fullBand.length));
                     try {
-                        if (isFastMode) await targetChar.writeValueWithoutResponse(chunk);
-                        else await targetChar.writeValue(chunk);
+                        if (isFastMode) {
+                            /* 無回應模式沒有硬體流控，每一包都要主動留延遲，讓印表機的小緩衝區來得及吃完，
+                               這是避免資料錯位、印出「不停出紙」異常的關鍵 */
+                            await targetChar.writeValueWithoutResponse(chunk);
+                            await new Promise(r => setTimeout(r, 12));
+                        } else {
+                            /* 有回應模式：Promise resolve 時代表印表機已確認收到這包，本身就有節流效果，
+                               只需極短延遲避免部分機型連續寫入過快 */
+                            await targetChar.writeValue(chunk);
+                            await new Promise(r => setTimeout(r, 4));
+                        }
                         offset += chunk.length;
                         totalChunks++;
                     } catch (writeErr) {
-                        if (chunkSize > 20) { chunkSize = Math.max(20, Math.floor(chunkSize / 2)); continue; }
+                        if (chunkSize > 8) { chunkSize = Math.max(8, Math.floor(chunkSize / 2)); continue; }
                         throw writeErr;
                     }
-                    if (totalChunks % 6 === 0) await new Promise(r => setTimeout(r, 15));
                 }
 
                 /* 每送完一條色帶，額外等一小段時間讓印表機把這條印完／走紙完畢，
                    避免下一色帶的表頭跟前一色帶殘留資料在印表機緩衝區裡「撞在一起」，
                    這也是造成不停出紙／重複列印的常見成因之一 */
-                await new Promise(r => setTimeout(r, 30));
+                await new Promise(r => setTimeout(r, 50));
             }
 
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
