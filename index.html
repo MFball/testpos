@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.6 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.7 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -75,8 +75,15 @@
     .chip.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
     .chip.warn.selected { border-color: #e53935; background: #ffebee; color: #e53935; }
     .chip.big { padding: 14px 22px; font-size: 1rem; }
-    .chip.loc.dinein.selected { border-color: var(--success); background: #e6f4ea; color: var(--success); }
-    .chip.loc.takeaway.selected { border-color: var(--takeaway); background: #e8eaf6; color: var(--takeaway); }
+    /* 外賣切換開關：預設(未按)=堂食不加價，按下=外賣+$0.3 */
+    .ta-toggle-btn { display: flex; align-items: center; gap: 12px; background: #f5f5f5; border: 2.5px solid #eee; border-radius: 14px; padding: 12px 16px; }
+    .ta-toggle-btn.active { background: #e8eaf6; border-color: var(--takeaway); }
+    .ta-toggle-track { width: 46px; height: 26px; border-radius: 14px; background: #ccc; position: relative; flex-shrink: 0; transition: background 0.2s; }
+    .ta-toggle-btn.active .ta-toggle-track { background: var(--takeaway); }
+    .ta-toggle-thumb { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: left 0.2s; }
+    .ta-toggle-btn.active .ta-toggle-thumb { left: 22px; }
+    .ta-toggle-text { font-size: 0.95rem; font-weight: 900; color: #555; }
+    .ta-toggle-btn.active .ta-toggle-text { color: var(--takeaway); }
 
     .qty-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #f5f5f5; }
     .qty-line:last-child { border-bottom: none; }
@@ -495,24 +502,15 @@
     function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
         const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
-        const topBannerH = isAllTakeaway ? 50 : 0;
-        const dynamicHeight = topBannerH + 280 + (cart.length * 260) + 50;
+        /* 外賣Logo移到Total下方印出，字體放大為原本(45px)的2倍(90px)，底部要多留空間 */
+        const bottomLogoH = isAllTakeaway ? 130 : 0;
+        const dynamicHeight = 280 + (cart.length * 260) + 50 + bottomLogoH;
         canvas.height = dynamicHeight;
 
         ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
         ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center";
         const centerX = 192, maxW = 300;
         let startY = 0;
-
-        if (isAllTakeaway) {
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.font = "bold 45px sans-serif";
-            ctx.fillStyle = "black";
-            ctx.fillText(printLang === 'zh' ? "(外賣)" : "(TAKEAWAY)", 192, 5);
-            ctx.restore();
-            startY = topBannerH;
-        }
 
         ctx.font = "bold 26px sans-serif"; ctx.fillText("Million FishBall Noodle", centerX, startY + 20);
         ctx.font = "18px sans-serif";      ctx.fillText(new Date().toLocaleString(), centerX, startY + 55);
@@ -589,6 +587,16 @@
 
         ctx.textAlign = "center"; ctx.font = "bold 42px sans-serif"; ctx.fillStyle = "black";
         ctx.fillText("TOTAL: $" + document.getElementById('cart-total-sum').innerText, centerX, y + 12);
+
+        /* 外賣Logo：整單外賣時才顯示，位置在Total下方，字體為原本(45px)的2倍(90px) */
+        if (isAllTakeaway) {
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.font = "bold 90px sans-serif";
+            ctx.fillStyle = "black";
+            ctx.fillText(printLang === 'zh' ? "(外賣)" : "(TAKEAWAY)", centerX, y + 65, 370);
+            ctx.restore();
+        }
     }
     const dictionary = {
         ui: {
@@ -601,7 +609,7 @@
             '面薄':{zh:'面薄', en:'Mee Pok'}, '幼面':{zh:'幼面', en:'Mee Kia'}, '粿條':{zh:'粿條', en:'Kway Teow'}, '熟面':{zh:'熟面', en:'Yellow Noodle'}, '米粉':{zh:'米粉', en:'Bee Hoon'}, '米太目':{zh:'米太目', en:'Mee Tai Mak'}, '冬粉':{zh:'冬粉', en:'Tang Hoon'}, '粿條面':{zh:'粿條面', en:'Kway Teow Mee'}, '粿條米粉':{zh:'粿條米粉', en:'Kway Teow Bee Hoon'}, '米粉面':{zh:'米粉面', en:'Bee Hoon Mee'},
             '辣椒':{zh:'辣椒', en:'Chili'}, '少辣':{zh:'少辣', en:'Less Chili'}, '多辣':{zh:'多辣', en:'More Chili'}, '茄汁':{zh:'茄汁', en:'Tomato'}, '黑醬油':{zh:'黑醬油', en:'Black Soy'}, '白醬青':{zh:'白醬青', en:'Light Soy'}, '醋':{zh:'醋', en:'Vinegar'}, '三味':{zh:'三味', en:'3-Taste Sauce'}, '湯':{zh:'湯', en:'Soup Base'},
             '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'},
-            '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '油':{zh:'油', en:'Oil'}, '黑醬油(不要)':{zh:'黑醬油', en:'Black Soy'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'MB to FB'},
+            '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '油':{zh:'油', en:'Oil'}, '黑醬油(不要)':{zh:'黑醬油', en:'Black Soy'},
             '魚圓':{zh:'魚圓', en:'Fishball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '肉圓':{zh:'肉圓', en:'Meatball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', ratio:2, unit:{zh:'粒', en:'pcs'}}, '蝦':{zh:'蝦', en:'Prawn', ratio:1, unit:{zh:'隻', en:'pcs'}}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', ratio:1, unit:{zh:'條', en:'pcs'}}, '小魚香':{zh:'小魚香', en:'Small Fish', ratio:2, unit:{zh:'條', en:'pcs'}}, '香菇加':{zh:'香菇', en:'Mushroom', ratio:1, unit:{zh:'份', en:'serv'}}, '肉碎加':{zh:'肉碎', en:'Minced Meat', ratio:1, unit:{zh:'份', en:'serv'}}, '香腸(雞)':{zh:'香腸(雞)', en:'Chicken Sausage', ratio:1, unit:{zh:'條', en:'pcs'}}, '紫菜':{zh:'紫菜', en:'Seaweed', ratio:1, unit:{zh:'片', en:'sheet'}}, '魚餅(圓)':{zh:'魚餅(圓)', en:'Fish Cake (Round)', ratio:1, unit:{zh:'個', en:'pcs'}}, '鴛鴦紫菜湯':{zh:'鴛鴦紫菜湯', en:'Yuan-Yang Seaweed Soup'},
             '大的':{zh:'大', en:'BIG'}, '小的':{zh:'小', en:'SMALL'}, '湯品':{zh:'湯品', en:'Soup'}
         }
@@ -613,7 +621,7 @@
         noodleTypeImgs: { '面薄': 'https://lh3.googleusercontent.com/pw/AP1GczPTdYtkKQVVtu2xC4GqatBEs58tYr0xrU6-P08JGLPXNa9URyrd85OABGJvhRRywZqI_6ILtjozkyDCPJWyfo34-z3KP5EPG56bOb6S73_130W3J00=w2400?source=screenshot.guru', '幼面': 'https://lh3.googleusercontent.com/pw/AP1GczNzHJopdj33Emt-5K2nGrlY8AQRwcGxsmIGUyy2dzSKyFYLHxqH-tz7bIRoqlVFfxfetpW7bKNjWvenQuHQ1oPEWLa8r0Zv98IXzUaIhJlRpdNaMJU=w2400?source=screenshot.guru', '粿條': 'https://lh3.googleusercontent.com/pw/AP1GczPwzNH0_FdwO99aeaxK8kWR64JXsBGwj4s5HB13lSvp-sZwggbp8XT8yfDkbp7Cz_ZB-jynkrLK7FFpIQSTf_t4Umd8Eje8i_nWWxFshmGTKkrzCn4=w2400?source=screenshot.guru', '熟面': 'https://lh3.googleusercontent.com/pw/AP1GczO5hHYBkxDeOygQ1hWxWYtPlMOGUWWImLcvrXSe9dYeWIPukbqHY5O9qq6IrM9Q88jSG6EE8HmeIM9jOg081VP1KcW7uXlnaMCsWb56wt3dRd9WJJw=w2400?source=screenshot.guru', '米粉': 'https://lh3.googleusercontent.com/pw/AP1GczMCq_h1GaefE-Kpouj1xUx_GoEhsa6BHL7giIsCTbZqtOKJG_8AJIpYSsqpPEiR5Ao00oYTYixHE7KxdZjWSv2LTg-CQ_xWVBv8OfAB98J7Z1wPYG0=w2400?source=screenshot.guru', '米太目': 'https://lh3.googleusercontent.com/pw/AP1GczNPdhdHay7KR_IB303jyQY9PkJv14r8_ctsIwsnIGVdX5m0e4mAQjGoW6kMCuWfZEzoGn0PfIS4YbYsam7ncI1eDn9rYAbQ53qUsbpt4BHxE2Gur3k=w600-h315-p-k', '冬粉': 'https://lh3.googleusercontent.com/pw/AP1GczMjjBg1W6WSV-nXO1fI3_rZXHO1u53fhIyPuY8F5PfDsGsSNuMqbrcoNbcIYTISpCvg-YzHA3xOyUmD1SUOQQvXXoAsXW9wTiEt9IswwswNBTCsoCc=w2400?source=screenshot.guru', '粿條面': 'https://i.ibb.co/4Z3pjddg/Kuay-Teow-Noodle.png', '粿條米粉': 'https://i.ibb.co/Kc4dzrMJ/Kuay-Teow-Mee-Hoon.png', '米粉面': 'https://i.ibb.co/GvHqTPM4/Mee-Hoon-Noodle.png' },
         sauces: ['辣椒', '少辣', '多辣', '茄汁', '黑醬油', '白醬青', '醋', '三味', '湯'],
         specials: ['剪麵', '面煮軟', '要煮硬', '豬油渣'],
-        noExtraImgs: { '肉碎': 'https://i.ibb.co/676LvDVq/Gemini-Generated-Image-o7imd3o7imd3o7im.png', '香菇': 'https://i.ibb.co/gM38Xyd2/Gemini-Generated-Image-8vtp9l8vtp9l8vtp.png', '蔥': 'https://i.ibb.co/VWF95cZS/Gemini-Generated-Image-bfrir0bfrir0bfri.png', '油': 'https://i.ibb.co/X6SD0Tg/Gemini-Generated-Image-rsjy20rsjy20rsjy.png', '黑醬油(不要)': 'https://i.ibb.co/b5xFQwFg/Gemini-Generated-Image-npcrx5npcrx5npcr.png', '肉圓換魚圓': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru' },
+        noExtraImgs: { '肉碎': 'https://i.ibb.co/676LvDVq/Gemini-Generated-Image-o7imd3o7imd3o7im.png', '香菇': 'https://i.ibb.co/gM38Xyd2/Gemini-Generated-Image-8vtp9l8vtp9l8vtp.png', '蔥': 'https://i.ibb.co/VWF95cZS/Gemini-Generated-Image-bfrir0bfrir0bfri.png', '油': 'https://i.ibb.co/X6SD0Tg/Gemini-Generated-Image-rsjy20rsjy20rsjy.png', '黑醬油(不要)': 'https://i.ibb.co/b5xFQwFg/Gemini-Generated-Image-npcrx5npcrx5npcr.png' },
         additions: [
             { key: '魚圓', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru' },
             { key: '肉圓', price: 1, img: 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru' },
@@ -817,10 +825,12 @@
             </div></div>`;
         }
 
-        html += `<div class="section"><div class="section-label">🍽 ${userLang==='zh'?'用餐方式':'Dine Method'}</div><div class="chip-row">
-            <button class="chip big loc dinein ${!t.isTakeaway?'selected':''}" onclick="setTempLocation(false)">🍽 ${userLang==='zh'?'堂食':'Dine-in'}</button>
-            <button class="chip big loc takeaway ${t.isTakeaway?'selected':''}" onclick="setTempLocation(true)">🥡 ${userLang==='zh'?'外賣':'Takeaway'} +$0.30</button>
-        </div></div>`;
+        html += `<div class="section"><div class="section-label">${userLang==='zh'?'外賣':'Takeaway'}</div>
+            <button class="ta-toggle-btn ${t.isTakeaway?'active':''}" onclick="setTempLocation(${!t.isTakeaway})">
+                <span class="ta-toggle-track"><span class="ta-toggle-thumb"></span></span>
+                <span class="ta-toggle-text">${t.isTakeaway ? (userLang==='zh'?'外賣 (+$0.3)':'Takeaway (+$0.3)') : (userLang==='zh'?'堂食（點按切換外賣）':'Dine-in (tap for Takeaway)')}</span>
+            </button>
+        </div>`;
 
         html += `<div class="section" style="border-bottom:none;"><div class="section-label">🔢 ${userLang==='zh'?'份數':'Qty'}${t.category==='小食' ? ` (${userLang==='zh'?'單位':'unit'}: ${getItemUnit(t.mainKey)})` : ''}</div>
             <div class="qty-ctrl"><button class="qty-btn2" onclick="changeTempQty(-1)">-</button><span class="qty-val2">${t.qty}</span><button class="qty-btn2" onclick="changeTempQty(1)">+</button></div>
@@ -833,7 +843,26 @@
 
     function setTempSize(v) { tempItem.sizeKey = v; renderCustomizePanel(); }
     function setTempNoodle(v) { tempItem.noodleKey = v; renderCustomizePanel(); }
-    function toggleTempSauce(k) { const i = tempItem.sauceKeys.indexOf(k); if (i>=0) tempItem.sauceKeys.splice(i,1); else tempItem.sauceKeys.push(k); renderCustomizePanel(); }
+    /* 醬料互斥狀態機：
+       (A) 「湯」與任何其他醬料互斥 —— 按下湯，其他全部清空；按下任何其他醬料，湯自動取消
+       (B) 「辣椒／少辣／多辣」三個是單選(Radio) —— 選其中一個，另外兩個自動回復未選 */
+    const SPICE_LEVELS = ['辣椒', '少辣', '多辣'];
+    function toggleTempSauce(k) {
+        const wasSelected = tempItem.sauceKeys.includes(k);
+        if (k === '湯') {
+            tempItem.sauceKeys = wasSelected ? [] : ['湯'];
+        } else {
+            tempItem.sauceKeys = tempItem.sauceKeys.filter(x => x !== '湯');  /* 選其他醬料，湯自動取消 */
+            if (SPICE_LEVELS.includes(k)) {
+                tempItem.sauceKeys = tempItem.sauceKeys.filter(x => !SPICE_LEVELS.includes(x));  /* 辣度單選，先清空另外兩個 */
+                if (!wasSelected) tempItem.sauceKeys.push(k);
+            } else {
+                const idx = tempItem.sauceKeys.indexOf(k);
+                if (idx >= 0) tempItem.sauceKeys.splice(idx, 1); else tempItem.sauceKeys.push(k);
+            }
+        }
+        renderCustomizePanel();
+    }
     function toggleSection(name) { panelCollapse[name] = !panelCollapse[name]; renderCustomizePanel(); }
     function toggleTempSpecial(k) { const i = tempItem.specialKeys.indexOf(k); if (i>=0) tempItem.specialKeys.splice(i,1); else tempItem.specialKeys.push(k); renderCustomizePanel(); }
     function toggleTempNoExtra(k) { const i = tempItem.noExtraKeys.indexOf(k); if (i>=0) tempItem.noExtraKeys.splice(i,1); else tempItem.noExtraKeys.push(k); renderCustomizePanel(); }
