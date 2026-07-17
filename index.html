@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.9 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.10 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -520,22 +520,49 @@
             const currentNo = forcedNo || await getNextOrderNo();
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
-            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
+            const canvasEl = document.getElementById('printCanvas');
+            const height = canvasEl.height;
+            const pixels = canvasEl.getContext('2d').getImageData(0, 0, 384, height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             const widthBytes = 48;
-            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
-                let row = new Uint8Array(8 + widthBytes);
-                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+
+            /* 一次把整張收據轉成點陣資料（跟原本邏輯完全相同的黑白判斷，不影響列印品質），
+               只是不再「每一行」都各自包一個 GS v0 表頭再送出，而是整張圖只用一個表頭，
+               大幅減少表頭重複的資料量與藍牙寫入次數 —— 這是變快的關鍵，跟亂碼問題完全無關
+               （亂碼是文字編碼的問題，我們仍然是送點陣圖，字一定是對的） */
+            const imgData = new Uint8Array(widthBytes * height);
+            for (let y = 0; y < height; y++) {
                 for (let x = 0; x < widthBytes; x++) {
                     let b = 0;
                     for (let bit = 0; bit < 8; bit++) {
                         let idx = ((y * 384) + (x * 8 + bit)) * 4;
                         if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
                     }
-                    row[8 + x] = b;
+                    imgData[y * widthBytes + x] = b;
                 }
-                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+            }
+            const header = new Uint8Array([0x1D, 0x76, 0x30, 0, widthBytes, 0, height & 0xFF, (height >> 8) & 0xFF]);
+            const fullImg = new Uint8Array(header.length + imgData.length);
+            fullImg.set(header, 0);
+            fullImg.set(imgData, header.length);
+
+            /* 分塊傳輸：改用較大的區塊(預設200 bytes，約是原本每行56 bytes的3-4倍)一次送出，
+               寫入次數大幅減少，列印速度明顯變快；若印表機的藍牙緩衝區較小導致寫入失敗，
+               會自動把區塊縮小一半重試，確保不同印表機都能穩定印出 */
+            let chunkSize = 200;
+            let offset = 0, chunkCount = 0;
+            while (offset < fullImg.length) {
+                const chunk = fullImg.subarray(offset, Math.min(offset + chunkSize, fullImg.length));
+                try {
+                    if (isFastMode) await targetChar.writeValueWithoutResponse(chunk);
+                    else await targetChar.writeValue(chunk);
+                    offset += chunk.length;
+                    chunkCount++;
+                } catch (writeErr) {
+                    if (chunkSize > 20) { chunkSize = Math.max(20, Math.floor(chunkSize / 2)); continue; }
+                    throw writeErr;
+                }
+                if (chunkCount % 6 === 0) await new Promise(r => setTimeout(r, 15));
             }
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
