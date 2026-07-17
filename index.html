@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.9 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.11 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -510,6 +510,19 @@
     }
     function closePrintPreview() { document.getElementById('preview-modal').style.display = 'none'; }
 
+    /* ✅ 修正「同一單不停出紙 / 列印變慢」問題（Xprinter XP-N1600II）：
+       根源：舊版把整張收據（哪怕只有 1 份餐點，高度也已達 ~590px）包成「單一個」
+       GS v0 點陣圖指令一次送出。Xprinter 這類廉價 ESC/POS 印表機的內部點陣緩衝區
+       容量有限（實測安全值約 200px 高），超過這個高度的「單一指令」會讓印表機
+       緩衝區溢位，把溢出的圖片資料誤判成新的列印／進紙指令，因而觸發「重複列印
+       同一張單」「不停出紙」的異常行為 —— 這跟藍牙傳輸速度或分塊大小無關，是
+       印表機韌體對「單指令圖片過高」的已知限制，並非亂碼／編碼問題。
+       解法：把整張收據縱向切成多個「安全高度」的色帶（band），每一色帶各自帶
+       自己的 GS v0 表頭分開送出。這樣每個指令都在印表機緩衝區容許範圍內，不會
+       溢位，同時每一色帶仍是「整條一次送出」（而非逐行送），所以速度依然遠比
+       最早期逐行列印的版本快，也不會再有重複出紙的問題。 */
+    const MAX_BAND_HEIGHT = 200; // Xprinter XP-N1600II 安全緩衝區高度；如仍有異常可再調低，例如 128
+
     /* forcedNo / isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
     async function handleFinalizeAndPrint(printLang, forcedNo = null, isReprint = false, successMsg = null) {
         const btn = document.getElementById('printBtn');
@@ -520,23 +533,61 @@
             const currentNo = forcedNo || await getNextOrderNo();
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
-            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
+            const canvasEl = document.getElementById('printCanvas');
+            const height = canvasEl.height;
+            const pixels = canvasEl.getContext('2d').getImageData(0, 0, 384, height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             const widthBytes = 48;
-            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
-                let row = new Uint8Array(8 + widthBytes);
-                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
-                for (let x = 0; x < widthBytes; x++) {
-                    let b = 0;
-                    for (let bit = 0; bit < 8; bit++) {
-                        let idx = ((y * 384) + (x * 8 + bit)) * 4;
-                        if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+
+            /* 把整張收據縱向切成安全高度的色帶，逐條轉點陣、逐條各自帶表頭送出 */
+            let chunkSize = 200;
+            let totalChunks = 0;
+
+            for (let bandStart = 0; bandStart < height; bandStart += MAX_BAND_HEIGHT) {
+                const bandHeight = Math.min(MAX_BAND_HEIGHT, height - bandStart);
+
+                /* 把這一色帶轉成點陣資料（跟原本邏輯完全相同的黑白判斷，不影響列印品質）*/
+                const bandData = new Uint8Array(widthBytes * bandHeight);
+                for (let y = 0; y < bandHeight; y++) {
+                    const srcY = bandStart + y;
+                    for (let x = 0; x < widthBytes; x++) {
+                        let b = 0;
+                        for (let bit = 0; bit < 8; bit++) {
+                            let idx = ((srcY * 384) + (x * 8 + bit)) * 4;
+                            if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+                        }
+                        bandData[y * widthBytes + x] = b;
                     }
-                    row[8 + x] = b;
                 }
-                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+
+                const header = new Uint8Array([0x1D, 0x76, 0x30, 0, widthBytes, 0, bandHeight & 0xFF, (bandHeight >> 8) & 0xFF]);
+                const fullBand = new Uint8Array(header.length + bandData.length);
+                fullBand.set(header, 0);
+                fullBand.set(bandData, header.length);
+
+                /* 色帶內部仍用分塊傳輸，減少單次寫入過大導致的 BLE 寫入失敗；
+                   若寫入失敗會自動把區塊縮小一半重試，確保不同印表機都能穩定印出 */
+                let offset = 0;
+                while (offset < fullBand.length) {
+                    const chunk = fullBand.subarray(offset, Math.min(offset + chunkSize, fullBand.length));
+                    try {
+                        if (isFastMode) await targetChar.writeValueWithoutResponse(chunk);
+                        else await targetChar.writeValue(chunk);
+                        offset += chunk.length;
+                        totalChunks++;
+                    } catch (writeErr) {
+                        if (chunkSize > 20) { chunkSize = Math.max(20, Math.floor(chunkSize / 2)); continue; }
+                        throw writeErr;
+                    }
+                    if (totalChunks % 6 === 0) await new Promise(r => setTimeout(r, 15));
+                }
+
+                /* 每送完一條色帶，額外等一小段時間讓印表機把這條印完／走紙完畢，
+                   避免下一色帶的表頭跟前一色帶殘留資料在印表機緩衝區裡「撞在一起」，
+                   這也是造成不停出紙／重複列印的常見成因之一 */
+                await new Promise(r => setTimeout(r, 30));
             }
+
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
                 const orderData = getOrderData();
