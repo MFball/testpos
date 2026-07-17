@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.12 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.8 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -187,7 +187,6 @@
         <div id="status-text">● 藍牙待機中</div>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
-        <button class="icon-btn" title="緊急停止/重置印表機" onclick="emergencyResetPrinter()">🛑</button>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -250,7 +249,6 @@
 
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
-    const COUNTER_BASE_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderCounter";
     const SALES_KEY = "million_sales_data";
 
     let savedDevice = null, savedCharacteristic = null, isFastMode = false;
@@ -261,67 +259,12 @@
     let editingIndex = -1;     /* >=0 代表正在修改購物車內第幾項 */
     let panelCollapse = { special: true, noExtra: true, additions: true };  /* 特別要求/不要什麼/加料 預設收合，縮短畫面長度 */
 
-    /* 統一的日期鍵格式（ISO，跟裝置語系無關），雲端單號計數器路徑用這個 */
-    function getDateKey() {
-        const d = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    }
-
     /* ═══════════════ 訂單編號 / 歷史記錄（沿用 ver3.10.0 邏輯，未變動） ═══════════════ */
     function getOrderData() {
         const today = new Date().toLocaleDateString();
         let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO, history: [] };
         if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; }
         return data;
-    }
-
-    /* ═══════════════ 雲端共用單號計數器：讓不同手機下單都接續同一組當日流水號 ═══════════════
-       做法：每台裝置在「真正要送出訂單」的當下，才去雲端讀目前號碼、+1、寫回去，
-       這樣不管哪一台手機先按，下一台裝置去讀的時候都會拿到最新的號碼接著往後排。
-       如果剛好斷網，會自動退回本機號碼繼續運作（離線也能收銀），恢復連線後下一筆會自動接上雲端進度。 */
-    async function reserveNextOrderNo() {
-        const url = `${COUNTER_BASE_URL}/${getDateKey()}.json`;
-        try {
-            const getRes = await fetch(url);
-            let current = await getRes.json();
-            if (current === null || typeof current !== 'number') current = START_NO - 1;
-            const next = current + 1;
-            await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
-            return next;
-        } catch (e) {
-            console.error("❌ 雲端單號同步失敗，改用本機單號：", e);
-            return null;
-        }
-    }
-
-    /* 只「看」目前雲端下一個號碼是多少，不佔用、不會讓號碼往前跳（給畫面上方的號碼徽章預覽用） */
-    async function peekNextOrderNo() {
-        const url = `${COUNTER_BASE_URL}/${getDateKey()}.json`;
-        try {
-            const res = await fetch(url);
-            let current = await res.json();
-            if (current === null || typeof current !== 'number') current = START_NO - 1;
-            return current + 1;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    /* 真正「送出訂單」時呼叫這個：優先向雲端搶號，失敗才退回本機遞增，
-       並同步把本機快取的號碼往前推進，避免離線恢復連線後號碼往回跳。 */
-    async function getNextOrderNo() {
-        const cloudNo = await reserveNextOrderNo();
-        const local = getOrderData();
-        if (cloudNo !== null) {
-            local.num = cloudNo + 1;
-            localStorage.setItem('million_order_data', JSON.stringify(local));
-            return cloudNo;
-        }
-        const no = local.num;
-        local.num = no + 1;
-        localStorage.setItem('million_order_data', JSON.stringify(local));
-        return no;
     }
 
     async function saveOrderData(data) {
@@ -339,7 +282,7 @@
             const totalPrice = String(last.total || '0');
             const _now = new Date();
             const _pad = n => String(n).padStart(2, '0');
-            const dateKey = getDateKey();
+            const dateKey = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
             const payload = {
                 orderNo:    String(last.num),
                 summary:    summaryText,
@@ -458,21 +401,10 @@
             });
             const server = await savedDevice.gatt.connect();
             const services = await server.getPrimaryServices();
-            /* ✅ 修正「不停出紙」根本成因之一：
-               這類廉價藍牙熱感印表機內部大多是 HM-10 / FFE0 系列的 BLE→UART 橋接晶片，
-               本身沒有硬體流控，且內部緩衝區極小（實測常見僅 20~60 bytes）。
-               若優先選用 writeWithoutResponse（無回應、無節流）狂送資料，只要瞬間灌入的量
-               超過這顆小晶片的緩衝區，多出來的位元組就會被直接丟棄/覆蓋，印表機收到的就是
-               「錯位」的點陣資料——它會把這些錯位資料誤判成一連串走紙/列印指令，因而出現
-               「不停出紙」。改成優先選用「有回應(write)」的特徵值：每次寫入都要等印表機確認
-               收到才送下一包，天生就有節流效果，穩定度遠高於無回應模式；真的找不到才退回
-               writeWithoutResponse（此時程式會用更保守的小封包+延遲來降低風險，見下方）。*/
             for (const s of services) {
                 const chars = await s.getCharacteristics();
-                const writeChar = chars.find(c => c.properties.write);
-                const fastChar = chars.find(c => c.properties.writeWithoutResponse);
-                if (writeChar) { savedCharacteristic = writeChar; isFastMode = false; break; }
-                if (fastChar) { savedCharacteristic = fastChar; isFastMode = true; break; }
+                savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
             }
             document.getElementById('status-text').innerText = "● 藍牙已連線";
             document.getElementById('status-text').style.color = "#34a853";
@@ -491,9 +423,10 @@
             : 'Confirm no receipt?\nOrder will still be saved and sequence number updated.';
         if (!confirm(confirmMsg)) return;
 
-        const currentNo = await getNextOrderNo();
         const orderData = getOrderData();
+        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
+        orderData.num++;
         recordSale(cart);
         await saveOrderData(orderData);
 
@@ -503,27 +436,6 @@
         const doneMsg = userLang === 'zh' ? `訂單 No. ${currentNo} 已記錄，流水號已更新。` : `Order No. ${currentNo} saved. Sequence updated.`;
         alert(doneMsg);
         clearWholeOrder(true);
-    }
-
-    /* 🛑 緊急停止/重置：萬一又遇到不停出紙，先送 ESC @ 初始化指令嘗試讓印表機中止目前的異常狀態；
-       這是軟體能做的第一步急救，若送出後仍持續出紙，代表印表機內部緩衝區已經卡死，
-       務必直接關閉印表機電源再重新開機，這樣一定能中止 */
-    async function emergencyResetPrinter() {
-        if (!savedCharacteristic) {
-            alert(userLang === 'zh' ? '目前尚未連接印表機。' : 'Printer not connected.');
-            return;
-        }
-        try {
-            await savedCharacteristic.writeValue(new Uint8Array([0x1B, 0x40]));
-            document.getElementById('status-text').innerText = userLang === 'zh' ? '● 已送出重置指令' : '● Reset sent';
-            document.getElementById('status-text').style.color = '#607d8b';
-            alert(userLang === 'zh'
-                ? '已送出重置指令。\n若印表機仍持續出紙，請直接關閉印表機電源後再開機。'
-                : 'Reset command sent.\nIf it keeps feeding paper, power-cycle the printer.');
-        } catch (e) {
-            alert((userLang === 'zh' ? '重置失敗：' : 'Reset failed: ') + e.message
-                + (userLang === 'zh' ? '\n請直接關閉印表機電源後再開機。' : '\nPlease power-cycle the printer.'));
-        }
     }
 
     function askPrintLanguage() {
@@ -543,101 +455,37 @@
     }
     function closePrintPreview() { document.getElementById('preview-modal').style.display = 'none'; }
 
-    /* ✅ 修正「同一單不停出紙 / 列印變慢」問題（Xprinter XP-N1600II）：
-       根源：舊版把整張收據（哪怕只有 1 份餐點，高度也已達 ~590px）包成「單一個」
-       GS v0 點陣圖指令一次送出。Xprinter 這類廉價 ESC/POS 印表機的內部點陣緩衝區
-       容量有限（實測安全值約 200px 高），超過這個高度的「單一指令」會讓印表機
-       緩衝區溢位，把溢出的圖片資料誤判成新的列印／進紙指令，因而觸發「重複列印
-       同一張單」「不停出紙」的異常行為 —— 這跟藍牙傳輸速度或分塊大小無關，是
-       印表機韌體對「單指令圖片過高」的已知限制，並非亂碼／編碼問題。
-       解法：把整張收據縱向切成多個「安全高度」的色帶（band），每一色帶各自帶
-       自己的 GS v0 表頭分開送出。這樣每個指令都在印表機緩衝區容許範圍內，不會
-       溢位，同時每一色帶仍是「整條一次送出」（而非逐行送），所以速度依然遠比
-       最早期逐行列印的版本快，也不會再有重複出紙的問題。 */
-    const MAX_BAND_HEIGHT = 200; // Xprinter XP-N1600II 安全緩衝區高度；如仍有異常可再調低，例如 128
-
     /* forcedNo / isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
     async function handleFinalizeAndPrint(printLang, forcedNo = null, isReprint = false, successMsg = null) {
         const btn = document.getElementById('printBtn');
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
-            /* 一般列印（非強制指定號碼、非重印）：向雲端搶下一個號碼，確保跟其他手機接續同一組流水號 */
-            const currentNo = forcedNo || await getNextOrderNo();
+            const orderData = getOrderData();
+            const currentNo = forcedNo || orderData.num;
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
-            const canvasEl = document.getElementById('printCanvas');
-            const height = canvasEl.height;
-            const pixels = canvasEl.getContext('2d').getImageData(0, 0, 384, height).data;
+            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             const widthBytes = 48;
-
-            /* 把整張收據縱向切成安全高度的色帶，逐條轉點陣、逐條各自帶表頭送出 */
-            /* ✅ 修正「不停出紙」：封包大小從 200 bytes 大幅縮小為 32 bytes。
-               廉價 BLE-UART 橋接晶片常見的實際內部緩衝區只有 20~60 bytes，遠小於藍牙本身
-               理論上限，200 bytes 對它來說太大，容易在瞬間灌爆緩衝區造成資料遺失/錯位。
-               32 bytes 是實務上相容性與速度間的安全折衷值，如果之後同一台印表機又出現異常，
-               可以再往下調到 20（BLE 預設 ATT MTU 扣除表頭後的可用大小，相容性最高但最慢）。 */
-            let chunkSize = 32;
-            let totalChunks = 0;
-
-            for (let bandStart = 0; bandStart < height; bandStart += MAX_BAND_HEIGHT) {
-                const bandHeight = Math.min(MAX_BAND_HEIGHT, height - bandStart);
-
-                /* 把這一色帶轉成點陣資料（跟原本邏輯完全相同的黑白判斷，不影響列印品質）*/
-                const bandData = new Uint8Array(widthBytes * bandHeight);
-                for (let y = 0; y < bandHeight; y++) {
-                    const srcY = bandStart + y;
-                    for (let x = 0; x < widthBytes; x++) {
-                        let b = 0;
-                        for (let bit = 0; bit < 8; bit++) {
-                            let idx = ((srcY * 384) + (x * 8 + bit)) * 4;
-                            if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
-                        }
-                        bandData[y * widthBytes + x] = b;
+            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
+                let row = new Uint8Array(8 + widthBytes);
+                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+                for (let x = 0; x < widthBytes; x++) {
+                    let b = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        let idx = ((y * 384) + (x * 8 + bit)) * 4;
+                        if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
                     }
+                    row[8 + x] = b;
                 }
-
-                const header = new Uint8Array([0x1D, 0x76, 0x30, 0, widthBytes, 0, bandHeight & 0xFF, (bandHeight >> 8) & 0xFF]);
-                const fullBand = new Uint8Array(header.length + bandData.length);
-                fullBand.set(header, 0);
-                fullBand.set(bandData, header.length);
-
-                /* 色帶內部仍用分塊傳輸，減少單次寫入過大導致的 BLE 寫入失敗；
-                   若寫入失敗會自動把區塊縮小一半重試，確保不同印表機都能穩定印出 */
-                let offset = 0;
-                while (offset < fullBand.length) {
-                    const chunk = fullBand.subarray(offset, Math.min(offset + chunkSize, fullBand.length));
-                    try {
-                        if (isFastMode) {
-                            /* 無回應模式沒有硬體流控，每一包都要主動留延遲，讓印表機的小緩衝區來得及吃完，
-                               這是避免資料錯位、印出「不停出紙」異常的關鍵 */
-                            await targetChar.writeValueWithoutResponse(chunk);
-                            await new Promise(r => setTimeout(r, 12));
-                        } else {
-                            /* 有回應模式：Promise resolve 時代表印表機已確認收到這包，本身就有節流效果，
-                               只需極短延遲避免部分機型連續寫入過快 */
-                            await targetChar.writeValue(chunk);
-                            await new Promise(r => setTimeout(r, 4));
-                        }
-                        offset += chunk.length;
-                        totalChunks++;
-                    } catch (writeErr) {
-                        if (chunkSize > 8) { chunkSize = Math.max(8, Math.floor(chunkSize / 2)); continue; }
-                        throw writeErr;
-                    }
-                }
-
-                /* 每送完一條色帶，額外等一小段時間讓印表機把這條印完／走紙完畢，
-                   避免下一色帶的表頭跟前一色帶殘留資料在印表機緩衝區裡「撞在一起」，
-                   這也是造成不停出紙／重複列印的常見成因之一 */
-                await new Promise(r => setTimeout(r, 50));
+                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
+                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
             }
-
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
-                const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
+                orderData.num++;
                 recordSale(cart);
                 await saveOrderData(orderData);
                 alert("列印成功！");
@@ -802,11 +650,7 @@
         return url;
     }
 
-    async function updateOrderBadge() {
-        const badge = document.getElementById('order-badge');
-        const cloudNo = await peekNextOrderNo();
-        badge.innerText = `No. ${cloudNo !== null ? cloudNo : getOrderData().num}`;
-    }
+    function updateOrderBadge() { document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`; }
 
     function updateBottomBar() {
         let total = 0;
@@ -1228,9 +1072,10 @@
         const totalWithFee = item.price + (item.isTakeaway ? 0.30 : 0);
         document.getElementById('cart-total-sum').innerText = totalWithFee.toFixed(2);
 
-        const currentNo = await getNextOrderNo();
         const orderData = getOrderData();
+        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: totalWithFee.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
+        orderData.num++;
         recordSale([item]);
         await saveOrderData(orderData);
 
@@ -1267,8 +1112,6 @@
         updateOrderBadge();
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
-        /* 每30秒重新對一次雲端號碼，避免畫面上的號碼因為其他手機下單而顯得過時 */
-        setInterval(updateOrderBadge, 30000);
     });
 
 </script>
