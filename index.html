@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.9-hotfix1 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.9-hotfix2 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -514,29 +514,22 @@
     }
     function closePrintPreview() { document.getElementById('preview-modal').style.display = 'none'; }
 
-    /* ✅ 修正「按下列印後同一張單不停出紙」問題（Xprinter XP-N1600II）：
-       關鍵判斷：這不是 JavaScript 卡在無窮迴圈——下面這段 for 迴圈的結構保證會
-       結束（bandStart 每次遞增、超過 height 就跳出），所以按鈕會恢復、「列印成
-       功」提示也會照常跳出。會一直吐出「同一張、同樣單號同樣時間」的紙，代表
-       是印表機本身收到資料後，內部把收到的列印緩衝「重複播放」，這是廉價
-       ESC/POS 相容印表機常見的韌體毛病：當單一指令夾帶的圖片資料超過該機型
-       實際可承受的緩衝區大小（這個安全上限因機型而異，且往往遠比官方規格標示
-       的還小），印表機不會回報錯誤，而是把多出來的資料誤判、內部指標错亂，進
-       而不斷重播已經收到的那份資料——上一版設的 200 點高度對這台機器仍然太
-       大，這次大幅調低並加重節流。
-       解法：色帶高度大幅調低（200 → 40 點），色帶之間与每個分塊之間都拉長等
-       待時間，讓印表機確實把資料「消化＋印出＋走紙」完才送下一批，同時整個列
-       印工作結束後，額外送一個「初始化」指令，強制印表機清空自己內部殘留的緩
-       衝狀態，降低下一次列印被前一次殘留資料影響的機率。*/
-    const MAX_BAND_HEIGHT = 40; // 大幅調低：200 仍會重複列印，改用更保守的安全值；如仍有異常可再調更低，例如 24
-
-    /* forcedNo / isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
+    /* ⚠️ 列印傳輸方式回復為 v5.1.8 原始的「逐行」寫法：
+       背景：曾嘗試過「整張圖包一個指令」與「切成安全高度色帶」兩種方式，想解決
+       Xprinter XP-N1600II「按下列印後同一張單不停出紙」的問題，但兩次調整
+       （色帶 200 點、再降到 40 點）都仍然觸發印表機把已收到的緩衝資料重複播放
+       （第二次的照片顯示連色帶邊界都會誤觸發，代表問題核心不是「色帶多高」，
+       而是這台印表機本身對「大塊圖片指令」的處理就不穩定）。既然 v5.1.8「每一
+       行都各自送一個高度=1的 GS v0 指令」這個最保守的做法過去有穩定印出成功的
+       紀錄，這裡照你的指示改回這個逐行寫法，換取穩定性（代價是比色帶批次傳輸
+       慢一些，但至少不會再不停出紙）。若之後仍想再嘗試優化速度，可以再另外討
+       論，不會動到這個目前已確認穩定的版本。*/
     async function handleFinalizeAndPrint(printLang, forcedNo = null, isReprint = false, successMsg = null) {
         const btn = document.getElementById('printBtn');
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
-            /* ✅ 一般列印（非強制指定號碼、非重印）：向雲端搶下一個跨裝置共用的號碼 */
+            /* ✅ 流水號仍使用雲端共用搶號機制（這是另一個獨立且已確認有效的修正，保留不變）*/
             const currentNo = forcedNo || await getNextOrderNo();
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
@@ -546,65 +539,24 @@
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             const widthBytes = 48;
 
-            /* 把整張收據縱向切成安全高度的色帶，逐條轉點陣、逐條各自帶表頭送出 */
-            let chunkSize = 100;               // ✅ 從 200 調降為 100，降低單次寫入過大的風險
-            let totalChunks = 0;
-
-            for (let bandStart = 0; bandStart < height; bandStart += MAX_BAND_HEIGHT) {
-                const bandHeight = Math.min(MAX_BAND_HEIGHT, height - bandStart);
-
-                /* 把這一色帶轉成點陣資料（跟原本邏輯完全相同的黑白判斷，不影響列印品質）*/
-                const bandData = new Uint8Array(widthBytes * bandHeight);
-                for (let y = 0; y < bandHeight; y++) {
-                    const srcY = bandStart + y;
-                    for (let x = 0; x < widthBytes; x++) {
-                        let b = 0;
-                        for (let bit = 0; bit < 8; bit++) {
-                            let idx = ((srcY * 384) + (x * 8 + bit)) * 4;
-                            if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
-                        }
-                        bandData[y * widthBytes + x] = b;
+            /* 逐行送出：每一行各自包一個 GS v0 指令（高度固定為 1），
+               這是 v5.1.8 驗證過能穩定印出的原始寫法 */
+            for (let y = 0; y < height; y++) {
+                let row = new Uint8Array(8 + widthBytes);
+                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+                for (let x = 0; x < widthBytes; x++) {
+                    let b = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        let idx = ((y * 384) + (x * 8 + bit)) * 4;
+                        if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
                     }
+                    row[8 + x] = b;
                 }
-
-                const header = new Uint8Array([0x1D, 0x76, 0x30, 0, widthBytes, 0, bandHeight & 0xFF, (bandHeight >> 8) & 0xFF]);
-                const fullBand = new Uint8Array(header.length + bandData.length);
-                fullBand.set(header, 0);
-                fullBand.set(bandData, header.length);
-
-                /* 色帶內部仍用分塊傳輸，減少單次寫入過大導致的 BLE 寫入失敗；
-                   若寫入失敗會自動把區塊縮小一半重試，確保不同印表機都能穩定印出。
-                   ✅ 現在改成「每一個分塊」都停頓，而不是每 6 個才停一次，
-                   讓印表機有更充裕的時間逐步消化資料，不會被瞬間灌爆緩衝區 */
-                let offset = 0;
-                while (offset < fullBand.length) {
-                    const chunk = fullBand.subarray(offset, Math.min(offset + chunkSize, fullBand.length));
-                    try {
-                        if (isFastMode) await targetChar.writeValueWithoutResponse(chunk);
-                        else await targetChar.writeValue(chunk);
-                        offset += chunk.length;
-                        totalChunks++;
-                    } catch (writeErr) {
-                        if (chunkSize > 20) { chunkSize = Math.max(20, Math.floor(chunkSize / 2)); continue; }
-                        throw writeErr;
-                    }
-                    await new Promise(r => setTimeout(r, 10));   // ✅ 每個分塊都停 10ms（原本每 6 個才停 15ms）
-                }
-
-                /* 每送完一條色帶，額外等一小段時間讓印表機把這條「確實印黑、走紙」完畢，
-                   避免印字頭加熱不足導致字體印得又淡又糊看不清楚，也避免下一色帶表頭跟
-                   前一色帶殘留資料在印表機緩衝區裡「撞在一起」造成重複列印／缺字/斷行。
-                   ✅ 延遲從 30ms 加長到 60ms，給印表機更充裕的處理時間 */
-                await new Promise(r => setTimeout(r, 60));
+                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
+                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
             }
 
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
-
-            /* ✅ 新增：列印+切紙完成後，額外送一次「初始化」指令(ESC @)，
-               強制印表機清空自己內部可能殘留的緩衝狀態，降低這次列印的殘留
-               資料影響到「下一次」列印（甚至造成下一次也跟著不停重印）的機率 */
-            await new Promise(r => setTimeout(r, 100));
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             if (!isReprint) {
                 const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
