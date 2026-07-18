@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.9 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.2.1 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -192,7 +192,7 @@
         <div id="status-text">● 藍牙待機中</div>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
-        <span id="version-tag">v5.1.9</span>
+        <span id="version-tag">v5.2.1</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -212,7 +212,7 @@
     </div>
 </div>
 
-<canvas id="printCanvas" width="384"></canvas>
+<canvas id="printCanvas" width="576"></canvas>  <!-- ✅ 80mm紙捲：寬度由384點(58mm)加大為576點(80mm) -->
 
 <div id="cart-view-modal">
     <div style="background:white; border-radius:20px; padding:15px; max-width:480px; width:100%; max-height:85vh; display:flex; flex-direction:column;">
@@ -495,16 +495,16 @@
             const currentNo = forcedNo || orderData.num;
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
-            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 384, document.getElementById('printCanvas').height).data;
+            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 576, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
-            const widthBytes = 48;
+            const widthBytes = 72;  // ✅ 80mm紙捲：576點 ÷ 8 = 72 bytes（原58mm紙捲為48 bytes/384點）
             for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
                 let row = new Uint8Array(8 + widthBytes);
                 row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
                 for (let x = 0; x < widthBytes; x++) {
                     let b = 0;
                     for (let bit = 0; bit < 8; bit++) {
-                        let idx = ((y * 384) + (x * 8 + bit)) * 4;
+                        let idx = ((y * 576) + (x * 8 + bit)) * 4;
                         if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
                     }
                     row[8 + x] = b;
@@ -530,23 +530,50 @@
         }
     }
 
+    /* ✅ 修正「訂餐越多、底部空白越多」問題：
+       根源：舊版用「每項固定扣 260px」概估高度（280 + cart.length*260 + 50），
+       但很多品項實際遠用不到 260px——例如小食類（西刀魚餅、紫菜）完全沒有「大
+       小/麵種/醬料」那一行，沒有特別要求、沒有加料，實際只需要約 67-107px；就
+       算是麵/湯品項，只要沒勾選特別要求/加料/不要，實際也只需要約 107px。這個
+       落差（260px 估計 vs 實際 67-165px）會逐項累加，訂的品項越多，累積的空白
+       就越誇張，完全符合你在收據上用 A 標記出來的現象。
+       解法：改成「先模擬跑一次跟正式繪圖完全相同的判斷式與 y 座標累加邏輯」（不
+       實際畫圖，只精算數字），算出這張收據「真正需要」的高度，再拿這個精算值
+       去設定 canvas 高度——這樣無論品項多寡、內容多寡，底部都只會留一個固定、
+       很小的安全邊界，不會再隨品項數量倍增空白。*/
+    function computeDynamicHeight(cartData, isAllTakeaway) {
+        let y = 175;   // 與正式繪圖迴圈的起始位置 (startY + 175) 完全一致
+        cartData.forEach(item => {
+            y += 45;                                                     // 主餐名稱那一行
+            if (item.isTakeaway && !isAllTakeaway) y += 42;               // 外賣標籤（單項外賣時才印）
+            if (item.category !== '小食') y += 40;                       // 大小/麵種/醬料（小食沒有這行）
+            if (item.specialKeys && item.specialKeys.length) y += 40;    // 特別要求
+            const hasAdds = Object.values(item.additionKeys || {}).some(v => v > 0);
+            if (hasAdds) y += 40;                                        // 加料
+            if (item.noExtraKeys && item.noExtraKeys.length) y += 40;    // 不要
+            if (item.isTakeaway) y += 28;                                // 外賣附加費說明
+            y += 22;                                                     // 分隔線後的固定間距
+        });
+        y += 12 + 55;                          // TOTAL 那一行實際佔用的高度
+        if (isAllTakeaway) y += 165;            // 整單外賣的大「(外賣)」Logo（90px字體）
+        return y + 30;                          // 底部安全邊界：固定值，不再隨品項數量疊加
+    }
+
     function drawPrintCanvas(orderNo, printLang) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
         const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
-        /* 外賣Logo移到Total下方印出，字體放大為原本(45px)的2倍(90px)，底部要多留空間 */
-        const bottomLogoH = isAllTakeaway ? 130 : 0;
-        const dynamicHeight = 280 + (cart.length * 260) + 50 + bottomLogoH;
+        const dynamicHeight = computeDynamicHeight(cart, isAllTakeaway);
         canvas.height = dynamicHeight;
 
-        ctx.fillStyle = "white"; ctx.fillRect(0, 0, 384, canvas.height);
+        ctx.fillStyle = "white"; ctx.fillRect(0, 0, 576, canvas.height);
         ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center";
-        const centerX = 192, maxW = 300;
+        const centerX = 288, maxW = 450;  // ✅ 80mm紙捲：centerX=576的正中央；maxW依同比例放大，讓文字能利用更寬的紙面
         let startY = 0;
 
         ctx.font = "bold 26px sans-serif"; ctx.fillText("Million FishBall Noodle", centerX, startY + 20);
         ctx.font = "18px sans-serif";      ctx.fillText(new Date().toLocaleString(), centerX, startY + 55);
         ctx.font = "bold 44px sans-serif"; ctx.fillText(`No. ${orderNo}`, centerX, startY + 85);
-        ctx.font = "bold 20px sans-serif"; ctx.fillText("------------------------------------------", centerX, startY + 135);
+        ctx.font = "bold 20px sans-serif"; ctx.fillText("--------------------------------------------------------------", centerX, startY + 135);  // ✅ 加長虛線以匹配80mm紙寬
         let y = startY + 175;
 
         cart.forEach((item) => {
@@ -565,7 +592,7 @@
 
             if (item.sizeKey === '大的') {
                 ctx.save();
-                const cx = 358, cy = y + 20, r = 26;
+                const cx = 550, cy = y + 20, r = 26;  // ✅ 80mm紙捲：靠右對齊(576-26)，取代58mm紙的358(384-26)
                 ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
                 ctx.fillStyle = "black"; ctx.fill();
                 ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -580,7 +607,7 @@
                 ctx.textAlign = "right";
                 ctx.font = "bold 34px sans-serif";
                 ctx.fillStyle = "black";
-                ctx.fillText(printLang === 'zh' ? "🥡(外賣)" : "🥡(TAKEAWAY)", 376, y);
+                ctx.fillText(printLang === 'zh' ? "🥡(外賣)" : "🥡(TAKEAWAY)", 568, y);  // ✅ 80mm紙捲：靠右對齊(576-8)，取代58mm紙的376(384-8)
                 ctx.restore();
                 y += 42;
             }
@@ -611,7 +638,7 @@
 
             ctx.save();
             ctx.strokeStyle = "#000"; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
-            ctx.beginPath(); ctx.moveTo(0, y + 8); ctx.lineTo(384, y + 8); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, y + 8); ctx.lineTo(576, y + 8); ctx.stroke();
             ctx.setLineDash([]); ctx.restore();
             y += 22;
         });
@@ -625,7 +652,7 @@
             ctx.textAlign = "center";
             ctx.font = "bold 90px sans-serif";
             ctx.fillStyle = "black";
-            ctx.fillText(printLang === 'zh' ? "(外賣)" : "(TAKEAWAY)", centerX, y + 65, 370);
+            ctx.fillText(printLang === 'zh' ? "(外賣)" : "(TAKEAWAY)", centerX, y + 65, 550);  // ✅ 80mm紙捲：maxWidth依同比例放大
             ctx.restore();
         }
     }
