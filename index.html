@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.1.8 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.1.9 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -73,6 +73,9 @@
     .collapse-body.closed { display: none; }
     .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { padding: 11px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fff; font-weight: 900; font-size: 0.92rem; color: #444; }
+    /* ✅ 需求3：醬料區的「湯」選項加大加粗，方便快速找到／點按（尤其搭配需求4的自動連動）*/
+    .chip-soup { padding: 15px 24px; font-size: 1.2rem; border-width: 3.5px; border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.15); }
+    .chip-soup.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
     .chip.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
     .chip.warn.selected { border-color: #e53935; background: #ffebee; color: #e53935; }
     .chip.big { padding: 14px 22px; font-size: 1rem; }
@@ -167,6 +170,7 @@
         .cz-title { font-size: 1.1rem; }
         .confirm-btn-top { padding: 10px 12px; font-size: 0.88rem; }
         .chip { padding: 9px 12px; font-size: 0.85rem; }
+        .chip-soup { padding: 13px 20px; font-size: 1.05rem; }
         .chip.big { padding: 12px 16px; font-size: 0.92rem; }
         .bb-btn { padding: 13px 4px; font-size: 0.82rem; }
         #cart-summary-mini { font-size: 0.85rem; }
@@ -188,7 +192,7 @@
         <div id="status-text">● 藍牙待機中</div>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
-        <span id="version-tag">v5.1.8</span>
+        <span id="version-tag">v5.1.9</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -714,6 +718,22 @@
         return a.slice(0, n);
     }
 
+    /* ✅ 需求2：麵食類的隨機推薦，除了主餐隨機外，麵種／醬料也一併隨機搭配，
+       讓每次抽到的組合更多樣化，而不是每張卡都固定「面薄・辣椒」。
+       若隨機到的麵種剛好是 SOUP_IMPLIES_NOODLES（米太目/冬粉/米粉），
+       醬料會強制對應為「湯」，跟需求4的自動連動規則保持一致，不會出現「冬粉+辣椒」這種怪組合。*/
+    function buildRandomNoodleAndSauce() {
+        const noodleKeys = Object.keys(config.noodleTypeImgs);
+        const noodleKey = noodleKeys[Math.floor(Math.random() * noodleKeys.length)];
+        let sauceKey;
+        if (SOUP_IMPLIES_NOODLES.includes(noodleKey)) {
+            sauceKey = '湯';   // 與 setTempNoodle() 的自動連動規則一致
+        } else {
+            sauceKey = config.sauces[Math.floor(Math.random() * config.sauces.length)];
+        }
+        return { noodleKey, sauceKey };
+    }
+
     function renderQuickSuggestionsHtml() {
         const cat = currentCategory;
         const keys = getCategoryKeys(cat);
@@ -721,21 +741,32 @@
             return `<div class="empty-hint">👈 ${userLang==='zh' ? '請從左側選擇餐點開始點餐' : 'Select an item on the left to start.'}</div>`;
         }
 
+        /* 快選快取現在存的是「完整組合物件」而不只是主餐 key：
+           { key, noodleKey, sauceKey } —— 這樣畫面顯示的組合，跟按下去實際下單的組合保證一致 */
         if (!quickSuggestionCache[cat] || quickSuggestionCache[cat].length === 0) {
-            quickSuggestionCache[cat] = pickRandom(keys, Math.min(4, keys.length));
+            const chosenKeys = pickRandom(keys, Math.min(4, keys.length));
+            quickSuggestionCache[cat] = chosenKeys.map(key => {
+                if (cat === '面') {
+                    const { noodleKey, sauceKey } = buildRandomNoodleAndSauce();
+                    return { key, noodleKey, sauceKey };
+                }
+                return { key };
+            });
         }
         const picks = quickSuggestionCache[cat];
         const catLabel = cat==='湯' ? (userLang==='zh'?'湯品':'soup') : cat==='面' ? (userLang==='zh'?'麵食':'noodle') : (userLang==='zh'?'小食':'snack');
 
         return `<div style="font-weight:900; font-size:1.05rem; margin-bottom:4px;">✨ ${userLang==='zh'?`為你隨機推薦幾款${catLabel}`:`Suggested ${catLabel}`}</div>
         <div style="font-size:0.8rem; color:#999; margin-bottom:12px;">👈 ${userLang==='zh'?'或從左側完整清單選擇；點卡片可直接下單並列印':'Or pick from the full list on the left; tap a card to order & print instantly'}</div>
-        <div class="hot-grid">${picks.map(key => {
+        <div class="hot-grid">${picks.map((pick, idx) => {
+            const { key } = pick;
             const price = getSuggestionPrice(key, cat);
             const img = getAnyItemImage(key, cat);
             const mediaHtml = img
                 ? `<div class="hot-img"><img src="${img}" alt="${getItemName(key)}" loading="lazy"></div>`
                 : `<div class="hot-img hot-img-marquee"><span>${getItemName(key)}</span></div>`;
-            const descText = cat === '面' ? (userLang==='zh'?'面薄・辣椒（小）':'Mee Pok・Chili (S)')
+            /* ✅ 面食的說明文字改為顯示「這張卡實際隨機到」的麵種＋醬料組合（小份），而非固定文字 */
+            const descText = cat === '面' ? `${getItemName(pick.noodleKey)}・${getItemName(pick.sauceKey)}（${userLang==='zh'?'小':'S'}）`
                             : cat === '小食' ? `${getItemRatio(key)}${getItemUnit(key)}`
                             : (userLang==='zh'?'湯底':'Soup base');
             return `<div class="hot-card">
@@ -750,22 +781,25 @@
                 </div>
                 <div class="hot-card-footer">
                     <div class="hot-price">$${price.toFixed(2)}</div>
-                    <button class="hot-order-btn" onclick="quickSuggestOrder('${cat}','${key}')">🛒 ${userLang==='zh'?'下單':'Order'}</button>
+                    <button class="hot-order-btn" onclick="quickSuggestOrder('${cat}', ${idx})">🛒 ${userLang==='zh'?'下單':'Order'}</button>
                 </div>
             </div>`;
         }).join('')}</div>`;
     }
 
-    /* 快選卡片一按下單：直接套用該分類的常用預設值（跟 selectItem() 的預設一致），
-       立刻結帳、記錄銷售並印出收據，行為與「人氣」榜的一鍵下單完全一致 */
-    async function quickSuggestOrder(cat, key) {
+    /* 快選卡片一按下單：直接套用該卡片顯示的組合（麵食的麵種/醬料是該卡片抽到的隨機組合，
+       跟畫面上顯示的完全一致），立刻結帳、記錄銷售並印出收據，行為與「人氣」榜的一鍵下單一致 */
+    async function quickSuggestOrder(cat, idx) {
+        const pick = quickSuggestionCache[cat][idx];
+        const key = pick.key;
         let item;
         if (cat === '湯') {
             item = { mainKey: key, sizeKey: '小的', noodleKey: '湯品', sauceKeys: ['湯'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '湯', isTakeaway: false };
         } else if (cat === '小食') {
             item = { mainKey: key, sizeKey: '', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '小食', isTakeaway: false };
         } else {
-            item = { mainKey: key, sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: false };
+            /* ✅ 用該卡片實際隨機到的麵種／醬料下單，跟畫面顯示的組合一致 */
+            item = { mainKey: key, sizeKey: '小的', noodleKey: pick.noodleKey, sauceKeys: [pick.sauceKey], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: false };
         }
         item.price = computeBasePrice(item.mainKey, item.sizeKey, item.category);
 
@@ -948,7 +982,7 @@
             </div></div>`;
 
             html += `<div class="section"><div class="section-label">🌶 ${userLang==='zh'?'醬料（可複選）':'Sauce (multi)'}</div><div class="chip-row">
-                ${config.sauces.map(k => `<button class="chip ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
+                ${config.sauces.map(k => `<button class="chip ${k==='湯' ? 'chip-soup' : ''} ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
             </div></div>`;
 
             html += `<div class="section"><div class="section-label collapsible" onclick="toggleSection('special')">
@@ -988,7 +1022,18 @@
     }
 
     function setTempSize(v) { tempItem.sizeKey = v; renderCustomizePanel(); }
-    function setTempNoodle(v) { tempItem.noodleKey = v; renderCustomizePanel(); }
+    /* ✅ 需求4：這幾種麵種幾乎都是湯底吃法，選到時自動幫忙選好「湯」醬料，
+       減少每次都要多點一下的麻煩；使用者仍可以自行改回其他醬料，並非強制鎖定。
+       這份清單同時也給「隨機推薦」(quickSuggestion) 共用，確保兩處行為一致。*/
+    const SOUP_IMPLIES_NOODLES = ['米太目', '冬粉', '米粉'];
+
+    function setTempNoodle(v) {
+        tempItem.noodleKey = v;
+        if (SOUP_IMPLIES_NOODLES.includes(v)) {
+            tempItem.sauceKeys = ['湯'];   // 自動連動選湯，與 toggleTempSauce('湯') 效果一致
+        }
+        renderCustomizePanel();
+    }
     /* 醬料互斥狀態機：
        (A) 「湯」與任何其他醬料互斥 —— 按下湯，其他全部清空；按下任何其他醬料，湯自動取消
        (B) 「辣椒／少辣／多辣」三個是單選(Radio) —— 選其中一個，另外兩個自動回復未選 */
