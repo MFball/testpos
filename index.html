@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.2.1 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.2.2 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -19,7 +19,10 @@
         --takeaway: #5c6bc0;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; margin: 0; overflow: hidden; }
+    html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: contain; }
+    /* ✅ overscroll-behavior: contain → 防止手指往上/往左右滑過頭時，
+       瀏覽器把這個手勢當成「下拉刷新」或「側滑上一頁」而觸發整頁重新整理
+       （這是導致藍牙連線中斷、需要重新配對的主因）*/
     body { font-family: -apple-system, "Helvetica Neue", "PingFang TC", sans-serif; background: var(--secondary); user-select: none; }
     button { font-family: inherit; cursor: pointer; }
 
@@ -76,6 +79,24 @@
     /* ✅ 需求3：醬料區的「湯」選項加大加粗，方便快速找到／點按（尤其搭配需求4的自動連動）*/
     .chip-soup { padding: 15px 24px; font-size: 1.2rem; border-width: 3.5px; border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.15); }
     .chip-soup.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    /* ✅ 需求2：醬料區排版 —— 左右各一個大按鈕（辣椒／湯），中間是其餘醬料的小格子，
+       對應手繪草圖：左「辣椒」直書大按鈕，右「湯」直書大按鈕，中間3欄小格 */
+    .sauce-layout { display: flex; gap: 8px; align-items: stretch; }
+    .sauce-side-btn {
+        flex: 0 0 68px;
+        display: flex; align-items: center; justify-content: center;
+        writing-mode: vertical-rl; text-orientation: upright;
+        font-size: 1.25rem; font-weight: 900; letter-spacing: 2px;
+        border-radius: 14px; border: 3px solid #eee; background: #fff; color: #444;
+    }
+    .sauce-side-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .sauce-side-btn.soup-side { border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.15); }
+    .sauce-mid-grid {
+        flex: 1; min-width: 0;
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start;
+    }
+    .sauce-mid-grid .chip { width: 100%; padding: 10px 4px; font-size: 0.85rem; }
     .chip.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
     .chip.warn.selected { border-color: #e53935; background: #ffebee; color: #e53935; }
     .chip.big { padding: 14px 22px; font-size: 1rem; }
@@ -192,7 +213,7 @@
         <div id="status-text">● 藍牙待機中</div>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
-        <span id="version-tag">v5.2.1</span>
+        <span id="version-tag">v5.2.2</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -252,6 +273,25 @@
     setAppHeight();
     window.addEventListener('resize', setAppHeight);
     window.addEventListener('orientationchange', () => setTimeout(setAppHeight, 100));
+
+    /* ✅ 需求3：防止不小心整頁滑動(拉左/拉上)觸發重新整理，導致藍牙連線中斷、
+       系統要重新連接。分兩層防護：
+
+       第一層（主要防線）：上面 CSS 的 overscroll-behavior: contain，
+       直接讓瀏覽器「不觸發」下拉刷新／側滑翻頁的手勢，大部分意外滑動在這一層
+       就被擋下來，畫面完全不會動、更不會刷新。
+
+       第二層（安全網）：萬一真的觸發到重新整理／關閉分頁／切換網址（例如按了
+       瀏覽器本身的重新整理鍵，或手機返回鍵），攔截 beforeunload 事件跳出確認
+       視窗。⚠️ 重要限制：基於瀏覽器安全規範（防止假造的釣魚式彈窗），Chrome／
+       Safari 等現代瀏覽器「不允許」網頁自訂這個確認視窗的文字內容，一律只會
+       顯示瀏覽器自己的制式提示（不會顯示成「是否退出」這幾個字），但效果一致：
+       選擇「離開」＝允許重新整理／關閉；選擇「取消」＝留在原頁面，藍牙連線和
+       購物車內容都不受影響。*/
+    window.addEventListener('beforeunload', (e) => {
+        e.preventDefault();
+        e.returnValue = '';   // 觸發瀏覽器原生的離開確認提示（文字內容由瀏覽器決定，無法自訂）
+    });
 
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
@@ -556,7 +596,7 @@
         });
         y += 12 + 55;                          // TOTAL 那一行實際佔用的高度
         if (isAllTakeaway) y += 165;            // 整單外賣的大「(外賣)」Logo（90px字體）
-        return y + 100;                          // 底部安全邊界：固定值，不再隨品項數量疊加
+        return y + 100;                          // 底部安全邊界：固定值，不再隨品項數量疊加（已由實際列印測試確認，+30 不夠、+100 才正常）
     }
 
     function drawPrintCanvas(orderNo, printLang) {
@@ -665,7 +705,7 @@
             '魚圓面':{zh:'魚圓面', en:'Fishball Noodle'}, '香菇肉碎面':{zh:'香菇肉碎面', en:'Mushroom Minced Noodle'}, '招牌面':{zh:'招牌面', en:'Signature Noodle'}, '餐餐面':{zh:'餐餐面', en:'Can Can Noodle'}, '肉圓面':{zh:'肉圓面', en:'Meatball Noodle'}, '蝦魚面':{zh:'蝦魚面', en:'Prawn Fish Noodle'}, '西刀魚面':{zh:'西刀魚面', en:'Saito Fish Noodle'}, '香菇面':{zh:'香菇面', en:'Mushroom Noodle'}, '魚餃面':{zh:'魚餃面', en:'Fish Dumpling Noodle'}, '(純)肉碎面':{zh:'(純)肉碎面', en:'Pure Minced Noodle'}, '小魚香面':{zh:'小魚香面', en:'Small Fish Noodle'}, '兒童餐':{zh:'兒童餐', en:'Kids Meal'},
             '魚圓湯':{zh:'魚圓湯', en:'Fishball Soup'}, '肉圓湯':{zh:'肉圓湯', en:'Meatball Soup'}, '魚餃湯':{zh:'魚餃湯', en:'Fish Dumpling Soup'}, '三寶湯':{zh:'三寶湯', en:'Triple Treasure Soup'}, '魚圓肉圓湯':{zh:'魚圓肉圓湯', en:'FB+MB Soup'}, '魚圓魚餃湯':{zh:'魚圓魚餃湯', en:'FB+FD Soup'},
             '面薄':{zh:'面薄', en:'Mee Pok'}, '幼面':{zh:'幼面', en:'Mee Kia'}, '粿條':{zh:'粿條', en:'Kway Teow'}, '熟面':{zh:'熟面', en:'Yellow Noodle'}, '米粉':{zh:'米粉', en:'Bee Hoon'}, '米太目':{zh:'米太目', en:'Mee Tai Mak'}, '冬粉':{zh:'冬粉', en:'Tang Hoon'}, '粿條面':{zh:'粿條面', en:'Kway Teow Mee'}, '粿條米粉':{zh:'粿條米粉', en:'Kway Teow Bee Hoon'}, '米粉面':{zh:'米粉面', en:'Bee Hoon Mee'},
-            '辣椒':{zh:'辣椒', en:'Chili'}, '少辣':{zh:'少辣', en:'Less Chili'}, '多辣':{zh:'多辣', en:'More Chili'}, '茄汁':{zh:'茄汁', en:'Tomato'}, '黑醬油':{zh:'黑醬油', en:'Black Soy'}, '白醬青':{zh:'白醬青', en:'Light Soy'}, '醋':{zh:'醋', en:'Vinegar'}, '三味':{zh:'三味', en:'3-Taste Sauce'}, '湯':{zh:'湯', en:'Soup Base'},
+            '辣椒':{zh:'辣椒', en:'Chili'}, '少辣':{zh:'少辣', en:'Less Chili'}, '多辣':{zh:'多辣', en:'More Chili'}, '茄汁':{zh:'茄汁', en:'Tomato'}, '黑醬油':{zh:'黑醬油', en:'Black Soy'}, '白醬青':{zh:'白醬青', en:'Light Soy'}, '醋':{zh:'醋', en:'Vinegar'}, '三味':{zh:'三味', en:'3-Taste Sauce'}, '分湯':{zh:'分湯', en:'Soup Separate'}, '湯':{zh:'湯', en:'Soup Base'},
             '剪麵':{zh:'剪麵', en:'Cut Noodle'}, '面煮軟':{zh:'面煮軟', en:'Soft Noodle'}, '要煮硬':{zh:'要煮硬', en:'Hard Noodle'}, '不要豬油':{zh:'不要豬油', en:'No Lard'}, '肉圓換魚圓':{zh:'肉圓換魚圓', en:'Meatball→Fishball'}, '少份量':{zh:'少份量', en:'Less Portion'}, '分開湯':{zh:'分開湯', en:'Soup Separated'},
             '肉碎':{zh:'肉碎', en:'Minced Meat'}, '香菇':{zh:'香菇', en:'Mushroom'}, '蔥':{zh:'蔥', en:'Spring Onion'}, '油':{zh:'油', en:'Oil'}, '黑醬油(不要)':{zh:'黑醬油', en:'Black Soy'},
             '魚圓':{zh:'魚圓', en:'Fishball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '肉圓':{zh:'肉圓', en:'Meatball', ratio:2, unit:{zh:'粒', en:'pcs'}}, '魚餃':{zh:'魚餃', en:'Fish Dumpling', ratio:2, unit:{zh:'粒', en:'pcs'}}, '蝦':{zh:'蝦', en:'Prawn', ratio:1, unit:{zh:'隻', en:'pcs'}}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake', ratio:1, unit:{zh:'條', en:'pcs'}}, '小魚香':{zh:'小魚香', en:'Small Fish', ratio:2, unit:{zh:'條', en:'pcs'}}, '香菇加':{zh:'香菇', en:'Mushroom', ratio:1, unit:{zh:'份', en:'serv'}}, '肉碎加':{zh:'肉碎', en:'Minced Meat', ratio:1, unit:{zh:'份', en:'serv'}}, '香腸(雞)':{zh:'香腸(雞)', en:'Chicken Sausage', ratio:1, unit:{zh:'條', en:'pcs'}}, '紫菜':{zh:'紫菜', en:'Seaweed', ratio:1, unit:{zh:'片', en:'sheet'}}, '魚餅(圓)':{zh:'魚餅(圓)', en:'Fish Cake (Round)', ratio:1, unit:{zh:'個', en:'pcs'}}, '鴛鴦紫菜湯':{zh:'鴛鴦紫菜湯', en:'Yuan-Yang Seaweed Soup'},
@@ -677,7 +717,7 @@
         foodImgs: { '魚圓面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '香菇肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczPRrBESQHr4MjJaDdiXYFda03b72aUrxqrO--coLUrariBXksy0KTPNNaXhzOmmrVhkbChOGKQFqiR8zRRcPZWSd7Hk-inOhSXStOXgC8d0a85lycU=w2400?source=screenshot.guru', '招牌面': 'https://lh3.googleusercontent.com/pw/AP1GczOVfyFF0BVjs49utoC4oxktdqpCblSROVp-z7A0aH5pjECVNDmcaKulF2YA7DBUEDZxzEij53427j1LqfZYPzUSFGdUM2_Zt-aYxIYJY40qAfH5wq8=w2400?source=screenshot.guru', '餐餐面': 'https://lh3.googleusercontent.com/pw/AP1GczPI477AgneL3f4pcuLKg25GQlwB9XCNdxRaABOxwTvciSuYeGzbEu1cez6OIb25ZSS6RMchPIuuTEFHKttxXRnvYboZ5PQh-0HJH1MtI49AWBL1GDA=w2400?source=screenshot.guru', '肉圓面': 'https://lh3.googleusercontent.com/pw/AP1GczO2J-xP5sDqsYL-5nFYQgmYldq26dabn-ezwb-vCUGDZ-S5nq_i7dsnWNmsswG5ippV0aBSwxf3zx6lfCHrhVOehydel1JSOBnr0aXMXmInJ1_9gnM=w2400?source=screenshot.guru', '蝦魚面': 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru', '西刀魚面': 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', '香菇面': 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru', '魚餃面': 'https://i.ibb.co/nNLMt8jp/Fish-Dumpling-noodle.png', '(純)肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '小魚香面': 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru', '兒童餐': 'https://i.ibb.co/6bHNPjP/kids-meal-placeholder.png' },
         soupImgs: { '魚圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '三寶湯': 'https://lh3.googleusercontent.com/pw/AP1GczOGkSr6douVYw5ED49ONXDbTqp9tX92Syg3QnRHG43a8zZebTgtjWEUXgLieeqYOw-7CQdLF9Tm_1aVhak1HCxrCdPKf6lwtrrL9GopjkdCwX9FUtM=w2400?source=screenshot.guru', '魚圓肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '魚圓魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '鴛鴦紫菜湯': 'https://i.ibb.co/placeholder/yuanyang-seaweed-soup.png' },
         noodleTypeImgs: { '面薄': 'https://lh3.googleusercontent.com/pw/AP1GczPTdYtkKQVVtu2xC4GqatBEs58tYr0xrU6-P08JGLPXNa9URyrd85OABGJvhRRywZqI_6ILtjozkyDCPJWyfo34-z3KP5EPG56bOb6S73_130W3J00=w2400?source=screenshot.guru', '幼面': 'https://lh3.googleusercontent.com/pw/AP1GczNzHJopdj33Emt-5K2nGrlY8AQRwcGxsmIGUyy2dzSKyFYLHxqH-tz7bIRoqlVFfxfetpW7bKNjWvenQuHQ1oPEWLa8r0Zv98IXzUaIhJlRpdNaMJU=w2400?source=screenshot.guru', '粿條': 'https://lh3.googleusercontent.com/pw/AP1GczPwzNH0_FdwO99aeaxK8kWR64JXsBGwj4s5HB13lSvp-sZwggbp8XT8yfDkbp7Cz_ZB-jynkrLK7FFpIQSTf_t4Umd8Eje8i_nWWxFshmGTKkrzCn4=w2400?source=screenshot.guru', '熟面': 'https://lh3.googleusercontent.com/pw/AP1GczO5hHYBkxDeOygQ1hWxWYtPlMOGUWWImLcvrXSe9dYeWIPukbqHY5O9qq6IrM9Q88jSG6EE8HmeIM9jOg081VP1KcW7uXlnaMCsWb56wt3dRd9WJJw=w2400?source=screenshot.guru', '米粉': 'https://lh3.googleusercontent.com/pw/AP1GczMCq_h1GaefE-Kpouj1xUx_GoEhsa6BHL7giIsCTbZqtOKJG_8AJIpYSsqpPEiR5Ao00oYTYixHE7KxdZjWSv2LTg-CQ_xWVBv8OfAB98J7Z1wPYG0=w2400?source=screenshot.guru', '米太目': 'https://lh3.googleusercontent.com/pw/AP1GczNPdhdHay7KR_IB303jyQY9PkJv14r8_ctsIwsnIGVdX5m0e4mAQjGoW6kMCuWfZEzoGn0PfIS4YbYsam7ncI1eDn9rYAbQ53qUsbpt4BHxE2Gur3k=w600-h315-p-k', '冬粉': 'https://lh3.googleusercontent.com/pw/AP1GczMjjBg1W6WSV-nXO1fI3_rZXHO1u53fhIyPuY8F5PfDsGsSNuMqbrcoNbcIYTISpCvg-YzHA3xOyUmD1SUOQQvXXoAsXW9wTiEt9IswwswNBTCsoCc=w2400?source=screenshot.guru', '粿條面': 'https://i.ibb.co/4Z3pjddg/Kuay-Teow-Noodle.png', '粿條米粉': 'https://i.ibb.co/Kc4dzrMJ/Kuay-Teow-Mee-Hoon.png', '米粉面': 'https://i.ibb.co/GvHqTPM4/Mee-Hoon-Noodle.png' },
-        sauces: ['辣椒', '少辣', '多辣', '茄汁', '黑醬油', '白醬青', '醋', '三味', '湯'],
+        sauces: ['辣椒', '少辣', '多辣', '茄汁', '黑醬油', '白醬青', '醋', '三味', '分湯', '湯'],
         specials: ['剪麵', '面煮軟', '要煮硬', '豬油渣', '肉圓換魚圓', '少份量'],
         noExtraImgs: { '肉碎': 'https://i.ibb.co/676LvDVq/Gemini-Generated-Image-o7imd3o7imd3o7im.png', '香菇': 'https://i.ibb.co/gM38Xyd2/Gemini-Generated-Image-8vtp9l8vtp9l8vtp.png', '蔥': 'https://i.ibb.co/VWF95cZS/Gemini-Generated-Image-bfrir0bfrir0bfri.png', '油': 'https://i.ibb.co/X6SD0Tg/Gemini-Generated-Image-rsjy20rsjy20rsjy.png', '黑醬油(不要)': 'https://i.ibb.co/b5xFQwFg/Gemini-Generated-Image-npcrx5npcrx5npcr.png' },
         additions: [
@@ -1008,9 +1048,18 @@
                 ${Object.keys(config.noodleTypeImgs).map(k => `<button class="chip ${t.noodleKey===k?'selected':''}" onclick="setTempNoodle('${k}')">${getItemName(k)}</button>`).join('')}
             </div></div>`;
 
-            html += `<div class="section"><div class="section-label">🌶 ${userLang==='zh'?'醬料（可複選）':'Sauce (multi)'}</div><div class="chip-row">
-                ${config.sauces.map(k => `<button class="chip ${k==='湯' ? 'chip-soup' : ''} ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
-            </div></div>`;
+            {
+                /* ✅ 需求2：辣椒／湯各自獨立成左右兩側的大按鈕，其餘醬料放中間小格子 */
+                const midSauces = config.sauces.filter(k => k !== '辣椒' && k !== '湯');
+                html += `<div class="section"><div class="section-label">🌶 ${userLang==='zh'?'醬料（可複選）':'Sauce (multi)'}</div>
+                <div class="sauce-layout">
+                    <button class="sauce-side-btn ${t.sauceKeys.includes('辣椒')?'selected':''}" onclick="toggleTempSauce('辣椒')">${getItemName('辣椒')}</button>
+                    <div class="sauce-mid-grid">
+                        ${midSauces.map(k => `<button class="chip ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
+                    </div>
+                    <button class="sauce-side-btn soup-side ${t.sauceKeys.includes('湯')?'selected':''}" onclick="toggleTempSauce('湯')">${getItemName('湯')}</button>
+                </div></div>`;
+            }
 
             html += `<div class="section"><div class="section-label collapsible" onclick="toggleSection('special')">
                 <span class="tri">${panelCollapse.special?'▶':'▼'}</span> ⚠️ ${userLang==='zh'?'特別要求':'Special Request'}
