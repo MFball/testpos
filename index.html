@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.3.0 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.3.2 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -161,6 +161,14 @@
     #history-panel { display:none; position:fixed; top:6%; left:5%; right:5%; bottom:6%; background:white; z-index:2000; border-radius:24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); padding:20px; border:3px solid var(--primary); overflow-y:auto; }
     .hist-item { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee; }
     #preview-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center; padding:20px; }
+    /* ✅ 列印語言選擇彈窗：取代原本只能兩個按鈕的 confirm()，改成可以放第三個「取消返回」按鈕 */
+    #print-lang-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3100; align-items:center; justify-content:center; padding:20px; }
+    .plm-card { background:#fff; border-radius:20px; padding:22px; max-width:360px; width:100%; text-align:center; }
+    .plm-title { font-weight:900; font-size:1.15rem; margin-bottom:18px; }
+    .plm-btn { display:block; width:100%; padding:16px; border-radius:14px; border:none; font-weight:900; font-size:1.1rem; margin-bottom:10px; color:#fff; }
+    .plm-btn-zh { background: var(--primary); }
+    .plm-btn-en { background: var(--success); }
+    .plm-btn-cancel { background:#eee; color:#666; font-size:0.95rem; padding:13px; margin-top:4px; }
     #cart-view-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2800; align-items:center; justify-content:center; padding:20px; }
 
     /* ── 「已加入購物車」小提示：加入後停留原面板，用這個做明確的成功回饋 ── */
@@ -212,7 +220,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.3.0</span>
+        <span id="version-tag">v5.3.1</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -242,6 +250,15 @@
         </div>
         <div id="cart-modal-body" style="overflow-y:auto; flex:1;"></div>
         <button onclick="closeCartModal()" style="margin-top:12px; background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">關閉 Close</button>
+    </div>
+</div>
+
+<div id="print-lang-modal">
+    <div class="plm-card">
+        <div class="plm-title" id="plm-title">選擇列印語言 / Select Print Language</div>
+        <button class="plm-btn plm-btn-zh" onclick="confirmPrintLanguage('zh')">中文</button>
+        <button class="plm-btn plm-btn-en" onclick="confirmPrintLanguage('en')">English</button>
+        <button class="plm-btn plm-btn-cancel" id="plm-cancel-btn" onclick="cancelPrintLanguage()">取消返回</button>
     </div>
 </div>
 
@@ -348,6 +365,50 @@
                         dictionary.items[key] = { ...(dictionary.items[key] || {}), ratio: v.ratio || 1, unit: v.unit || { zh: '份', en: 'serv' } };
                     }
                 });
+            }
+
+            /* ✅ 不要什麼／特別要求：主理員後台存成「以品項名稱為 key 的純文字選項」物件（沒有價錢/圖片），
+               這裡分別併入前台原本的 config.noExtraImgs（不要什麼）與 config.specials（特別要求），
+               並把英文名稱補進 dictionary.items，讓 getItemName() 能正確顯示雙語；
+               中文名稱一律沿用 key 本身，如果原本內建字典已經有翻譯（例如「黑醬油(不要)」對應中文顯示「黑醬油」），
+               則保留原本的翻譯，不會被蓋掉 */
+            function mergeSimpleOptionName(key, v) {
+                const existing = dictionary.items[key];
+                if (v.en) {
+                    dictionary.items[key] = { ...(existing || {}), zh: (existing && existing.zh) || key, en: v.en };
+                } else if (!existing) {
+                    dictionary.items[key] = { zh: key, en: '' };
+                }
+            }
+
+            if (cloud.noWant) {
+                const cloudKeys = Object.keys(cloud.noWant);
+                const merged = {};
+                /* 保留原本內建、且沒有被雲端接管的預設項目（維持原順序，排在有明確排序值的雲端項目後面） */
+                Object.keys(config.noExtraImgs).forEach(k => {
+                    if (!cloudKeys.includes(k)) merged[k] = { img: config.noExtraImgs[k], order: 9999 };
+                });
+                cloudKeys.forEach(k => {
+                    const v = cloud.noWant[k];
+                    merged[k] = { img: config.noExtraImgs[k] || '', order: v.order ?? 9999 };
+                    mergeSimpleOptionName(k, v);
+                });
+                const sortedKeys = Object.keys(merged).sort((a, b) => merged[a].order - merged[b].order);
+                const rebuiltNoExtra = {};
+                sortedKeys.forEach(k => { rebuiltNoExtra[k] = merged[k].img; });
+                config.noExtraImgs = rebuiltNoExtra;
+            }
+
+            if (cloud.specialRequest) {
+                const cloudKeys = Object.keys(cloud.specialRequest);
+                const orderMap = {};
+                config.specials.forEach(k => { if (!cloudKeys.includes(k)) orderMap[k] = 9999; });
+                cloudKeys.forEach(k => {
+                    const v = cloud.specialRequest[k];
+                    orderMap[k] = v.order ?? 9999;
+                    mergeSimpleOptionName(k, v);
+                });
+                config.specials = Object.keys(orderMap).sort((a, b) => orderMap[a] - orderMap[b]);
             }
 
             /* ✅ 排放位置：依照主理員設定的 order 排序 —— 面/湯重新排列圖片對照表的 key 順序，
@@ -684,10 +745,24 @@
         clearWholeOrder(true);
     }
 
+    /* ✅ 修改：原本用瀏覽器內建 confirm()（只能兩個按鈕：OK=中文／Cancel=English），
+       現在改成自訂彈窗，多加一個「取消返回」按鈕——按下去只關閉彈窗，
+       不會列印、也不會清空或變動購物車，已選擇的內容原封不動保留，可以繼續編輯 */
     function askPrintLanguage() {
         if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
-        const choice = confirm("選擇列印語言:\n【確定/OK】 = 中文\n【取消/Cancel】 = English");
-        handleFinalizeAndPrint(choice ? 'zh' : 'en');
+        document.getElementById('plm-title').innerText = userLang==='zh' ? '選擇列印語言' : 'Select Print Language';
+        document.getElementById('plm-cancel-btn').innerText = userLang==='zh' ? '取消返回' : 'Cancel & Back';
+        document.getElementById('print-lang-modal').style.display = 'flex';
+    }
+
+    function confirmPrintLanguage(lang) {
+        document.getElementById('print-lang-modal').style.display = 'none';
+        handleFinalizeAndPrint(lang);
+    }
+
+    /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或列印動作 */
+    function cancelPrintLanguage() {
+        document.getElementById('print-lang-modal').style.display = 'none';
     }
 
     /* --- 預覽列印：與正式列印共用同一套 drawPrintCanvas 繪圖邏輯，跳過藍牙傳輸 --- */
