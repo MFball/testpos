@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.2.7 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.2.7.1 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -468,7 +468,15 @@
 
         } catch (err) {
             console.error('⚠️ 雲端搶號失敗，改用本機號碼：', err);
-            return { no: localData.num, key: null };   // 離線備援：沒有 Firebase key 可對照
+            /* ✅ 修正：離線備援不能只「讀」本機號碼，也要「遞增並存回」，
+               不然只要雲端一直連不上，接下來每一單都會算出同一個號碼
+               （這正是你截圖裡連續3單都印出 No.8238 的原因）。
+               遞增後至少同一台裝置離線期間的每一單都不會重複；
+               等網路恢復，下一次成功連上雲端還是會改用雲端排出的正式號碼。 */
+            const fallbackNo = localData.num;
+            localData.num = fallbackNo + 1;
+            localStorage.setItem('million_order_data', JSON.stringify(localData));
+            return { no: fallbackNo, key: null };   // 離線備援：沒有 Firebase key 可對照
         }
     }
 
