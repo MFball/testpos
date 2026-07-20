@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.2.2 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.2.4 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -50,6 +50,7 @@
     #side-list { width: 20%; min-width: 108px; max-width: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; border-right: 2px solid #eee; background: #fafafa; flex-shrink: 0; padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
     .side-loop-divider { text-align: center; font-size: 0.62rem; color: #999; padding: 10px 4px; background: #eee; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; line-height: 1.3; }
     .side-item { display: block; width: 100%; text-align: left; padding: 14px 10px; border: none; border-bottom: 1px solid #eee; background: #fff; }
+    .side-item-soldout { opacity: 0.5; background: #f7f7f7; }
     .side-item .nm { font-weight: 900; font-size: 0.92rem; display: block; color: #222; line-height: 1.3; }
     .side-item .pr { color: var(--price-tag); font-weight: bold; font-size: 0.78rem; }
     .side-item.active { background: #ffe4d9; border-left: 5px solid var(--price-tag); }
@@ -132,6 +133,7 @@
     /* ── 人氣熱銷面板 ── */
     .hot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .hot-card { text-align: left; background: #fff; border: 3px solid var(--hot); border-radius: 16px; padding: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+    .hot-card-soldout { opacity: 0.6; border-color: #ccc; }
     .hot-card-top { display: flex; flex-direction: row; align-items: stretch; }
     /* 左圖：固定較小寬度，用 object-fit:contain 讓整張圖完整顯示，不會像背景圖裁掉一半 */
     .hot-img { width: 84px; min-width: 84px; height: 84px; background: #fff3e0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -213,7 +215,8 @@
         <div id="status-text">● 藍牙待機中</div>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
-        <span id="version-tag">v5.2.2</span>
+        <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
+        <span id="version-tag">v5.2.4</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -295,6 +298,87 @@
 
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
+
+    /* ✅ 主理員菜單同步：主理員後台寫入 /menu，這裡在開機時讀取一次，
+       並合併到內建的 config／dictionary.items 上（雲端資料優先，
+       雲端沒有的欄位就繼續用程式內建的預設值，兩邊不會互相打架）*/
+    const MENU_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/menu.json";
+
+    /* 依照 meta 裡的 order 數值，把一個「圖片對照表」物件重新排序（key 的插入順序
+       就是前台實際顯示的順序，因為所有 Object.keys(...) 的地方都照物件插入順序讀取）*/
+    function reorderMapByMeta(imgMap, metaMap) {
+        const keys = Object.keys(imgMap);
+        keys.sort((a, b) => ((metaMap[a] && metaMap[a].order) ?? 9999) - ((metaMap[b] && metaMap[b].order) ?? 9999));
+        const rebuilt = {};
+        keys.forEach(k => { rebuilt[k] = imgMap[k]; });
+        return rebuilt;
+    }
+
+    /* ✅ 判斷某個品項目前是否被主理員標記為「缺貨中」；
+       cat 用來決定要查 config.meta（面/湯）還是 config.additions（小食）*/
+    function isMenuItemSoldOut(key, cat) {
+        if (cat === '小食') {
+            const a = config.additions.find(x => x.key === key);
+            return !!(a && a.soldOut);
+        }
+        return !!(config.meta && config.meta[key] && config.meta[key].soldOut);
+    }
+
+    async function loadCloudMenu() {
+        try {
+            const res = await fetch(MENU_URL + '?t=' + Date.now(), { cache: 'no-store' });
+            const cloud = await res.json();
+            if (!cloud) return;   // 主理員還沒存過任何資料，維持使用程式內建的預設菜單
+
+            if (cloud.prices)   Object.assign(config.prices, cloud.prices);
+            if (cloud.foodImgs) Object.assign(config.foodImgs, cloud.foodImgs);
+            if (cloud.soupImgs) Object.assign(config.soupImgs, cloud.soupImgs);
+            if (cloud.items)    Object.assign(dictionary.items, cloud.items);
+
+            /* ✅ meta：面/湯品項各自的「排放位置」(order) 與「缺貨」(soldOut) 狀態 */
+            config.meta = cloud.meta || {};
+
+            /* additions 在雲端存成「以品項名稱為 key 的物件」方便主理員後台單筆增刪改，
+               這裡轉換回程式原本期待的陣列格式；ratio/unit 一併併入 dictionary.items，
+               order/soldOut 也一併帶入每個 addition 物件，供排序與缺貨判斷使用 */
+            if (cloud.additions) {
+                const cloudAdditionKeys = Object.keys(cloud.additions);
+                /* 先移除內建預設裡「主理員後台也有管理」的同名項目，避免重複顯示兩次 */
+                config.additions = config.additions.filter(a => !cloudAdditionKeys.includes(a.key));
+                cloudAdditionKeys.forEach(key => {
+                    const v = cloud.additions[key];
+                    config.additions.push({ key, price: v.price, img: v.img, order: v.order, soldOut: !!v.soldOut });
+                    if (v.ratio || v.unit) {
+                        dictionary.items[key] = { ...(dictionary.items[key] || {}), ratio: v.ratio || 1, unit: v.unit || { zh: '份', en: 'serv' } };
+                    }
+                });
+            }
+
+            /* ✅ 排放位置：依照主理員設定的 order 排序 —— 面/湯重新排列圖片對照表的 key 順序，
+               小食則直接排序 additions 陣列，前台所有清單渲染都會跟著這個順序顯示 */
+            config.foodImgs = reorderMapByMeta(config.foodImgs, config.meta);
+            config.soupImgs = reorderMapByMeta(config.soupImgs, config.meta);
+            config.additions.sort((a, b) => ((a.order) ?? 9999) - ((b.order) ?? 9999));
+
+        } catch (err) {
+            console.error('讀取主理員雲端菜單失敗，使用內建預設菜單：', err);
+        }
+    }
+
+    /* 「重新載入菜單」按鈕：主理員在後台改完之後，前台按這個手動同步最新資料，
+       不會自動即時推送，避免客人點餐點到一半時畫面突然跳動 */
+    async function reloadMenuFromCloud() {
+        const btn = document.getElementById('menu-reload-btn');
+        btn.disabled = true;
+        const oldText = btn.innerText;
+        btn.innerText = '⏳';
+        await loadCloudMenu();
+        quickSuggestionCache = {};   // 清空隨機推薦快取，讓它根據最新菜單重新抽選
+        selectCategory(currentCategory);   // 重新渲染目前畫面
+        btn.innerText = oldText;
+        btn.disabled = false;
+        alert(userLang === 'zh' ? '✅ 菜單已更新！' : '✅ Menu updated!');
+    }
     const SALES_KEY = "million_sales_data";
 
     let savedDevice = null, savedCharacteristic = null, isFastMode = false;
@@ -754,9 +838,10 @@
     let quickSuggestionCache = {};
 
     function getCategoryKeys(cat) {
-        if (cat === '湯') return Object.keys(config.soupImgs);
-        if (cat === '面') return Object.keys(config.foodImgs);
-        if (cat === '小食') return config.additions.map(a => a.key);
+        /* ✅ 缺貨的品項不進入隨機推薦名單，避免推薦客人現在買不到的東西 */
+        if (cat === '湯') return Object.keys(config.soupImgs).filter(k => !isMenuItemSoldOut(k, cat));
+        if (cat === '面') return Object.keys(config.foodImgs).filter(k => !isMenuItemSoldOut(k, cat));
+        if (cat === '小食') return config.additions.map(a => a.key).filter(k => !isMenuItemSoldOut(k, cat));
         return [];
     }
 
@@ -925,8 +1010,14 @@
         const suffix = currentCategory==='面' ? (userLang==='zh'?' 起':'+') : '';
         const buildBtn = key => {
             const active = (tempItem && tempItem.mainKey === key && editingIndex === -1);
-            return `<button class="side-item ${active ? 'active' : ''}" onclick="selectItem('${key}')">
-                <span class="nm">${getItemName(key)}</span>
+            /* ✅ 缺貨判斷：主理員標記為缺貨的品項顯示「缺貨」標籤、變灰、點下去只會提示不能選 */
+            const soldOut = isMenuItemSoldOut(key, currentCategory);
+            const clickHandler = soldOut
+                ? `alert('${userLang==='zh' ? '目前缺貨中' : 'Currently sold out'}')`
+                : `selectItem('${key}')`;
+            const soldOutTag = soldOut ? `<span style="font-size:0.65rem; background:var(--price-tag,#d93025); color:#fff; font-weight:900; padding:1px 6px; border-radius:8px; margin-left:4px;">${userLang==='zh'?'缺貨':'Sold Out'}</span>` : '';
+            return `<button class="side-item ${active ? 'active' : ''} ${soldOut ? 'side-item-soldout' : ''}" onclick="${clickHandler}">
+                <span class="nm">${getItemName(key)}${soldOutTag}</span>
                 <span class="pr">$${priceOf(key)}${suffix}</span>
             </button>`;
         };
@@ -1310,7 +1401,13 @@
             const mediaHtml = img
                 ? `<div class="hot-img"><img src="${img}" alt="${getItemName(c.mainKey)}" loading="lazy"></div>`
                 : `<div class="hot-img hot-img-marquee"><span>${getItemName(c.mainKey)}</span></div>`;
-            return `<div class="hot-card">
+            /* ✅ 熱銷品項若被主理員標記缺貨，統計數字照樣顯示（維持真實銷售紀錄），
+               但下單按鈕會停用並顯示「缺貨」，不會讓客人點到買不到的東西 */
+            const soldOut = isMenuItemSoldOut(c.mainKey, c.category);
+            const orderBtn = soldOut
+                ? `<button class="hot-order-btn" style="background:#bbb;" disabled>${userLang==='zh'?'缺貨中':'Sold Out'}</button>`
+                : `<button class="hot-order-btn" onclick="quickOrderCombo(${i})">🛒 ${userLang==='zh'?'下單':'Order'}</button>`;
+            return `<div class="hot-card ${soldOut ? 'hot-card-soldout' : ''}">
                 <div class="hot-card-top">
                     ${mediaHtml}
                     <div class="hot-card-body">
@@ -1322,7 +1419,7 @@
                 </div>
                 <div class="hot-card-footer">
                     <div class="hot-price">$${price.toFixed(2)}</div>
-                    <button class="hot-order-btn" onclick="quickOrderCombo(${i})">🛒 ${userLang==='zh'?'下單':'Order'}</button>
+                    ${orderBtn}
                 </div>
             </div>`;
         }).join('')}</div>`;
@@ -1332,6 +1429,7 @@
         const combos = getTopCombos(6);
         const c = combos[i];
         if (!c) return;
+        if (isMenuItemSoldOut(c.mainKey, c.category)) { alert(userLang==='zh' ? '目前缺貨中' : 'Currently sold out'); return; }
         let base = computeBasePrice(c.mainKey, c.sizeKey, c.category);
         let extra = computeAdditionsPrice(c.additionKeys);
         const item = {
@@ -1380,7 +1478,8 @@
     }
 
     /* ═══════════════ 初始化 ═══════════════ */
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
+        await loadCloudMenu();   /* ✅ 開機時先讀取主理員設定的最新菜單，再渲染畫面 */
         updateOrderBadge();
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
