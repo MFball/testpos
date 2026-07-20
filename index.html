@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.2.7.1 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.3.0 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -496,14 +496,22 @@
             const _now = new Date();
             const _pad = n => String(n).padStart(2, '0');
             const dateKey = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
-            const payload = {
-                orderNo:    String(last.num),
-                claimKey:   last.key || null,   // ✅ 對應 orderClaims 底下那筆保證唯一的 Firebase key，方便回頭核對
-                summary:    summaryText,
-                totalPrice: totalPrice,
-                dateKey:    dateKey,
-                time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`
-            };
+            // 判斷是否為外帶/打包
+      const isTakeaway = last.isTakeaway || last.eatOption === 'takeaway' || last.eatOption === '打包' || false;
+      const finalSummary = isTakeaway ? `${summaryText} [打包]` : summaryText;
+
+      const payload = {
+        orderNo:    String(last.num),
+        claimKey:   last.key || null,   // ✅ 對應 orderClaims 底下那筆保證唯一的 Firebase key，方便回頭核對
+        summary:    finalSummary,       // 👈 修改：加上打包標記
+        totalPrice: totalPrice,
+        dateKey:    dateKey,
+        time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`,
+        
+        // 👇 👈 新增下面這兩行關鍵欄位！
+        isTakeaway:  isTakeaway,
+        diningOption: isTakeaway ? "打包" : "堂食"
+      };
             try {
                 await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             } catch (err) { console.error("❌ 雲端同步失敗:", err); }
