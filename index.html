@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.2.4 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.2.5 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -216,7 +216,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.2.4</span>
+        <span id="version-tag">v5.2.5</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -395,6 +395,57 @@
         let data = JSON.parse(localStorage.getItem('million_order_data')) || { date: today, num: START_NO, history: [] };
         if (data.date !== today) { data.date = today; data.num = START_NO; data.history = []; }
         return data;
+    }
+
+    /* ✅ 單號改由雲端統一發放，不再各自手機獨立計算：
+       根源：原本單號只存在自己手機的 localStorage 裡，每台手機各自從自己記錄的
+       號碼往下加，多台手機同時營業時完全不知道對方已經印到哪，會撞號、跳號。
+       解法：用 Firebase 的「條件式寫入」(ETag / if-match) 做成真正跨裝置共用的
+       單一流水號來源——所有手機列印前都先去雲端「搶號」，搶到才算數；若剛好
+       兩台手機同時搶同一個號碼，其中一台會收到衝突(412)，程式自動重抓最新號碼
+       再搶一次，直到成功為止，確保不會有兩台手機拿到同一個單號。若當下完全沒
+       有網路，才會退回使用本機號碼（等網路恢復後下一次列印會自動接軌）。*/
+    const COUNTER_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderCounter.json";
+
+    async function getNextOrderNo() {
+        const today = new Date().toLocaleDateString();
+        const localData = getOrderData();  // 本機備援用
+
+        try {
+            const getRes = await fetch(COUNTER_URL, { headers: { 'X-Firebase-ETag': 'true' }, cache: 'no-store' });
+            const etag = getRes.headers.get('ETag');
+            let counterData = await getRes.json();
+
+            if (!counterData || counterData.date !== today) {
+                counterData = { date: today, num: START_NO };
+            }
+
+            const myNo = counterData.num;
+            const nextData = { date: today, num: myNo + 1 };
+
+            const putRes = await fetch(COUNTER_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'if-match': etag },
+                body: JSON.stringify(nextData)
+            });
+
+            if (putRes.status === 412) {
+                return await getNextOrderNo();   // 撞號了：重新抓最新號碼再試一次
+            }
+            if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+
+            /* 搶號成功，同步更新本機記錄，讓畫面顯示一致 */
+            if (localData.date !== today || localData.num < nextData.num) {
+                localData.date = today;
+                localData.num = nextData.num;
+                localStorage.setItem('million_order_data', JSON.stringify(localData));
+            }
+            return myNo;
+
+        } catch (err) {
+            console.error('⚠️ 雲端搶號失敗，改用本機號碼：', err);
+            return localData.num;
+        }
     }
 
     async function saveOrderData(data) {
@@ -577,10 +628,9 @@
             : 'Confirm no receipt?\nOrder will still be saved and sequence number updated.';
         if (!confirm(confirmMsg)) return;
 
+        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
         const orderData = getOrderData();
-        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
-        orderData.num++;
         recordSale(cart);
         await saveOrderData(orderData);
 
@@ -615,8 +665,7 @@
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
-            const orderData = getOrderData();
-            const currentNo = forcedNo || orderData.num;
+            const currentNo = forcedNo || await getNextOrderNo();   // ✅ 改用雲端共用流水號
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang);
             const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 576, document.getElementById('printCanvas').height).data;
@@ -638,8 +687,8 @@
             }
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
+                const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
-                orderData.num++;
                 recordSale(cart);
                 await saveOrderData(orderData);
                 alert("列印成功！");
@@ -647,6 +696,7 @@
             } else {
                 alert(successMsg || "重印成功！");
             }
+            updateOrderBadge();
             document.getElementById('status-text').innerText = "● 已完成";
             btn.disabled = false;
         } catch (e) {
@@ -959,10 +1009,9 @@
         cart = [item];
         document.getElementById('cart-total-sum').innerText = item.price.toFixed(2);
 
+        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
         const orderData = getOrderData();
-        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: item.price.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
-        orderData.num++;
         recordSale([item]);
         await saveOrderData(orderData);
 
@@ -978,7 +1027,26 @@
         }
     }
 
-    function updateOrderBadge() { document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`; }
+    /* ✅ updateOrderBadge 改成非同步：先立即顯示本機號碼避免畫面延遲，
+       再向雲端「純讀取」(不搶號、不消耗流水號) 最新的共用計數器，取本機與雲端
+       較大的號碼顯示，確保畫面上看到的「下一個號碼」跟其他裝置的進度一致 */
+    async function updateOrderBadge() {
+        document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`;
+        try {
+            const today = new Date().toLocaleDateString();
+            const res = await fetch(COUNTER_URL, { cache: 'no-store' });
+            const cloudData = await res.json();
+            if (cloudData && cloudData.date === today) {
+                const localData = getOrderData();
+                const nextNo = Math.max(cloudData.num, localData.num);
+                document.getElementById('order-badge').innerText = `No. ${nextNo}`;
+                if (localData.num < nextNo) {
+                    localData.num = nextNo; localData.date = today;
+                    localStorage.setItem('million_order_data', JSON.stringify(localData));
+                }
+            }
+        } catch (err) { /* 沒網路時維持顯示本機號碼即可，不影響收銀操作 */ }
+    }
 
     function updateBottomBar() {
         let total = 0;
@@ -1442,10 +1510,9 @@
         const totalWithFee = item.price + (item.isTakeaway ? 0.30 : 0);
         document.getElementById('cart-total-sum').innerText = totalWithFee.toFixed(2);
 
+        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
         const orderData = getOrderData();
-        const currentNo = orderData.num;
         orderData.history.unshift({ num: currentNo, total: totalWithFee.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
-        orderData.num++;
         recordSale([item]);
         await saveOrderData(orderData);
 
@@ -1483,6 +1550,9 @@
         updateOrderBadge();
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
+        /* ✅ 每 30 秒自動刷新一次流水號顯示，確保多台裝置同時營業時，
+           畫面上看到的「下一個號碼」不會因為太久沒操作而跟其他裝置脫節 */
+        setInterval(updateOrderBadge, 30000);
     });
 
 </script>
