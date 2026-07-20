@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.2.5 (收銀快速版)</title>
+<title>Million FishBall Noodle - Ver 5.2.7 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -31,7 +31,6 @@
 
     /* ── 頂部：單號 + 分類 + 語言（含瀏海機安全區域內縮） ── */
     #topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); background: #fff; border-bottom: 2px solid #eee; flex-wrap: wrap; row-gap: 6px; }
-    #order-badge { background: #111; color: #fff; font-weight: 900; font-size: 1.25rem; padding: 8px 16px; border-radius: 12px; white-space: nowrap; }
     #status-text { font-size: 0.68rem; color: #888; font-weight: bold; white-space: nowrap; }
     #cat-tabs { display: flex; gap: 6px; flex: 1; overflow-x: auto; }
     .cat-tab { padding: 10px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fafafa; font-weight: 900; font-size: 0.95rem; white-space: nowrap; color: #555; }
@@ -170,7 +169,6 @@
     canvas { display: none; }
 
     @media (max-width: 480px) {
-        #order-badge { font-size: 1rem; padding: 6px 10px; }
         .cat-tab { padding: 8px 10px; font-size: 0.82rem; }
         .hot-grid { grid-template-columns: 1fr; }
     }
@@ -178,7 +176,6 @@
     /* ── iPhone X (375px) / iPhone 12 (390px) 等窄螢幕：分類頁籤自動換到第二行，確保完整可見 ── */
     @media (max-width: 430px) {
         #topbar { padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top)); gap: 6px; }
-        #order-badge { font-size: 0.9rem; padding: 6px 9px; border-radius: 9px; }
         #status-text { display: none; }             /* 空間有限，隱藏次要文字，優先確保分類可見 */
         #lang-toggle button { padding: 6px 8px; font-size: 0.72rem; }
         .icon-btn { width: 34px; height: 34px; font-size: 0.9rem; }
@@ -205,7 +202,6 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="order-badge">No. ----</div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -216,7 +212,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.2.5</span>
+        <span id="version-tag">v5.2.7</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -397,54 +393,82 @@
         return data;
     }
 
-    /* ✅ 單號改由雲端統一發放，不再各自手機獨立計算：
-       根源：原本單號只存在自己手機的 localStorage 裡，每台手機各自從自己記錄的
-       號碼往下加，多台手機同時營業時完全不知道對方已經印到哪，會撞號、跳號。
-       解法：用 Firebase 的「條件式寫入」(ETag / if-match) 做成真正跨裝置共用的
-       單一流水號來源——所有手機列印前都先去雲端「搶號」，搶到才算數；若剛好
-       兩台手機同時搶同一個號碼，其中一台會收到衝突(412)，程式自動重抓最新號碼
-       再搶一次，直到成功為止，確保不會有兩台手機拿到同一個單號。若當下完全沒
-       有網路，才會退回使用本機號碼（等網路恢復後下一次列印會自動接軌）。*/
-    const COUNTER_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderCounter.json";
+    /* ✅ 單號改由雲端統一發放，不再各自手機獨立計算，且改用「保證不重複」的作法：
+       背景：先前用 Firebase 的 ETag 條件式寫入(讀號→寫回號+1)來防止撞號，
+       但實測仍然出現同一天發出兩個一樣的單號（例如 8238 出現兩次）。條件式寫入
+       依賴瀏覽器能正確讀到伺服器回傳的 ETag 標頭，這在 fetch() 的跨網域環境下
+       未必每次都能穩定讀到，一旦讀不到，防重複的機制就會悄悄失效，變回舊式的
+       「兩台手機同時讀到一樣的號碼、各自往下加」而重複，這正是照片裡看到的狀況。
+
+       解法：改用 Firebase「新增子節點會自動產生全域唯一 ID」這個功能本身的保證
+       （不需要讀取任何回應標頭，純粹靠「新增」這個動作），完全避開前述問題：
+       1. 手機送出訂單時，先用 POST 在「今天的搶號清單」下新增一筆佔位資料，
+          Firebase 一定會給這筆資料一個獨一無二、而且照時間排序的 key，
+          不會有兩台手機拿到同一個 key（這是 Firebase push 本身的保證，不需驗證）。
+       2. 拿到自己的 key 之後，把「今天的搶號清單」整份讀回來，依 key 排序，
+          找出自己排在第幾個，用「起始號碼 + 排名」當作這一單的正式單號。
+          就算兩台手機幾乎同時送出，兩人的 key 一定不同，排序結果也一定明確，
+          不會算出同一個單號 —— 不再依賴任何讀取標頭是否成功這種不穩定環節。
+       若當下完全沒有網路，才會退回使用本機號碼（等網路恢復後下一次列印會自動接軌，
+       但要注意離線期間印出的號碼有極小機率跟雲端重疊，這是離線情境下無法完全避免的）。*/
+    const CLAIMS_URL_BASE = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderClaims";
+
+    function getTodayDateKey() {
+        const n = new Date();
+        return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+    }
 
     async function getNextOrderNo() {
-        const today = new Date().toLocaleDateString();
-        const localData = getOrderData();  // 本機備援用
+        const dateKey = getTodayDateKey();
+        const claimsUrl = `${CLAIMS_URL_BASE}/${dateKey}.json`;
+        const localData = getOrderData();  // 完全沒網路時的備援
 
         try {
-            const getRes = await fetch(COUNTER_URL, { headers: { 'X-Firebase-ETag': 'true' }, cache: 'no-store' });
-            const etag = getRes.headers.get('ETag');
-            let counterData = await getRes.json();
-
-            if (!counterData || counterData.date !== today) {
-                counterData = { date: today, num: START_NO };
-            }
-
-            const myNo = counterData.num;
-            const nextData = { date: today, num: myNo + 1 };
-
-            const putRes = await fetch(COUNTER_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'if-match': etag },
-                body: JSON.stringify(nextData)
+            /* 1. 新增一筆佔位資料，拿到 Firebase 保證全域唯一的 key */
+            const pushRes = await fetch(claimsUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ t: Date.now() })
             });
+            if (!pushRes.ok) throw new Error('HTTP ' + pushRes.status);
+            const pushResult = await pushRes.json();
+            const myKey = pushResult.name;   // Firebase 回傳格式：{ "name": "-Nxxxxxxxxx" }
 
-            if (putRes.status === 412) {
-                return await getNextOrderNo();   // 撞號了：重新抓最新號碼再試一次
-            }
-            if (!putRes.ok) throw new Error('HTTP ' + putRes.status);
+            /* 2. 讀回今天全部搶號紀錄，依 key 排序，找出自己排第幾個 */
+            const listRes = await fetch(claimsUrl + '?t=' + Date.now(), { cache: 'no-store' });
+            const allClaims = await listRes.json();
+            const sortedKeys = Object.keys(allClaims || {}).sort();
+            const myIndex = sortedKeys.indexOf(myKey);
 
-            /* 搶號成功，同步更新本機記錄，讓畫面顯示一致 */
-            if (localData.date !== today || localData.num < nextData.num) {
+            if (myIndex === -1) throw new Error('找不到自己的搶號紀錄');
+
+            const myNo = START_NO + myIndex;
+
+            /* ✅ 把換算出來的客號回寫進這一筆 Firebase 記錄本身（只補 no 欄位，
+               不動原本的 t 欄位）。這樣以後打開雲端 orderClaims/日期/該 key，
+               就能直接看到它對應的客號是幾號；回寫失敗也不影響本次出號流程，
+               只是少了這份雲端對照，仍會照常出號、照常列印。 */
+            fetch(`${CLAIMS_URL_BASE}/${dateKey}/${myKey}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ no: myNo })
+            }).catch(err => console.error('⚠️ 回寫客號到 Firebase 記錄失敗（不影響出號）:', err));
+
+            /* 同步更新本機記錄，讓「不用收據」等本機顯示邏輯維持一致 */
+            const today = new Date().toLocaleDateString();
+            if (localData.date !== today || localData.num <= myNo) {
                 localData.date = today;
-                localData.num = nextData.num;
+                localData.num = myNo + 1;
                 localStorage.setItem('million_order_data', JSON.stringify(localData));
             }
-            return myNo;
+            /* ✅ 同時把 Firebase 的原始 key 一起回傳，讓列印/本機記錄都能存下這組
+               「保證全域唯一」的識別碼，之後就能拿著收據上的 ID 回頭到雲端資料庫
+               （orderClaims）比對，確認是哪一筆記錄產生了這個客號。 */
+            return { no: myNo, key: myKey };
 
         } catch (err) {
             console.error('⚠️ 雲端搶號失敗，改用本機號碼：', err);
-            return localData.num;
+            return { no: localData.num, key: null };   // 離線備援：沒有 Firebase key 可對照
         }
     }
 
@@ -466,6 +490,7 @@
             const dateKey = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
             const payload = {
                 orderNo:    String(last.num),
+                claimKey:   last.key || null,   // ✅ 對應 orderClaims 底下那筆保證唯一的 Firebase key，方便回頭核對
                 summary:    summaryText,
                 totalPrice: totalPrice,
                 dateKey:    dateKey,
@@ -489,6 +514,7 @@
                 <div style="text-align:left;">
                     <div style="font-weight:bold; font-size:1.1rem;">No. ${h.num} ($${h.total})</div>
                     <div style="font-size:0.8rem; color:#888;">${h.items.length} 份餐點</div>
+                    <div style="font-size:0.7rem; color:#aaa;">ID: ${h.key || '--'}</div>
                 </div>
                 <button onclick="reprintHistory(${i})" style="background:var(--primary); color:white; border:none; padding:10px 15px; border-radius:10px; font-weight:bold;">重印</button>
             </div>`).join('');
@@ -503,7 +529,7 @@
         let originalCart = [...cart];
         cart = target.items;
         document.getElementById('cart-total-sum').innerText = target.total;
-        await handleFinalizeAndPrint(printLang, target.num, true);
+        await handleFinalizeAndPrint(printLang, { no: target.num, key: target.key || null }, true);
         cart = originalCart;
         renderPanelCartSummary(); updateBottomBar();
         toggleHistory();
@@ -628,9 +654,9 @@
             : 'Confirm no receipt?\nOrder will still be saved and sequence number updated.';
         if (!confirm(confirmMsg)) return;
 
-        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
+        const { no: currentNo, key: currentKey } = await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
         const orderData = getOrderData();
-        orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
+        orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
         recordSale(cart);
         await saveOrderData(orderData);
 
@@ -659,15 +685,16 @@
     }
     function closePrintPreview() { document.getElementById('preview-modal').style.display = 'none'; }
 
-    /* forcedNo / isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
-    async function handleFinalizeAndPrint(printLang, forcedNo = null, isReprint = false, successMsg = null) {
+    /* forcedOrder（{no,key}物件）/ isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
+    async function handleFinalizeAndPrint(printLang, forcedOrder = null, isReprint = false, successMsg = null) {
         const btn = document.getElementById('printBtn');
         try {
             btn.disabled = true;
             const targetChar = await getPrinter();
-            const currentNo = forcedNo || await getNextOrderNo();   // ✅ 改用雲端共用流水號
+            const orderInfo = forcedOrder || await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
+            const currentNo = orderInfo.no, currentKey = orderInfo.key;
             document.getElementById('status-text').innerText = "📤 列印中...";
-            drawPrintCanvas(currentNo, printLang);
+            drawPrintCanvas(currentNo, printLang, currentKey);
             const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 576, document.getElementById('printCanvas').height).data;
             await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
             const widthBytes = 72;  // ✅ 80mm紙捲：576點 ÷ 8 = 72 bytes（原58mm紙捲為48 bytes/384點）
@@ -688,7 +715,7 @@
             await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
                 const orderData = getOrderData();
-                orderData.history.unshift({ num: currentNo, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
+                orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
                 recordSale(cart);
                 await saveOrderData(orderData);
                 alert("列印成功！");
@@ -696,7 +723,6 @@
             } else {
                 alert(successMsg || "重印成功！");
             }
-            updateOrderBadge();
             document.getElementById('status-text').innerText = "● 已完成";
             btn.disabled = false;
         } catch (e) {
@@ -716,7 +742,7 @@
        去設定 canvas 高度——這樣無論品項多寡、內容多寡，底部都只會留一個固定、
        很小的安全邊界，不會再隨品項數量倍增空白。*/
     function computeDynamicHeight(cartData, isAllTakeaway) {
-        let y = 175;   // 與正式繪圖迴圈的起始位置 (startY + 175) 完全一致
+        let y = 215;   // 與正式繪圖迴圈的起始位置 (startY + 215) 完全一致（含新增的 Firebase ID 那一行）
         cartData.forEach(item => {
             y += 45;                                                     // 主餐名稱那一行
             if (item.isTakeaway && !isAllTakeaway) y += 42;               // 外賣標籤（單項外賣時才印）
@@ -733,7 +759,7 @@
         return y + 100;                          // 底部安全邊界：固定值，不再隨品項數量疊加（已由實際列印測試確認，+30 不夠、+100 才正常）
     }
 
-    function drawPrintCanvas(orderNo, printLang) {
+    function drawPrintCanvas(orderNo, printLang, orderKey = null) {
         const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
         const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
         const dynamicHeight = computeDynamicHeight(cart, isAllTakeaway);
@@ -747,8 +773,15 @@
         ctx.font = "bold 26px sans-serif"; ctx.fillText("Million FishBall Noodle", centerX, startY + 20);
         ctx.font = "18px sans-serif";      ctx.fillText(new Date().toLocaleString(), centerX, startY + 55);
         ctx.font = "bold 44px sans-serif"; ctx.fillText(`No. ${orderNo}`, centerX, startY + 85);
-        ctx.font = "bold 20px sans-serif"; ctx.fillText("--------------------------------------------------------------", centerX, startY + 135);  // ✅ 加長虛線以匹配80mm紙寬
-        let y = startY + 175;
+        /* ✅ 客號下方印出 Firebase「新增子節點」保證全域唯一的原始 key（orderClaims 裡的識別碼）。
+           萬一日後需要追查某一單「到底是哪一筆雲端記錄產生的號碼」，可直接拿收據上這組 ID
+           回頭到 Firebase 的 orderClaims 裡比對，不會找不到來源。離線備援（沒有雲端 key）時
+           顯示 "--"，版面高度仍固定，不受有無 key 影響。 */
+        ctx.font = "20px sans-serif"; ctx.fillStyle = "#555";
+        ctx.fillText(`ID: ${orderKey || '--'}`, centerX, startY + 140);
+        ctx.fillStyle = "black";
+        ctx.font = "bold 20px sans-serif"; ctx.fillText("--------------------------------------------------------------", centerX, startY + 175);  // ✅ 加長虛線以匹配80mm紙寬
+        let y = startY + 215;
 
         cart.forEach((item) => {
             const getName = (k) => (dictionary.items[k] && dictionary.items[k][printLang]) ? dictionary.items[k][printLang] : k;
@@ -1009,43 +1042,21 @@
         cart = [item];
         document.getElementById('cart-total-sum').innerText = item.price.toFixed(2);
 
-        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
+        const orderInfo = await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
         const orderData = getOrderData();
-        orderData.history.unshift({ num: currentNo, total: item.price.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
+        orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: item.price.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
         recordSale([item]);
         await saveOrderData(orderData);
 
         try {
-            await handleFinalizeAndPrint(userLang, currentNo, true, userLang==='zh' ? '✅ 已下單並列印！' : '✅ Ordered & Printed!');
+            await handleFinalizeAndPrint(userLang, orderInfo, true, userLang==='zh' ? '✅ 已下單並列印！' : '✅ Ordered & Printed!');
         } catch (e) {
             alert("下單失敗: " + e.message);
         } finally {
             cart = originalCart;
             renderPanelCartSummary();
             updateBottomBar();
-            updateOrderBadge();
         }
-    }
-
-    /* ✅ updateOrderBadge 改成非同步：先立即顯示本機號碼避免畫面延遲，
-       再向雲端「純讀取」(不搶號、不消耗流水號) 最新的共用計數器，取本機與雲端
-       較大的號碼顯示，確保畫面上看到的「下一個號碼」跟其他裝置的進度一致 */
-    async function updateOrderBadge() {
-        document.getElementById('order-badge').innerText = `No. ${getOrderData().num}`;
-        try {
-            const today = new Date().toLocaleDateString();
-            const res = await fetch(COUNTER_URL, { cache: 'no-store' });
-            const cloudData = await res.json();
-            if (cloudData && cloudData.date === today) {
-                const localData = getOrderData();
-                const nextNo = Math.max(cloudData.num, localData.num);
-                document.getElementById('order-badge').innerText = `No. ${nextNo}`;
-                if (localData.num < nextNo) {
-                    localData.num = nextNo; localData.date = today;
-                    localStorage.setItem('million_order_data', JSON.stringify(localData));
-                }
-            }
-        } catch (err) { /* 沒網路時維持顯示本機號碼即可，不影響收銀操作 */ }
     }
 
     function updateBottomBar() {
@@ -1445,7 +1456,6 @@
         renderSideList();
         renderPanelCartSummary();
         updateBottomBar();
-        updateOrderBadge();
     }
 
     /* ═══════════════ 🔥 人氣：當日銷售 TOP6，一鍵下單並直接列印 ═══════════════ */
@@ -1510,21 +1520,20 @@
         const totalWithFee = item.price + (item.isTakeaway ? 0.30 : 0);
         document.getElementById('cart-total-sum').innerText = totalWithFee.toFixed(2);
 
-        const currentNo = await getNextOrderNo();   // ✅ 改用雲端共用流水號
+        const orderInfo = await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
         const orderData = getOrderData();
-        orderData.history.unshift({ num: currentNo, total: totalWithFee.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
+        orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: totalWithFee.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
         recordSale([item]);
         await saveOrderData(orderData);
 
         try {
-            await handleFinalizeAndPrint(userLang, currentNo, true, userLang==='zh' ? '✅ 已下單並列印！' : '✅ Ordered & Printed!');
+            await handleFinalizeAndPrint(userLang, orderInfo, true, userLang==='zh' ? '✅ 已下單並列印！' : '✅ Ordered & Printed!');
         } catch (e) {
             alert("一鍵下單失敗: " + e.message);
         } finally {
             cart = originalCart;
             renderPanelCartSummary();
             updateBottomBar();
-            updateOrderBadge();
             renderPopularityPanel();
         }
     }
@@ -1547,12 +1556,8 @@
     /* ═══════════════ 初始化 ═══════════════ */
     window.addEventListener('DOMContentLoaded', async () => {
         await loadCloudMenu();   /* ✅ 開機時先讀取主理員設定的最新菜單，再渲染畫面 */
-        updateOrderBadge();
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
-        /* ✅ 每 30 秒自動刷新一次流水號顯示，確保多台裝置同時營業時，
-           畫面上看到的「下一個號碼」不會因為太久沒操作而跟其他裝置脫節 */
-        setInterval(updateOrderBadge, 30000);
     });
 
 </script>
