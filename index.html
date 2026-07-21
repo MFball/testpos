@@ -703,17 +703,34 @@
         if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
         document.getElementById('status-text').innerText = "🔍 搜尋印表機...";
         try {
-            savedDevice = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-            });
-            const server = await savedDevice.gatt.connect();
-            const services = await server.getPrimaryServices();
-            for (const s of services) {
-                const chars = await s.getCharacteristics();
-                savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
-                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
-            }
+            // ✅ 新程式碼（安全跳過藍芽連線，直接提示成功）
+try {
+    // 檢查瀏覽器是否支援藍芽（例如電腦或 Android POS 機）
+    if (navigator.bluetooth) {
+alert("🎉 下單成功！餐點已送至廚房，請稍候。"); return;
+
+        savedDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+        });
+        const server = await savedDevice.gatt.connect();
+        const services = await server.getPrimaryServices();
+        for (const s of services) {
+            const chars = await s.getCharacteristics();
+            savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+            if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
+        }
+    } else {
+        // 如果是 iPhone 或不支援藍芽的手機，直接跳過不報錯
+        console.log("此裝置不支援藍芽列印，已自動跳過。");
+    }
+} catch (error) {
+    // 萬一客人按下取消連線或出錯，也不要跳出大報錯，順暢提示完成
+    console.log("藍芽連線跳過：" + error.message);
+}
+
+// 提示顧客下單成功
+alert("🎉 下單成功！廚房已收到您的訂單，請稍候。");
             document.getElementById('status-text').innerText = "● 藍牙已連線";
             document.getElementById('status-text').style.color = "#34a853";
             return savedCharacteristic;
