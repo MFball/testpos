@@ -797,36 +797,35 @@ function askPrintLanguage() {
 
     /* forcedOrder（{no,key}物件）/ isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
     async function handleFinalizeAndPrint(printLang, forcedOrder = null, isReprint = false, successMsg = null) {
-    const btn = document.getElementById('printBtn');
-    try {
-        if (btn) btn.disabled = true;
+        const btn = document.getElementById('printBtn');
+        try {
+            if (btn) btn.disabled = true;
+            
+            // 1. 取得 Firebase 訂單號碼並上傳訂單
+            const orderInfo = forcedOrder || await getNextOrderNo();
+            const currentNo = orderInfo.no, currentKey = orderInfo.key;
+            
+            // 2. 更新狀態與清空購物車
+            const statusText = document.getElementById('status-text');
+            if (statusText) statusText.innerText = "✅ 下單成功！";
 
-        // 1. 取得 Firebase 訂單編號與 Key
-        const orderInfo = forcedOrder || await getNextOrderNo(); 
-        const currentNo = orderInfo.no;
-        const currentKey = orderInfo.key;
+            // 3. 提示顧客（不碰藍芽、不列印）
+            const msg = successMsg || (userLang === 'zh' ? '🎉 下單成功！餐點已送至廚房，請稍候。' : '🎉 Order placed successfully!');
+            alert(msg);
 
-        // 2. 更新畫面狀態 (不上傳藍芽，純提示)
-        const statusText = document.getElementById('status-text');
-        if (statusText) statusText.innerText = "📤 訂單傳送中...";
+            // 4. 下單完成後恢復按鈕與清空購物車
+            cart = [];
+            if (typeof updateCartUI === 'function') updateCartUI();
+            if (typeof renderCart === 'function') renderCart();
 
-        // 3. 彈出成功提示，並清空購物車
-        alert(successMsg || (userLang === 'zh' ? '🎉 下單成功！餐點已送至廚房，請稍候。' : '🎉 Order placed successfully!'));
-
-        // 4. 清空購物車與 UI
-        cart = [];
-        if (typeof renderCart === 'function') renderCart();
-        if (typeof updateCartCount === 'function') updateCartCount();
-
-    } catch (error) {
-        console.error("下單過程發生錯誤：", error);
-        alert("下單失敗，請稍後再試：" + error.message);
-    } finally {
-        if (btn) btn.disabled = false;
-        const statusText = document.getElementById('status-text');
-        if (statusText) statusText.innerText = "";
-    }
-}      row[8 + x] = b;
+        } catch (error) {
+            console.error("下單過程發生錯誤:", error);
+            alert("下單失敗，請再試一次：" + error.message);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+}
+      row[8 + x] = b;
                 }
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
