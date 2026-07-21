@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.3.4 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.2.7 (收銀快速版)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -11,6 +11,7 @@
         --success: #34a853;
         --price-tag: #d93025;
         --add: #673ab7;
+        --bg-white: #ffffff;
         --edit: #f39c12;
         --soup: #00897b;
         --noodle: #e4572e;
@@ -75,6 +76,10 @@
     .collapse-body.closed { display: none; }
     .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { padding: 11px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fff; font-weight: 900; font-size: 0.92rem; color: #444; }
+    /* ✅ 需求3：醬料區的「湯」選項加大加粗，方便快速找到／點按（尤其搭配需求4的自動連動）*/
+    .chip-soup { padding: 15px 24px; font-size: 1.2rem; border-width: 3.5px; border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.15); }
+    .chip-soup.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
+
     /* ✅ 需求2：醬料區排版 —— 左右各一個大按鈕（辣椒／湯），中間是其餘醬料的小格子，
        對應手繪草圖：左「辣椒」直書大按鈕，右「湯」直書大按鈕，中間3欄小格 */
     .sauce-layout { display: flex; gap: 8px; align-items: stretch; }
@@ -144,6 +149,7 @@
     .hot-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 2px solid #f5f5f5; background: #fffaf3; }
     .hot-price { font-weight: 900; color: var(--price-tag); font-size: 1.05rem; }
     .hot-order-btn { background: var(--hot); color: #fff; border: none; padding: 9px 16px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
+    .hot-count { font-size: 0.72rem; color: #999; margin-top: 4px; }
 
     /* ── 底部固定操作列 ── */
     #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
@@ -155,14 +161,6 @@
     #history-panel { display:none; position:fixed; top:6%; left:5%; right:5%; bottom:6%; background:white; z-index:2000; border-radius:24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); padding:20px; border:3px solid var(--primary); overflow-y:auto; }
     .hist-item { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee; }
     #preview-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center; padding:20px; }
-    /* ✅ 列印語言選擇彈窗：取代原本只能兩個按鈕的 confirm()，改成可以放第三個「取消返回」按鈕 */
-    #print-lang-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3100; align-items:center; justify-content:center; padding:20px; }
-    .plm-card { background:#fff; border-radius:20px; padding:22px; max-width:360px; width:100%; text-align:center; }
-    .plm-title { font-weight:900; font-size:1.15rem; margin-bottom:18px; }
-    .plm-btn { display:block; width:100%; padding:16px; border-radius:14px; border:none; font-weight:900; font-size:1.1rem; margin-bottom:10px; color:#fff; }
-    .plm-btn-zh { background: var(--primary); }
-    .plm-btn-en { background: var(--success); }
-    .plm-btn-cancel { background:#eee; color:#666; font-size:0.95rem; padding:13px; margin-top:4px; }
     #cart-view-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2800; align-items:center; justify-content:center; padding:20px; }
 
     /* ── 「已加入購物車」小提示：加入後停留原面板，用這個做明確的成功回饋 ── */
@@ -192,6 +190,7 @@
         .cz-title { font-size: 1.1rem; }
         .confirm-btn-top { padding: 10px 12px; font-size: 0.88rem; }
         .chip { padding: 9px 12px; font-size: 0.85rem; }
+        .chip-soup { padding: 13px 20px; font-size: 1.05rem; }
         .chip.big { padding: 12px 16px; font-size: 0.92rem; }
         .bb-btn { padding: 13px 4px; font-size: 0.82rem; }
         #cart-summary-mini { font-size: 0.85rem; }
@@ -213,7 +212,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.3.1</span>
+        <span id="version-tag">v5.2.7</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -243,15 +242,6 @@
         </div>
         <div id="cart-modal-body" style="overflow-y:auto; flex:1;"></div>
         <button onclick="closeCartModal()" style="margin-top:12px; background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">關閉 Close</button>
-    </div>
-</div>
-
-<div id="print-lang-modal">
-    <div class="plm-card">
-        <div class="plm-title" id="plm-title">選擇列印語言 / Select Print Language</div>
-        <button class="plm-btn plm-btn-zh" onclick="confirmPrintLanguage('zh')">中文</button>
-        <button class="plm-btn plm-btn-en" onclick="confirmPrintLanguage('en')">English</button>
-        <button class="plm-btn plm-btn-cancel" id="plm-cancel-btn" onclick="cancelPrintLanguage()">取消返回</button>
     </div>
 </div>
 
@@ -330,17 +320,7 @@
         return !!(config.meta && config.meta[key] && config.meta[key].soldOut);
     }
 
-    /* ✅ 修正「讀取主理員雲端菜單失敗，Failed to fetch」問題：
-       檢查結果：MENU_URL 網址本身正確，跟主理員後台使用的完全一致，Firebase 規則
-       也已開放 /menu 路徑讀取，程式邏輯上沒有發現會導致必定失敗的錯誤。「Failed to
-       fetch」是瀏覽器層級的網路請求失敗（連 HTTP 回應都還沒收到），最常見成因是
-       當下網路不穩定/瞬斷，屬於偶發狀況，不一定是程式碼的錯。
-       既然無法排除是網路瞬斷造成，這裡加兩層防護，讓這類問題更不容易影響到實際
-       收銀操作：① 失敗時自動重試最多 2 次（中間各等待 1 秒，給網路一點恢復時間）；
-       ② 重試都失敗，才在畫面上顯示一個不會打斷操作的小提示，而不是只默默寫進
-       console（一般人看不到），至少讓店員知道「菜單可能不是最新的」，可以自行按
-       重新整理再試一次；不會因此卡住或跳出干擾的 alert 彈窗，前台仍可正常點餐。*/
-    async function loadCloudMenu(retriesLeft = 2) {
+    async function loadCloudMenu() {
         try {
             const res = await fetch(MENU_URL + '?t=' + Date.now(), { cache: 'no-store' });
             const cloud = await res.json();
@@ -370,50 +350,6 @@
                 });
             }
 
-            /* ✅ 不要什麼／特別要求：主理員後台存成「以品項名稱為 key 的純文字選項」物件（沒有價錢/圖片），
-               這裡分別併入前台原本的 config.noExtraImgs（不要什麼）與 config.specials（特別要求），
-               並把英文名稱補進 dictionary.items，讓 getItemName() 能正確顯示雙語；
-               中文名稱一律沿用 key 本身，如果原本內建字典已經有翻譯（例如「黑醬油(不要)」對應中文顯示「黑醬油」），
-               則保留原本的翻譯，不會被蓋掉 */
-            function mergeSimpleOptionName(key, v) {
-                const existing = dictionary.items[key];
-                if (v.en) {
-                    dictionary.items[key] = { ...(existing || {}), zh: (existing && existing.zh) || key, en: v.en };
-                } else if (!existing) {
-                    dictionary.items[key] = { zh: key, en: '' };
-                }
-            }
-
-            if (cloud.noWant) {
-                const cloudKeys = Object.keys(cloud.noWant);
-                const merged = {};
-                /* 保留原本內建、且沒有被雲端接管的預設項目（維持原順序，排在有明確排序值的雲端項目後面） */
-                Object.keys(config.noExtraImgs).forEach(k => {
-                    if (!cloudKeys.includes(k)) merged[k] = { img: config.noExtraImgs[k], order: 9999 };
-                });
-                cloudKeys.forEach(k => {
-                    const v = cloud.noWant[k];
-                    merged[k] = { img: config.noExtraImgs[k] || '', order: v.order ?? 9999 };
-                    mergeSimpleOptionName(k, v);
-                });
-                const sortedKeys = Object.keys(merged).sort((a, b) => merged[a].order - merged[b].order);
-                const rebuiltNoExtra = {};
-                sortedKeys.forEach(k => { rebuiltNoExtra[k] = merged[k].img; });
-                config.noExtraImgs = rebuiltNoExtra;
-            }
-
-            if (cloud.specialRequest) {
-                const cloudKeys = Object.keys(cloud.specialRequest);
-                const orderMap = {};
-                config.specials.forEach(k => { if (!cloudKeys.includes(k)) orderMap[k] = 9999; });
-                cloudKeys.forEach(k => {
-                    const v = cloud.specialRequest[k];
-                    orderMap[k] = v.order ?? 9999;
-                    mergeSimpleOptionName(k, v);
-                });
-                config.specials = Object.keys(orderMap).sort((a, b) => orderMap[a] - orderMap[b]);
-            }
-
             /* ✅ 排放位置：依照主理員設定的 order 排序 —— 面/湯重新排列圖片對照表的 key 順序，
                小食則直接排序 additions 陣列，前台所有清單渲染都會跟著這個順序顯示 */
             config.foodImgs = reorderMapByMeta(config.foodImgs, config.meta);
@@ -421,23 +357,8 @@
             config.additions.sort((a, b) => ((a.order) ?? 9999) - ((b.order) ?? 9999));
 
         } catch (err) {
-            if (retriesLeft > 0) {
-                console.warn(`讀取主理員雲端菜單失敗，1 秒後重試（剩餘 ${retriesLeft} 次）：`, err);
-                await new Promise(r => setTimeout(r, 1000));
-                return loadCloudMenu(retriesLeft - 1);
-            }
             console.error('讀取主理員雲端菜單失敗，使用內建預設菜單：', err);
-            showMenuLoadWarning();
         }
-    }
-
-    /* 非驚擾式提示：3 秒後自動消失，不會擋住任何操作，也不需要使用者按確定才能關閉 */
-    function showMenuLoadWarning() {
-        const tip = document.createElement('div');
-        tip.textContent = userLang === 'zh' ? '⚠️ 菜單可能不是最新版本（雲端讀取失敗）' : '⚠️ Menu may be outdated (cloud fetch failed)';
-        tip.style.cssText = 'position:fixed; top:10px; left:50%; transform:translateX(-50%); background:#d93025; color:#fff; font-size:0.82rem; font-weight:bold; padding:8px 16px; border-radius:10px; z-index:9999; box-shadow:0 4px 10px rgba(0,0,0,0.2);';
-        document.body.appendChild(tip);
-        setTimeout(() => tip.remove(), 3000);
     }
 
     /* 「重新載入菜單」按鈕：主理員在後台改完之後，前台按這個手動同步最新資料，
@@ -575,36 +496,14 @@
             const _now = new Date();
             const _pad = n => String(n).padStart(2, '0');
             const dateKey = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
-            /* ✅ 修正「外賣還是堂食無法正確顯示」問題：
-               根源：這裡原本寫 last.isTakeaway / last.eatOption 來判斷是否外帶，
-               但 last（也就是 history 裡的這筆訂單記錄）本身的結構是
-               { num, key, total, items }——「是否外帶」這個屬性其實是存在
-               「每一個品項」(last.items[].isTakeaway) 身上，不是存在訂單本身，
-               而且 eatOption 這個欄位在整個程式裡從來沒有被賦值過（純粹是打字
-               時想錯的欄位名稱）。所以 last.isTakeaway 和 last.eatOption 永遠
-               都是 undefined，這個判斷式因此永遠算出 false，導致不管客人實際
-               選堂食還是外賣，上傳到雲端的訂單一律被標記成「堂食」。
-               解法：改成檢查 last.items 陣列裡的每一個品項，只要「這張單裡的
-               每一份餐點都勾選了外賣」，就判定整張單是外帶單（跟收據列印時
-               「整單外賣才印大大的(外賣)字樣」用的是同一套邏輯，維持一致）；
-               如果只有部分品項是外賣（混合單），這裡仍歸類為堂食單，跟收據上
-               「逐項各自標示」的呈現方式相呼應——並不是每份都外帶，就不算整單
-               外帶。*/
-            const isTakeaway = (last.items || []).length > 0 && last.items.every(item => item.isTakeaway === true);
-            const finalSummary = isTakeaway ? `${summaryText} [打包]` : summaryText;
-
-      const payload = {
-        orderNo:    String(last.num),
-        claimKey:   last.key || null,   // ✅ 對應 orderClaims 底下那筆保證唯一的 Firebase key，方便回頭核對
-        summary:    finalSummary,       // 👈 修改：加上打包標記
-        totalPrice: totalPrice,
-        dateKey:    dateKey,
-        time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`,
-        
-        // 👇 👈 新增下面這兩行關鍵欄位！
-        isTakeaway:  isTakeaway,
-        diningOption: isTakeaway ? "打包" : "堂食"
-      };
+            const payload = {
+                orderNo:    String(last.num),
+                claimKey:   last.key || null,   // ✅ 對應 orderClaims 底下那筆保證唯一的 Firebase key，方便回頭核對
+                summary:    summaryText,
+                totalPrice: totalPrice,
+                dateKey:    dateKey,
+                time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`
+            };
             try {
                 await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             } catch (err) { console.error("❌ 雲端同步失敗:", err); }
@@ -777,24 +676,10 @@
         clearWholeOrder(true);
     }
 
-    /* ✅ 修改：原本用瀏覽器內建 confirm()（只能兩個按鈕：OK=中文／Cancel=English），
-       現在改成自訂彈窗，多加一個「取消返回」按鈕——按下去只關閉彈窗，
-       不會列印、也不會清空或變動購物車，已選擇的內容原封不動保留，可以繼續編輯 */
     function askPrintLanguage() {
         if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
-        document.getElementById('plm-title').innerText = userLang==='zh' ? '選擇列印語言' : 'Select Print Language';
-        document.getElementById('plm-cancel-btn').innerText = userLang==='zh' ? '取消返回' : 'Cancel & Back';
-        document.getElementById('print-lang-modal').style.display = 'flex';
-    }
-
-    function confirmPrintLanguage(lang) {
-        document.getElementById('print-lang-modal').style.display = 'none';
-        handleFinalizeAndPrint(lang);
-    }
-
-    /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或列印動作 */
-    function cancelPrintLanguage() {
-        document.getElementById('print-lang-modal').style.display = 'none';
+        const choice = confirm("選擇列印語言:\n【確定/OK】 = 中文\n【取消/Cancel】 = English");
+        handleFinalizeAndPrint(choice ? 'zh' : 'en');
     }
 
     /* --- 預覽列印：與正式列印共用同一套 drawPrintCanvas 繪圖邏輯，跳過藍牙傳輸 --- */
