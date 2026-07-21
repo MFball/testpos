@@ -703,34 +703,17 @@
         if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
         document.getElementById('status-text').innerText = "🔍 搜尋印表機...";
         try {
-            // ✅ 新程式碼（安全跳過藍芽連線，直接提示成功）
-try {
-    // 檢查瀏覽器是否支援藍芽（例如電腦或 Android POS 機）
-    if (navigator.bluetooth) {
-alert("🎉 下單成功！餐點已送至廚房，請稍候。"); return;
-
-        savedDevice = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-        });
-        const server = await savedDevice.gatt.connect();
-        const services = await server.getPrimaryServices();
-        for (const s of services) {
-            const chars = await s.getCharacteristics();
-            savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
-            if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
-        }
-    } else {
-        // 如果是 iPhone 或不支援藍芽的手機，直接跳過不報錯
-        console.log("此裝置不支援藍芽列印，已自動跳過。");
-    }
-} catch (error) {
-    // 萬一客人按下取消連線或出錯，也不要跳出大報錯，順暢提示完成
-    console.log("藍芽連線跳過：" + error.message);
-}
-
-// 提示顧客下單成功
-alert("🎉 下單成功！廚房已收到您的訂單，請稍候。");
+            savedDevice = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+            });
+            const server = await savedDevice.gatt.connect();
+            const services = await server.getPrimaryServices();
+            for (const s of services) {
+                const chars = await s.getCharacteristics();
+                savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
+            }
             document.getElementById('status-text').innerText = "● 藍牙已連線";
             document.getElementById('status-text').style.color = "#34a853";
             return savedCharacteristic;
@@ -765,19 +748,17 @@ alert("🎉 下單成功！廚房已收到您的訂單，請稍候。");
     /* ✅ 修改：原本用瀏覽器內建 confirm()（只能兩個按鈕：OK=中文／Cancel=English），
        現在改成自訂彈窗，多加一個「取消返回」按鈕——按下去只關閉彈窗，
        不會列印、也不會清空或變動購物車，已選擇的內容原封不動保留，可以繼續編輯 */
-    // ✅ 修改後：按下送出時，直接上傳 Firebase，絕不跳出語言選擇與藍芽列印！
-function askPrintLanguage() {
-    if (cart.length === 0) { 
-        alert(userLang === 'zh' ? '購物車是空的' : 'Cart is empty'); 
-        return; 
+    function askPrintLanguage() {
+        if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
+        document.getElementById('plm-title').innerText = userLang==='zh' ? '選擇列印語言' : 'Select Print Language';
+        document.getElementById('plm-cancel-btn').innerText = userLang==='zh' ? '取消返回' : 'Cancel & Back';
+        document.getElementById('print-lang-modal').style.display = 'flex';
     }
-    
-    // 呼叫原本的完成訂單函數 (把訂單推送到 Firebase)
-    // 帶入預設語言即可 (例如 'zh')
-    if (typeof handleFinalizeAndPrint === 'function') {
-        handleFinalizeAndPrint('zh'); 
+
+    function confirmPrintLanguage(lang) {
+        document.getElementById('print-lang-modal').style.display = 'none';
+        handleFinalizeAndPrint(lang);
     }
-}
 
     /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或列印動作 */
     function cancelPrintLanguage() {
@@ -799,33 +780,25 @@ function askPrintLanguage() {
     async function handleFinalizeAndPrint(printLang, forcedOrder = null, isReprint = false, successMsg = null) {
         const btn = document.getElementById('printBtn');
         try {
-            if (btn) btn.disabled = true;
-            
-            // 1. 取得 Firebase 訂單號碼並上傳訂單
-            const orderInfo = forcedOrder || await getNextOrderNo();
+            btn.disabled = true;
+            const targetChar = await getPrinter();
+            const orderInfo = forcedOrder || await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
             const currentNo = orderInfo.no, currentKey = orderInfo.key;
-            
-            // 2. 更新狀態與清空購物車
-            const statusText = document.getElementById('status-text');
-            if (statusText) statusText.innerText = "✅ 下單成功！";
-
-            // 3. 提示顧客（不碰藍芽、不列印）
-            const msg = successMsg || (userLang === 'zh' ? '🎉 下單成功！餐點已送至廚房，請稍候。' : '🎉 Order placed successfully!');
-            alert(msg);
-
-            // 4. 下單完成後恢復按鈕與清空購物車
-            cart = [];
-            if (typeof updateCartUI === 'function') updateCartUI();
-            if (typeof renderCart === 'function') renderCart();
-
-        } catch (error) {
-            console.error("下單過程發生錯誤:", error);
-            alert("下單失敗，請再試一次：" + error.message);
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-}
-      row[8 + x] = b;
+            document.getElementById('status-text').innerText = "📤 列印中...";
+            drawPrintCanvas(currentNo, printLang, currentKey);
+            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 576, document.getElementById('printCanvas').height).data;
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
+            const widthBytes = 72;  // ✅ 80mm紙捲：576點 ÷ 8 = 72 bytes（原58mm紙捲為48 bytes/384點）
+            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
+                let row = new Uint8Array(8 + widthBytes);
+                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+                for (let x = 0; x < widthBytes; x++) {
+                    let b = 0;
+                    for (let bit = 0; bit < 8; bit++) {
+                        let idx = ((y * 576) + (x * 8 + bit)) * 4;
+                        if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+                    }
+                    row[8 + x] = b;
                 }
                 if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
                 if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
