@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>廚房自動接單機</title>
+    <!-- 引入 Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <h2>🖨️ 廚房接單印表機控制台</h2>
+    <button onclick="connectPrinter()" style="padding: 15px; font-size: 18px; background: green; color: white;">
+        1. 點我連線 Xprinter 藍芽印表機
+    </button>
+    <p id="status">狀態：尚未連線印表機</p>
+
+    <script>
+        // 初始化 Firebase (請填入你原本 Firebase 的設定)
+        const firebaseConfig = {
+            // 這裡放你原本的 firebaseConfig 資料
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        let savedCharacteristic = null;
+
+        // 連接藍芽印表機
+        async function connectPrinter() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+                });
+                const server = await device.gatt.connect();
+                const services = await server.getPrimaryServices();
+                for (const s of services) {
+                    const chars = await s.getCharacteristics();
+                    savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+                    if (savedCharacteristic) break;
+                }
+                document.getElementById('status').innerText = "✅ 藍芽印表機已連線！正在等待新訂單...";
+            } catch (e) {
+                alert("連線失敗：" + e.message);
+            }
+        }
+
+        // 🎯 核心：監聽 Firebase，一有新訂單就自動印！
+        const ordersRef = firebase.database().ref('orders');
+        ordersRef.on('child_added', (snapshot) => {
+            const order = snapshot.val();
+            
+            // 確保有金額不是空單
+            if (order && order.total && parseFloat(order.total) > 0) {
+                console.log("收到新訂單！", order);
+                
+                // 如果印表機有連線，立刻發送列印
+                if (savedCharacteristic) {
+                    // 執行列印 (呼叫你原本畫指令印出的 function)
+                    alert("🔔 收到新訂單 #" + (order.num || '') + "！自動列印中...");
+                } else {
+                    alert("🔔 收到新訂單！但藍芽未連線，請先點按鈕連線 Xprinter。");
+                }
+            }
+        });
+    </script>
+</body>
+</html>
