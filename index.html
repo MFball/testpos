@@ -804,23 +804,37 @@ alert("🎉 下單成功！廚房已收到您的訂單，請稍候。");
             document.getElementById('status-text').innerText = "📤 列印中...";
             drawPrintCanvas(currentNo, printLang, currentKey);
             const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 576, document.getElementById('printCanvas').height).data;
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
-            const widthBytes = 72;  // ✅ 80mm紙捲：576點 ÷ 8 = 72 bytes（原58mm紙捲為48 bytes/384點）
-            for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
-                let row = new Uint8Array(8 + widthBytes);
-                row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
-                for (let x = 0; x < widthBytes; x++) {
-                    let b = 0;
-                    for (let bit = 0; bit < 8; bit++) {
-                        let idx = ((y * 576) + (x * 8 + bit)) * 4;
-                        if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
-                    }
-                    row[8 + x] = b;
-                }
-                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
-            }
-            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
+            // ---------------- 顧客前台：關閉藍芽列印 ----------------
+/* 
+await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
+const widthBytes = 72; // ✅ 80mm紙捲：576點 ÷ 8 = 72 bytes (原58mm紙捲為48 bytes/384點)
+for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
+    let row = new Uint8Array(8 + widthBytes);
+    row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+    for (let x = 0; x < widthBytes; x++) {
+        let b = 0;
+        for (let bit = 0; bit < 8; bit++) {
+            let idx = ((y * 576) + (x * 8 + bit)) * 4;
+            if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+        }
+        row[8 + x] = b;
+    }
+    if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
+    if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+}
+await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
+*/
+// ----------------------------------------------------
+
+// ⚠️ 以下這段（第 824 行起）必須保留，負責將訂單存入 Firebase！
+if (!isReprint) {
+    const orderData = getOrderData();
+    orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
+    recordSale(cart);
+    await saveOrderData(orderData);
+    alert("🎉 下單成功！餐點已送至廚房，請稍候。");
+    clearWholeOrder(true);
+}
             if (!isReprint) {
                 const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
