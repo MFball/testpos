@@ -1,66 +1,143 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>廚房自動接單機</title>
-    <!-- 引入 Firebase -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>廚房自動接單印表機控制台</title>
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+        button { width: 100%; padding: 15px; font-size: 18px; font-weight: bold; color: white; background: #28a745; border: none; border-radius: 8px; cursor: pointer; }
+        #status { margin-top: 15px; font-weight: bold; color: #555; }
+        #log { margin-top: 20px; background: #222; color: #00ff00; padding: 10px; border-radius: 5px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    </style>
 </head>
 <body>
-    <h2>🖨️ 廚房接單印表機控制台</h2>
-    <button onclick="connectPrinter()" style="padding: 15px; font-size: 18px; background: green; color: white;">
-        1. 點我連線 Xprinter 藍芽印表機
-    </button>
+
+<div class="card">
+    <h2>🖨️ 廚房自動接單控制台</h2>
+    <button onclick="connectPrinter()">1. 點我連線 Xprinter (Printer001)</button>
     <p id="status">狀態：尚未連線印表機</p>
+    <div id="log">> 等待連線...</div>
+</div>
 
-    <script>
-        // 初始化 Firebase (請填入你原本 Firebase 的設定)
-        const firebaseConfig = {
-            // 這裡放你原本的 firebaseConfig 資料
-        };
+<script>
+    // 1. 初始化 Firebase (請確認填入你的 Firebase 設定)
+    const firebaseConfig = {
+        databaseURL: "https://your-firebase-db-default-rtdb.firebaseio.com" // 🎯 請替換為你原本 index.html 裡的 databaseURL
+    };
+    if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
+    }
 
-        let savedCharacteristic = null;
+    let savedCharacteristic = null;
 
-        // 連接藍芽印表機
-        async function connectPrinter() {
-            try {
-                const device = await navigator.bluetooth.requestDevice({
-                    acceptAllDevices: true,
-                    optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
-                });
-                const server = await device.gatt.connect();
-                const services = await server.getPrimaryServices();
-                for (const s of services) {
-                    const chars = await s.getCharacteristics();
-                    savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
-                    if (savedCharacteristic) break;
+    function log(msg) {
+        const logBox = document.getElementById('log');
+        logBox.innerHTML += `<br>> ${msg}`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // 2. 連線藍芽印表機
+    async function connectPrinter() {
+        try {
+            log("正在搜尋藍芽裝置...");
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb', '000018f0-0000-1000-8000-00805f9b34fb']
+            });
+
+            log("正在連接 " + device.name + "...");
+            const server = await device.gatt.connect();
+            const services = await server.getPrimaryServices();
+
+            for (const service of services) {
+                const characteristics = await service.getCharacteristics();
+                for (const c of characteristics) {
+                    if (c.properties.write || c.properties.writeWithoutResponse) {
+                        savedCharacteristic = c;
+                        break;
+                    }
                 }
-                document.getElementById('status').innerText = "✅ 藍芽印表機已連線！正在等待新訂單...";
-            } catch (e) {
-                alert("連線失敗：" + e.message);
+                if (savedCharacteristic) break;
             }
+
+            if (savedCharacteristic) {
+                document.getElementById('status').innerText = "✅ 藍芽印表機已連線！正在監聽 Firebase 新訂單...";
+                document.getElementById('status').style.color = "green";
+                log("連線成功！準備自動出單。");
+            } else {
+                alert("找不到可寫入的藍芽特徵值！");
+            }
+        } catch (e) {
+            log("連線失敗：" + e.message);
+            alert("連線失敗：" + e.message);
         }
+    }
 
-        // 🎯 核心：監聽 Firebase，一有新訂單就自動印！
-        const ordersRef = firebase.database().ref('orders');
-        ordersRef.on('child_added', (snapshot) => {
-            const order = snapshot.val();
+    // 3. 監聽 Firebase 新訂單並自動列印
+    const ordersRef = firebase.database().ref('orders');
+    ordersRef.on('child_added', async (snapshot) => {
+        const order = snapshot.val();
+        log("收到 Firebase 新動作！");
+
+        // 過濾無效訂單與 $0 訂單
+        if (order && order.total && parseFloat(order.total) > 0) {
+            log(`🎯 收到有效新訂單！總額: $${order.total}`);
             
-            // 確保有金額不是空單
-            if (order && order.total && parseFloat(order.total) > 0) {
-                console.log("收到新訂單！", order);
-                
-                // 如果印表機有連線，立刻發送列印
-                if (savedCharacteristic) {
-                    // 執行列印 (呼叫你原本畫指令印出的 function)
-                    alert("🔔 收到新訂單 #" + (order.num || '') + "！自動列印中...");
-                } else {
-                    alert("🔔 收到新訂單！但藍芽未連線，請先點按鈕連線 Xprinter。");
+            if (savedCharacteristic) {
+                log("🖨️ 送出指令至 Xprinter 列印中...");
+                await printOrderToXprinter(order);
+            } else {
+                log("⚠️ 有新訂單，但藍芽未連線！請點按鈕連線。");
+            }
+        } else {
+            log("ℹ️ 收到系統空紀錄或 $0 訂單，忽略列印。");
+        }
+    });
+
+    // 4. 將訂單資料發送給 Xprinter 的 ESC/POS 指令
+    async function printOrderToXprinter(order) {
+        try {
+            const encoder = new TextEncoder();
+            
+            // ESC/POS 初始化指令
+            let cmds = [0x1B, 0x40]; // Initialize
+            cmds.push(...encoder.encode("\n--- 廚房接單點餐單 ---\n"));
+            cmds.push(...encoder.encode(`時間: ${new Date().toLocaleTimeString()}\n`));
+            cmds.push(...encoder.encode("------------------------------\n"));
+
+            if (order.items) {
+                if (Array.isArray(order.items)) {
+                    order.items.forEach(item => {
+                        cmds.push(...encoder.encode(`${item.name || '餐點'} x${item.qty || 1}  $${item.price || ''}\n`));
+                    });
+                } else if (typeof order.items === 'string') {
+                    cmds.push(...encoder.encode(`${order.items}\n`));
                 }
             }
-        });
-    </script>
+
+            cmds.push(...encoder.encode("------------------------------\n"));
+            cmds.push(...encoder.encode(`總計金額: $${order.total}\n\n\n\n`));
+            cmds.push(0x1D, 0x56, 0x41, 0x00); // 走紙切刀指令
+
+            const data = new Uint8Array(cmds);
+            
+            // 分區段傳送（避免藍芽 Buffer 溢位）
+            const chunkSize = 20;
+            for (let i = 0; i < data.length; i += chunkSize) {
+                const chunk = data.slice(i, i + chunkSize);
+                await savedCharacteristic.writeValue(chunk);
+            }
+            log("✅ 列印指令傳送完成！");
+        } catch (err) {
+            log("❌ 列印失敗: " + err.message);
+        }
+    }
+</script>
+
 </body>
 </html>
