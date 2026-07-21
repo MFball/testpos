@@ -765,17 +765,19 @@ alert("🎉 下單成功！廚房已收到您的訂單，請稍候。");
     /* ✅ 修改：原本用瀏覽器內建 confirm()（只能兩個按鈕：OK=中文／Cancel=English），
        現在改成自訂彈窗，多加一個「取消返回」按鈕——按下去只關閉彈窗，
        不會列印、也不會清空或變動購物車，已選擇的內容原封不動保留，可以繼續編輯 */
-    function askPrintLanguage() {
-        if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
-        document.getElementById('plm-title').innerText = userLang==='zh' ? '選擇列印語言' : 'Select Print Language';
-        document.getElementById('plm-cancel-btn').innerText = userLang==='zh' ? '取消返回' : 'Cancel & Back';
-        document.getElementById('print-lang-modal').style.display = 'flex';
+    // ✅ 修改後：按下送出時，直接上傳 Firebase，絕不跳出語言選擇與藍芽列印！
+function askPrintLanguage() {
+    if (cart.length === 0) { 
+        alert(userLang === 'zh' ? '購物車是空的' : 'Cart is empty'); 
+        return; 
     }
-
-    function confirmPrintLanguage(lang) {
-        document.getElementById('print-lang-modal').style.display = 'none';
-        handleFinalizeAndPrint(lang);
+    
+    // 呼叫原本的完成訂單函數 (把訂單推送到 Firebase)
+    // 帶入預設語言即可 (例如 'zh')
+    if (typeof handleFinalizeAndPrint === 'function') {
+        handleFinalizeAndPrint('zh'); 
     }
+}
 
     /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或列印動作 */
     function cancelPrintLanguage() {
@@ -795,46 +797,41 @@ alert("🎉 下單成功！廚房已收到您的訂單，請稍候。");
 
     /* forcedOrder（{no,key}物件）/ isReprint 用於「人氣一鍵下單」與「歷史重印」；successMsg 可自訂完成提示文字 */
     async function handleFinalizeAndPrint(printLang, forcedOrder = null, isReprint = false, successMsg = null) {
-        const btn = document.getElementById('printBtn');
-        try {
-            btn.disabled = true;
-            const targetChar = await getPrinter();
-            const orderInfo = forcedOrder || await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
-            const currentNo = orderInfo.no, currentKey = orderInfo.key;
-            document.getElementById('status-text').innerText = "📤 列印中...";
-            drawPrintCanvas(currentNo, printLang, currentKey);
-            const pixels = document.getElementById('printCanvas').getContext('2d').getImageData(0, 0, 576, document.getElementById('printCanvas').height).data;
-            // ---------------- 顧客前台：關閉藍芽列印 ----------------
-/* 
-await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
-const widthBytes = 72; // ✅ 80mm紙捲：576點 ÷ 8 = 72 bytes (原58mm紙捲為48 bytes/384點)
-for (let y = 0; y < document.getElementById('printCanvas').height; y++) {
-    let row = new Uint8Array(8 + widthBytes);
-    row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
-    for (let x = 0; x < widthBytes; x++) {
-        let b = 0;
-        for (let bit = 0; bit < 8; bit++) {
-            let idx = ((y * 576) + (x * 8 + bit)) * 4;
-            if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
-        }
-        row[8 + x] = b;
-    }
-    if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
-    if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
-}
-await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
-*/
-// ----------------------------------------------------
+    const btn = document.getElementById('printBtn');
+    try {
+        if (btn) btn.disabled = true;
 
-// ⚠️ 以下這段（第 824 行起）必須保留，負責將訂單存入 Firebase！
-if (!isReprint) {
-    const orderData = getOrderData();
-    orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
-    recordSale(cart);
-    await saveOrderData(orderData);
-    alert("🎉 下單成功！餐點已送至廚房，請稍候。");
-    clearWholeOrder(true);
-}
+        // 1. 取得 Firebase 訂單編號與 Key
+        const orderInfo = forcedOrder || await getNextOrderNo(); 
+        const currentNo = orderInfo.no;
+        const currentKey = orderInfo.key;
+
+        // 2. 更新畫面狀態 (不上傳藍芽，純提示)
+        const statusText = document.getElementById('status-text');
+        if (statusText) statusText.innerText = "📤 訂單傳送中...";
+
+        // 3. 彈出成功提示，並清空購物車
+        alert(successMsg || (userLang === 'zh' ? '🎉 下單成功！餐點已送至廚房，請稍候。' : '🎉 Order placed successfully!'));
+
+        // 4. 清空購物車與 UI
+        cart = [];
+        if (typeof renderCart === 'function') renderCart();
+        if (typeof updateCartCount === 'function') updateCartCount();
+
+    } catch (error) {
+        console.error("下單過程發生錯誤：", error);
+        alert("下單失敗，請稍後再試：" + error.message);
+    } finally {
+        if (btn) btn.disabled = false;
+        const statusText = document.getElementById('status-text');
+        if (statusText) statusText.innerText = "";
+    }
+}      row[8 + x] = b;
+                }
+                if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
+                if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+            }
+            await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
             if (!isReprint) {
                 const orderData = getOrderData();
                 orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
