@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.3.5 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.3.6 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -213,7 +213,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.3.5</span>
+        <span id="version-tag">v5.3.6</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -229,70 +229,7 @@
         <button class="bb-btn" style="background:var(--price-tag); flex:0.7;" onclick="clearWholeOrder()">❌ 清空</button>
         <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span></button>
         <button class="bb-btn" style="background:#607d8b; flex:0.9;" onclick="handleNoReceipt()">🚫 不收據</button>
-        <button class="bb-btn" id="submitOrderBtn" style="background:var(--primary); flex:1.3;" onclick="submitCustomerOrder()">🚀 確認下單</button>
-// 🚀 客人掃碼下單專用的新功能
-async function submitCustomerOrder() {
-    // 1. 先檢查購物車裡面有沒有東西？如果沒有，跳出提醒！
-    if (cart.length === 0) {
-        alert(userLang === 'zh' ? '購物車是空的喔！' : 'Cart is empty!');
-        return;
-    }
-
-    // 2. 拿到目前的總金額（直接用你原本畫面的總金額）
-    const totalSum = document.getElementById('cart-total-sum').innerText;
-    
-    // 3. 拿到統一單號（完全用你 Ver 5.3.5 原本寫好的單號功能！）
-    const orderInfo = await getNextOrderNo(); 
-    
-    // 4. 取得現在的時間（幾點幾分幾秒）
-    const _now = new Date();
-    const _pad = n => String(n).padStart(2, '0');
-    const timeString = `${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`;
-
-    // 5. 檢查這張單是全部打包，還是堂食？
-    const isAllTakeaway = cart.every(item => item.isTakeaway === true);
-
-    // 6. 把這張訂單打包成一個「包裹 (Object)」
-    const orderData = {
-        orderNo: String(orderInfo.no),
-        claimKey: orderInfo.key || null,
-        items: cart,                          // 點了什麼菜
-        totalPrice: totalSum,                 // 總共多少錢
-        isTakeaway: isAllTakeaway,             // 是否打包
-        diningOption: isAllTakeaway ? "打包" : "堂食",
-        status: "pending",                    // 狀態：等待廚房做菜
-        timestamp: Date.now(),
-        timeStr: timeString
-    };
-
-    try {
-        // 為了防止客人連續狂按，先把按鈕鎖起來
-        document.getElementById('submitOrderBtn').disabled = true;
-        
-        // 7. 🎯 把包裹傳送到你的 Firebase 雲端資料庫！
-        const response = await fetch("https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(orderData)
-        });
-
-        if (!response.ok) throw new Error('傳送失敗');
-
-        // 8. 成功了！跳出大大的成功訊息告訴客人他的單號
-        alert(userLang === 'zh' ? `✅ 下單成功！您的單號是：No. ${orderInfo.no}` : `✅ Order placed! Your No. is: ${orderInfo.no}`);
-        
-        // 9. 用你 Ver 5.3.5 原本的功能清空購物車，讓下一位點
-        clearWholeOrder(true);
-        
-    } catch (error) {
-        // 如果網路不好傳送失敗，告訴客人
-        alert(userLang === 'zh' ? '❌ 下單失敗，請檢查網路或找店員！' : '❌ Failed, please try again!');
-        console.error("Firebase 傳送錯誤:", error);
-    } finally {
-        // 最後把按鈕解開
-        document.getElementById('submitOrderBtn').disabled = false;
-    }
-}
+        <button class="bb-btn" id="printBtn" style="background:var(--primary); flex:1.3;" onclick="askPrintLanguage()">🖨️ 確認送出</button>
     </div>
 </div>
 
@@ -653,7 +590,9 @@ async function submitCustomerOrder() {
                如果只有部分品項是外賣（混合單），這裡仍歸類為堂食單，跟收據上
                「逐項各自標示」的呈現方式相呼應——並不是每份都外帶，就不算整單
                外帶。*/
-            const isTakeaway = (last.items || []).length > 0 && last.items.every(item => item.isTakeaway === true);
+            /* ✅ 用 Boolean() 明確轉型，確保送到雲端的一定是真正的布林值 true/false，
+               不會因為任何型別問題（例如不小心存成字串 "false"）造成後台判斷失準 */
+            const isTakeaway = Boolean((last.items || []).length > 0 && last.items.every(item => item.isTakeaway === true));
             const finalSummary = isTakeaway ? `${summaryText} [打包]` : summaryText;
 
       const payload = {
