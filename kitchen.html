@@ -63,9 +63,12 @@
 
           // 如果是剛進來的新訂單，就響鈴
           if (!isFirstLoad) {
-              playNoticeSound();
-              // 如果你連好了藍牙，這裡可以寫自動列印程式碼！
-          }
+    playNoticeSound();
+    // 🖨️ 新訂單進來，立刻呼叫自動列印！
+    if (typeof autoPrintOrder === 'function') {
+        autoPrintOrder(order);
+    }
+}
       });
 
       // 在畫面上呈現訂單卡片
@@ -107,10 +110,92 @@
           audio.play().catch(e => alert("請先點擊頁面任何地方以允許播放聲音！"));
       }
 
-      // 藍牙連接占位函數（這裡可以對接你原本 Ver 5.3.5 的藍牙列印邏輯）
-      function connectPrinter() {
-          alert("請將 Ver 5.3.5 的 Web Bluetooth 連線程式碼貼回此處即可連線！");
-      }
+      let printDevice = null;
+let printServer = null;
+let printCharacteristic = null;
+
+// 📡 1. 連接藍牙印表機
+async function connectPrinter() {
+    try {
+        const btStatus = document.getElementById('bt-status');
+        btStatus.innerText = "搜尋中...";
+        
+        printDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
+        });
+
+        printServer = await printDevice.gatt.connect();
+        
+        // 尋找服務與特徵值 (搜尋列印服務)
+        const services = await printServer.getPrimaryServices();
+        for (let service of services) {
+            const characteristics = await service.getCharacteristics();
+            for (let char of characteristics) {
+                if (char.properties.write || char.properties.writeWithoutResponse) {
+                    printCharacteristic = char;
+                    break;
+                }
+            }
+            if (printCharacteristic) break;
+        }
+
+        if (printCharacteristic) {
+            btStatus.innerText = "已連線 🟢";
+            btStatus.style.color = "green";
+            alert("✅ 藍牙印表機連接成功！");
+        } else {
+            throw new Error("找不到可寫入的藍牙頻道");
+        }
+    } catch (err) {
+        console.error(err);
+        document.getElementById('bt-status').innerText = "未連接 🔴";
+        document.getElementById('bt-status').style.color = "red";
+        alert("❌ 連接失敗：" + err.message);
+    }
+}
+
+// 🖨️ 2. 收到訂單時自動列印的函數
+async function autoPrintOrder(order) {
+    if (!printCharacteristic) {
+        console.log("印表機未連接，跳過自動列印");
+        return;
+    }
+
+    try {
+        // 使用您原本 Ver 5.3.5 的小票格式打包文字
+        let text = `\n==============================\n`;
+        text += `       MILLION FISHBALL       \n`;
+        text += `==============================\n`;
+        text += `單號 No.: ${order.orderNo}\n`;
+        text += `類型: ${order.diningOption}\n`;
+        text += `時間: ${order.timeStr || ''}\n`;
+        text += `------------------------------\n`;
+        
+        order.items.forEach(item => {
+            text += `${item.name}\n`;
+            text += `  x${item.qty}   $${item.price * item.qty}\n`;
+        });
+        
+        text += `------------------------------\n`;
+        text += `總計 Total: $${order.totalPrice}\n`;
+        text += `==============================\n\n\n\n`;
+
+        // 將文字轉為 Big5 / GBK / UTF-8 編碼發送到印表機
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        
+        // 分段發送給藍牙
+        const chunkSize = 20;
+        for (let i = 0; i < data.length; i += chunkSize) {
+            const chunk = data.slice(i, i + chunkSize);
+            await printCharacteristic.writeValue(chunk);
+        }
+        console.log("✅ 訂單已自動列印完成！");
+    } catch (err) {
+        console.error("列印失敗:", err);
+    }
+}
     </script>
 </body>
 </html>
