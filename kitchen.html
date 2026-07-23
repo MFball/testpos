@@ -70,6 +70,7 @@
             <button class="tb-btn" onclick="testBell()">🔔 測試響鈴</button>
             <button class="tb-btn" onclick="clearTodayList()">🧹 清空畫面</button>
         </div>
+        <div id="bt-unsupported-banner" style="display:none; background:#fff3e0; border:2px solid #ffb74d; border-radius:12px; padding:10px 12px; font-size:0.82rem; color:#7b4700; line-height:1.6;"></div>
     </div>
 
     <div id="order-list">
@@ -141,7 +142,21 @@
                 optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
             });
             const server = await savedDevice.gatt.connect();
-            const services = await server.getPrimaryServices();
+
+            /* ✅ 修正 Android「連接失敗：No Services found in device」問題：
+               根源：GATT 連線剛建立的當下，印表機內部可能還沒把服務列表準備好，
+               這時候立刻問「你有哪些服務」常常會得到空清單，並不代表印表機真的
+               沒有服務、也不是配對失敗，純粹是問得太快。
+               解法：改成最多重試 3 次，每次之間等待一小段時間（給印表機時間
+               把服務準備好），拿到服務列表才繼續，仍然拿不到才真正視為失敗。*/
+            let services = [];
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                services = await server.getPrimaryServices();
+                if (services.length > 0) break;
+                if (attempt < 3) await new Promise(r => setTimeout(r, 400));
+            }
+            if (services.length === 0) throw new Error('No Services found in device.（已重試3次，印表機可能尚未開機或距離太遠）');
+
             for (const s of services) {
                 const chars = await s.getCharacteristics();
                 savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
@@ -348,7 +363,32 @@
     }
 
     /* ═══════════════ 初始化 ═══════════════ */
+    /* ✅ 修正「iPhone 完全按不動連接印表機」問題：
+       根源：這不是程式碼的錯——蘋果從未在 iOS 上（Safari，以及所有 iOS 瀏覽器，
+       因為蘋果規定 iOS 上任何瀏覽器底層都必須使用 Safari 引擎）實作 Web Bluetooth
+       這個網頁標準。也就是說 iPhone 上 navigator.bluetooth 這個功能根本不存在，
+       不管換哪個瀏覽器都一樣，這是平台層級的限制，無法用程式碼繞過。
+       解法：開機時主動偵測，如果偵測到不支援，清楚告知原因並停用按鈕，
+       而不是讓按鈕看起來能按、實際點下去卻沒有任何反應，造成誤會。*/
+    function checkBluetoothSupport() {
+        if (!navigator.bluetooth) {
+            const btn = document.getElementById('printer-btn');
+            btn.disabled = true;
+            btn.innerText = '❌ 此裝置不支援藍牙連線';
+            btn.style.background = '#ccc';
+            btn.style.borderColor = '#ccc';
+            btn.onclick = null;
+            const banner = document.getElementById('bt-unsupported-banner');
+            banner.style.display = 'block';
+            banner.innerHTML = '⚠️ 這台裝置（或瀏覽器）不支援連接藍牙印表機。<br>' +
+                '<b>iPhone／iPad 上所有瀏覽器都不支援</b>（蘋果從未開放此功能，換瀏覽器也沒用）。<br>' +
+                '廚房這台連印表機的裝置，請改用 <b>Android 手機</b> 或 <b>Windows／Mac 電腦的 Chrome 瀏覽器</b>。<br>' +
+                '（畫面上方「即時監聽中」與自動響鈴不受影響，只有自動列印需要靠支援藍牙的裝置才能運作）';
+        }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
+        checkBluetoothSupport();
         printedKeys = loadPrintedKeys();
         startListening();
     });
