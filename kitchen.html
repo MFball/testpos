@@ -1,201 +1,360 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Million 廚房接收與列印中心</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background: #f4f6f9; color: #333; }
-        .header { background: #1a73e8; color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
-        .status-box { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-        .btn { background: #34a853; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; margin-right: 10px; }
-        .btn-blue { background: #1a73e8; }
-        .order-card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; border-left: 8px solid #ff9800; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .order-title { font-size: 1.4rem; font-weight: bold; color: #d32f2f; margin-bottom: 10px; }
-        .item-list { background: #fafafa; padding: 10px; border-radius: 8px; margin: 10px 0; font-size: 1.1rem; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Million FishBall Noodle - 廚房接單 Ver 1.0.0</title>
+<style>
+    :root {
+        --primary: #1a73e8; --success: #34a853; --danger: #d93025;
+        --takeaway: #5c6bc0; --bg: #f4f6f8;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: contain; }
+    body { font-family: -apple-system, "Helvetica Neue", "PingFang TC", sans-serif; background: var(--bg); }
+    button { font-family: inherit; cursor: pointer; }
+
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    #topbar { background: #fff; padding: 12px 14px; padding-top: max(12px, env(safe-area-inset-top)); border-bottom: 2px solid #eee; display: flex; flex-direction: column; gap: 8px; }
+    #topbar-row1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #shop-title { font-weight: 900; font-size: 1.05rem; }
+    .status-pill { font-size: 0.78rem; font-weight: 900; padding: 6px 12px; border-radius: 20px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+    .status-pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-ok { background: #e6f4ea; color: #1e7e34; }
+    .status-ok .dot { background: #34a853; animation: pulse 1.5s infinite; }
+    .status-bad { background: #fdecea; color: #a02c22; }
+    .status-bad .dot { background: #d93025; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    #topbar-row2 { display: flex; gap: 8px; }
+    .tb-btn { flex: 1; padding: 11px 8px; border-radius: 12px; border: 2px solid #eee; background: #fafafa; font-weight: 900; font-size: 0.85rem; color: #444; }
+    .tb-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    #order-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 14px calc(20px + env(safe-area-inset-bottom)); }
+    .empty-hint { text-align: center; color: #999; padding: 60px 20px; font-size: 1rem; line-height: 1.8; }
+
+    .order-card { background: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 12px; border-left: 8px solid var(--success); box-shadow: 0 2px 6px rgba(0,0,0,0.06); animation: slideIn 0.3s ease; }
+    .order-card.takeaway { border-left-color: var(--takeaway); }
+    .order-card.print-failed { border-left-color: var(--danger); background: #fff8f7; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .order-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .order-badge { font-weight: 900; font-size: 1.3rem; background: #111; color: #fff; padding: 4px 14px; border-radius: 12px; }
+    .order-time { font-size: 0.8rem; color: #999; }
+    .order-summary { font-size: 1rem; font-weight: bold; color: #222; line-height: 1.6; white-space: pre-wrap; }
+    .order-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .loc-tag { font-size: 0.78rem; font-weight: 900; padding: 4px 12px; border-radius: 10px; color: #fff; }
+    .loc-tag.di { background: var(--success); }
+    .loc-tag.ta { background: var(--takeaway); }
+    .src-tag { font-size: 0.7rem; font-weight: 900; padding: 3px 9px; border-radius: 10px; background: #eee; color: #666; margin-left: 6px; }
+    .order-total { font-weight: 900; color: var(--danger); font-size: 1.15rem; }
+    .order-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .oa-btn { flex: 1; padding: 9px; border-radius: 10px; border: none; font-weight: 900; font-size: 0.82rem; background: #eee; color: #444; }
+    .oa-btn.reprint { background: #fff3e0; color: #e65100; }
+    .print-fail-note { font-size: 0.78rem; color: var(--danger); font-weight: bold; margin-top: 6px; }
+
+    canvas { display: none; }
+</style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>🍳 廚房接單與自動列印中心</h1>
-        <p>請保持此頁面開啟，並連接藍牙印表機</p>
+<div id="app">
+    <div id="topbar">
+        <div id="topbar-row1">
+            <div id="shop-title">🍳 廚房接單</div>
+            <div id="listen-status" class="status-pill status-bad"><span class="dot"></span><span id="listen-status-text">連線中...</span></div>
+        </div>
+        <div id="topbar-row2">
+            <button class="tb-btn primary" id="printer-btn" onclick="connectPrinter()">🔗 連接印表機</button>
+            <button class="tb-btn" onclick="testBell()">🔔 測試響鈴</button>
+            <button class="tb-btn" onclick="clearTodayList()">🧹 清空畫面</button>
+        </div>
     </div>
 
-    <div class="status-box">
-        <h3>📱 藍牙印表機狀態：<span id="bt-status" style="color:red;">未連接</span></h3>
-        <button class="btn btn-blue" onclick="connectPrinter()">📡 連接藍牙印表機</button>
-        <button class="btn" onclick="testSound()">🔔 測試提示音</button>
+    <div id="order-list">
+        <div class="empty-hint" id="empty-hint">👂 正在等待新訂單...<br><span style="font-size:0.85rem;">客人或收銀機送出訂單後，這裡會自動響鈴並列印</span></div>
     </div>
+</div>
 
-    <h2>📥 即時收到的新訂單：</h2>
-    <div id="orders-list">
-        <p style="color:#888;">正在等待新訂單進入...</p>
-    </div>
+<canvas id="printCanvas" width="576"></canvas>
 
-    <!-- 提示音音效 -->
-    <audio id="notice-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+<script>
+    /* ═══════════════ 設定：跟前台/客戶版共用同一個 Firebase 專案 ═══════════════ */
+    const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
 
-    <!-- 導入 Firebase 監聽模組 -->
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-      import { getDatabase, ref, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    let savedDevice = null, savedCharacteristic = null, isFastMode = false;
+    let audioCtx = null;
+    let printedKeys = new Set();     // 今天已經處理過（響鈴+列印）的訂單 key，避免重複列印
+    let ordersOnScreen = {};         // key -> 訂單資料，供畫面渲染與重印使用
 
-      // 你專屬的 Firebase 設定
-      const firebaseConfig = {
-        databaseURL: "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const db = getDatabase(app);
-      const ordersRef = ref(db, 'orders');
-
-      let isFirstLoad = true;
-      
-      // 頁面打開後，開始實時監聽資料庫
-      setTimeout(() => { isFirstLoad = false; }, 3000); // 避開載入舊資料時狂響
-
-      onChildAdded(ordersRef, (snapshot) => {
-          const order = snapshot.val();
-          
-          // 在畫面上印出這張單
-          renderOrderCard(order);
-
-          // 如果是剛進來的新訂單，就響鈴
-          if (!isFirstLoad) {
-    playNoticeSound();
-    // 🖨️ 新訂單進來，立刻呼叫自動列印！
-    if (typeof autoPrintOrder === 'function') {
-        autoPrintOrder(order);
+    function getTodayDateKey() {
+        const n = new Date();
+        return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
     }
-}
-      });
 
-      // 在畫面上呈現訂單卡片
-      function renderOrderCard(order) {
-          const listDiv = document.getElementById('orders-list');
-          
-          // 如果是第一筆，把預設的「正在等待...」文字掉
-          if (listDiv.innerText.includes('正在等待')) {
-              listDiv.innerHTML = '';
-          }
+    /* ✅ 已列印清單存在 localStorage，用「今天日期」當 key 的一部分，
+       這樣廚房手機重新整理/斷線重連時不會把今天已經印過的單再印一次，
+       但換到新的一天會自動重新開始（不會無限累積） */
+    function loadPrintedKeys() {
+        const raw = localStorage.getItem('kitchen_printed_' + getTodayDateKey());
+        return new Set(raw ? JSON.parse(raw) : []);
+    }
+    function savePrintedKeys() {
+        localStorage.setItem('kitchen_printed_' + getTodayDateKey(), JSON.stringify([...printedKeys]));
+    }
 
-          let itemsHtml = order.items.map(item => `
-              <div style="display:flex; justify-shadow:space-between; margin-bottom:5px;">
-                  <span><b>${item.name}</b> x ${item.qty}</span>
-                  <span>$${item.price * item.qty}</span>
-              </div>
-          `).join('');
+    /* ═══════════════ 響鈴（Web Audio API，不需要額外音效檔）═══════════════ */
+    function ensureAudioCtx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+    }
+    function playBell() {
+        try {
+            const ctx = ensureAudioCtx();
+            /* 連續兩聲「叮咚」，音量足夠在廚房環境中被注意到 */
+            [0, 0.28].forEach((delay, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = i === 0 ? 880 : 1046;
+                gain.gain.setValueAtTime(0.001, ctx.currentTime + delay);
+                gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + delay + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.35);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.4);
+            });
+        } catch (err) { console.error('播放響鈴失敗：', err); }
+    }
+    function testBell() { ensureAudioCtx(); playBell(); }
 
-          const card = document.createElement('div');
-          card.className = 'order-card';
-          card.innerHTML = `
-              <div class="order-title">單號：No. ${order.orderNo} (${order.diningOption})</div>
-              <div><b>時間：</b>${order.timeStr || '未知'}</div>
-              <div class="item-list">${itemsHtml}</div>
-              <div style="text-align:right; font-size:1.2rem; font-weight:bold; color:#1a73e8;">
-                  總金額：$${order.totalPrice}
-              </div>
-          `;
-
-          // 新的訂單放在最上面
-          listDiv.prepend(card);
-      }
-    </script>
-
-    <script>
-      // 測試聲音
-      function testSound() {
-          const audio = document.getElementById('notice-sound');
-          audio.play().catch(e => alert("請先點擊頁面任何地方以允許播放聲音！"));
-      }
-
-      let printDevice = null;
-let printServer = null;
-let printCharacteristic = null;
-
-// 📡 1. 連接藍牙印表機
-async function connectPrinter() {
-    try {
-        const btStatus = document.getElementById('bt-status');
-        btStatus.innerText = "搜尋中...";
-        
-        printDevice = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb', 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']
-        });
-
-        printServer = await printDevice.gatt.connect();
-        
-        // 尋找服務與特徵值 (搜尋列印服務)
-        const services = await printServer.getPrimaryServices();
-        for (let service of services) {
-            const characteristics = await service.getCharacteristics();
-            for (let char of characteristics) {
-                if (char.properties.write || char.properties.writeWithoutResponse) {
-                    printCharacteristic = char;
-                    break;
-                }
+    /* ═══════════════ 藍牙印表機連接（跟收銀機使用完全相同、已驗證穩定的邏輯）═══════════════ */
+    async function connectPrinter() {
+        ensureAudioCtx();   // 藉這次使用者點擊順便解鎖音效播放權限
+        const btn = document.getElementById('printer-btn');
+        btn.innerText = '🔍 搜尋中...';
+        try {
+            savedDevice = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+            });
+            const server = await savedDevice.gatt.connect();
+            const services = await server.getPrimaryServices();
+            for (const s of services) {
+                const chars = await s.getCharacteristics();
+                savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
             }
-            if (printCharacteristic) break;
+            btn.innerText = '✅ 印表機已連線';
+            btn.style.background = 'var(--success)';
+            btn.style.borderColor = 'var(--success)';
+        } catch (e) {
+            btn.innerText = '🔗 連接印表機';
+            alert('連接失敗：' + e.message);
         }
-
-        if (printCharacteristic) {
-            btStatus.innerText = "已連線 🟢";
-            btStatus.style.color = "green";
-            alert("✅ 藍牙印表機連接成功！");
-        } else {
-            throw new Error("找不到可寫入的藍牙頻道");
-        }
-    } catch (err) {
-        console.error(err);
-        document.getElementById('bt-status').innerText = "未連接 🔴";
-        document.getElementById('bt-status').style.color = "red";
-        alert("❌ 連接失敗：" + err.message);
     }
-}
-
-// 🖨️ 2. 收到訂單時自動列印的函數
-async function autoPrintOrder(order) {
-    if (!printCharacteristic) {
-        console.log("印表機未連接，跳過自動列印");
-        return;
+    async function getPrinter() {
+        if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
+        throw new Error('印表機尚未連接，請先按上方「連接印表機」');
     }
 
-    try {
-        // 使用您原本 Ver 5.3.5 的小票格式打包文字
-        let text = `\n==============================\n`;
-        text += `       MILLION FISHBALL       \n`;
-        text += `==============================\n`;
-        text += `單號 No.: ${order.orderNo}\n`;
-        text += `類型: ${order.diningOption}\n`;
-        text += `時間: ${order.timeStr || ''}\n`;
-        text += `------------------------------\n`;
-        
-        order.items.forEach(item => {
-            text += `${item.name}\n`;
-            text += `  x${item.qty}   $${item.price * item.qty}\n`;
+    /* ═══════════════ 廚房收據繪製（簡化版：只印雲端存的摘要文字，不需要完整購物車結構）═══════════════ */
+    function computeKitchenReceiptHeight(lines) {
+        let y = 215;
+        y += lines.length * 40;   // 每行摘要文字
+        y += 70;                  // 堂食/外賣大標籤
+        y += 60;                  // 總金額
+        return y + 60;            // 底部安全邊界
+    }
+    function drawKitchenReceipt(order) {
+        const canvas = document.getElementById('printCanvas'), ctx = canvas.getContext('2d');
+        const lines = (order.summary || '').split('|').map(s => s.trim()).filter(Boolean);
+        const dynamicHeight = computeKitchenReceiptHeight(lines);
+        canvas.height = dynamicHeight;
+
+        ctx.fillStyle = "white"; ctx.fillRect(0, 0, 576, canvas.height);
+        ctx.textBaseline = "top"; ctx.fillStyle = "black"; ctx.textAlign = "center";
+        const centerX = 288, maxW = 540;
+
+        ctx.font = "bold 26px sans-serif"; ctx.fillText("Million FishBall Noodle - 廚房單", centerX, 20);
+        ctx.font = "18px sans-serif";      ctx.fillText(order.time || new Date().toLocaleString(), centerX, 55);
+        ctx.font = "bold 48px sans-serif"; ctx.fillText(`No. ${order.orderNo}`, centerX, 85);
+
+        ctx.font = "18px sans-serif"; ctx.fillStyle = "#555";
+        ctx.fillText(`ID: ${order.claimKey || '--'}${order.source === 'customer' ? '　📱顧客自助下單' : ''}`, centerX, 145);
+        ctx.fillStyle = "black";
+        ctx.font = "bold 20px sans-serif";
+        ctx.fillText("--------------------------------------------------------------", centerX, 178);
+
+        let y = 215;
+        ctx.font = "bold 32px sans-serif";
+        lines.forEach(line => { ctx.fillText(line, centerX, y, maxW); y += 40; });
+
+        y += 10;
+        const isTakeaway = order.isTakeaway === true || order.isTakeaway === 'true';
+        ctx.font = "bold 40px sans-serif";
+        ctx.fillStyle = isTakeaway ? "#3949ab" : "#1b5e20";
+        ctx.fillText(isTakeaway ? "🥡 外賣 / 打包" : "🍽 堂食", centerX, y, maxW);
+        ctx.fillStyle = "black";
+        y += 60;
+
+        ctx.font = "bold 42px sans-serif";
+        ctx.fillText("TOTAL: $" + (order.totalPrice || '0.00'), centerX, y, maxW);
+    }
+
+    /* ✅ 沿用收銀機已驗證穩定的「逐行送出」列印傳輸方式（80mm / 576點 / 72 bytes）*/
+    async function printOrder(order) {
+        const targetChar = await getPrinter();
+        drawKitchenReceipt(order);
+        const canvas = document.getElementById('printCanvas');
+        const pixels = canvas.getContext('2d').getImageData(0, 0, 576, canvas.height).data;
+        await targetChar.writeValue(new Uint8Array([0x1B, 0x40]));
+        const widthBytes = 72;
+        for (let y = 0; y < canvas.height; y++) {
+            let row = new Uint8Array(8 + widthBytes);
+            row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+            for (let x = 0; x < widthBytes; x++) {
+                let b = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    let idx = ((y * 576) + (x * 8 + bit)) * 4;
+                    if (pixels[idx] * 0.3 + pixels[idx+1] * 0.59 + pixels[idx+2] * 0.11 < 135) b |= (1 << (7 - bit));
+                }
+                row[8 + x] = b;
+            }
+            if (isFastMode) await targetChar.writeValueWithoutResponse(row); else await targetChar.writeValue(row);
+            if (y % 20 === 0) await new Promise(r => setTimeout(r, 40));
+        }
+        await targetChar.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
+    }
+
+    /* ═══════════════ 畫面渲染 ═══════════════ */
+    function renderOrderList() {
+        const cont = document.getElementById('order-list');
+        const keys = Object.keys(ordersOnScreen).sort().reverse();   // push key 本身就照時間排序，新的在前
+        if (keys.length === 0) {
+            cont.innerHTML = `<div class="empty-hint" id="empty-hint">👂 正在等待新訂單...<br><span style="font-size:0.85rem;">客人或收銀機送出訂單後，這裡會自動響鈴並列印</span></div>`;
+            return;
+        }
+        cont.innerHTML = keys.map(key => {
+            const o = ordersOnScreen[key];
+            const isTakeaway = o.isTakeaway === true || o.isTakeaway === 'true';
+            const failed = o._printFailed;
+            const cardClass = failed ? 'print-failed' : (isTakeaway ? 'takeaway' : '');
+            const locTag = isTakeaway ? `<span class="loc-tag ta">🥡 外賣/打包</span>` : `<span class="loc-tag di">🍽 堂食</span>`;
+            const srcTag = o.source === 'customer' ? `<span class="src-tag">📱顧客自助</span>` : '';
+            return `<div class="order-card ${cardClass}">
+                <div class="order-top">
+                    <span class="order-badge">No. ${o.orderNo}</span>
+                    <span class="order-time">${o.time || ''}</span>
+                </div>
+                <div class="order-summary">${(o.summary || '').replace(/\|/g, '\n')}</div>
+                <div class="order-bottom">
+                    <div>${locTag}${srcTag}</div>
+                    <div class="order-total">$${o.totalPrice || '0.00'}</div>
+                </div>
+                ${failed ? `<div class="print-fail-note">⚠️ 自動列印失敗，請確認印表機已連線後按下方重印</div>` : ''}
+                <div class="order-actions">
+                    <button class="oa-btn reprint" onclick="manualReprint('${key}')">🖨️ 重印</button>
+                    <button class="oa-btn" onclick="removeFromScreen('${key}')">✕ 從畫面移除</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function manualReprint(key) {
+        const order = ordersOnScreen[key];
+        if (!order) return;
+        try {
+            await printOrder(order);
+            order._printFailed = false;
+            renderOrderList();
+        } catch (err) {
+            alert('列印失敗：' + err.message);
+        }
+    }
+    function removeFromScreen(key) {
+        delete ordersOnScreen[key];
+        renderOrderList();
+    }
+    function clearTodayList() {
+        if (!confirm('只會清空這支手機畫面上的顯示，不會刪除雲端訂單資料，確定清空？')) return;
+        ordersOnScreen = {};
+        renderOrderList();
+    }
+
+    /* ═══════════════ 收到新訂單時的處理：響鈴 + 自動列印 + 加入畫面 ═══════════════ */
+    async function handleIncomingOrder(key, order) {
+        if (!order || printedKeys.has(key)) return;
+        /* ✅ 只處理「今天」的訂單，避免廚房手機換日後第一次連線時，
+           把資料庫裡過去其他天的舊訂單也當成新單響鈴/重印 */
+        if (order.dateKey !== getTodayDateKey()) return;
+
+        printedKeys.add(key);
+        savePrintedKeys();
+        ordersOnScreen[key] = { ...order };
+        renderOrderList();
+        playBell();
+
+        try {
+            await printOrder(order);
+        } catch (err) {
+            console.error('自動列印失敗：', err);
+            ordersOnScreen[key]._printFailed = true;
+            renderOrderList();
+        }
+    }
+
+    /* ═══════════════ Firebase 即時監聽（EventSource／SSE，不需要載入 Firebase SDK）═══════════════
+       原理：Firebase Realtime Database 的 REST 端點本身就支援「串流」模式——只要用瀏覽器
+       原生的 EventSource 打開 .json 網址，Firebase 會在有任何資料變動時，主動推送事件過來，
+       完全對應架構圖裡「Firebase 監聽 (onValue)」的概念，且不需要額外載入整包 Firebase SDK。
+       事件分兩種：
+       · "put" 在 path === "/" 時，是連線當下的完整快照（可能包含很多筆歷史訂單，只挑今天的處理）；
+         在 path 是某個訂單 key 時，代表「這筆訂單被新增或整筆覆蓋」。
+       · "patch" 代表某個既有節點的部分欄位被更新。
+       兩種都導向同一個 handleIncomingOrder()，並用 printedKeys 避免同一張單被重複處理。 */
+    let es = null;
+    function startListening() {
+        if (es) es.close();
+        es = new EventSource(CLOUD_URL);
+
+        es.addEventListener('put', (e) => {
+            const { path, data } = JSON.parse(e.data);
+            if (path === '/') {
+                if (data) Object.entries(data).forEach(([key, order]) => handleIncomingOrder(key, order));
+            } else {
+                const key = path.replace(/^\//, '');
+                if (data !== null) handleIncomingOrder(key, data);
+            }
         });
-        
-        text += `------------------------------\n`;
-        text += `總計 Total: $${order.totalPrice}\n`;
-        text += `==============================\n\n\n\n`;
 
-        // 將文字轉為 Big5 / GBK / UTF-8 編碼發送到印表機
-        const encoder = new TextEncoder();
-        const data = encoder.encode(text);
-        
-        // 分段發送給藍牙
-        const chunkSize = 20;
-        for (let i = 0; i < data.length; i += chunkSize) {
-            const chunk = data.slice(i, i + chunkSize);
-            await printCharacteristic.writeValue(chunk);
-        }
-        console.log("✅ 訂單已自動列印完成！");
-    } catch (err) {
-        console.error("列印失敗:", err);
+        es.addEventListener('patch', (e) => {
+            const { path, data } = JSON.parse(e.data);
+            const key = path.replace(/^\//, '');
+            if (key && data) handleIncomingOrder(key, data);
+        });
+
+        es.onopen = () => {
+            document.getElementById('listen-status').className = 'status-pill status-ok';
+            document.getElementById('listen-status-text').innerText = '即時監聽中';
+        };
+        es.onerror = () => {
+            /* EventSource 會自動重試連線，這裡只需要更新畫面狀態，不用手動重連 */
+            document.getElementById('listen-status').className = 'status-pill status-bad';
+            document.getElementById('listen-status-text').innerText = '連線中斷，重連中...';
+        };
     }
-}
-    </script>
+
+    /* ═══════════════ 初始化 ═══════════════ */
+    window.addEventListener('DOMContentLoaded', () => {
+        printedKeys = loadPrintedKeys();
+        startListening();
+    });
+
+    /* 防止意外滑動觸發整頁重新整理（會中斷監聽，需要重新整理才會恢復）*/
+    window.addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = ''; });
+</script>
 </body>
 </html>
