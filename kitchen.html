@@ -132,8 +132,62 @@
     function testBell() { ensureAudioCtx(); playBell(); }
 
     /* ═══════════════ 藍牙印表機連接（跟收銀機使用完全相同、已驗證穩定的邏輯）═══════════════ */
+    /* ✅ 修正「連線成功但列印機沒反應」問題：
+       根源：最可能的原因是手機螢幕自動鎖定/休眠——藍牙連線需要頁面保持在
+       「使用中」狀態，螢幕一鎖定，系統很容易把背景中的藍牙連線悄悄斷開，
+       但畫面上還停留在「已連線」的舊狀態（因為程式當下不知道已經斷線），
+       等真正有新訂單要列印時才發現印表機早就斷了，卻沒有任何畫面提示。
+       解法分三層：
+       ① 用 Screen Wake Lock API 讓螢幕不會自動熄滅／鎖定，從源頭降低斷線機率
+          （這是瀏覽器標準功能，専門給這種「必須保持開啟」的網頁用）；
+       ② 監聽藍牙的「斷線」事件，一斷線立刻在畫面上明確顯示紅色警示，
+          不會再讓使用者誤以為印表機還連著；
+       ③ 斷線當下嘗試自動重新連線（同一個裝置在同一次網頁瀏覽期間，
+          可以不需要使用者重新點擊選擇裝置就重新連上，這是 Web Bluetooth
+          規範允許的），大部分情況能自己恢復，不需要人手動再按一次。 */
+    let wakeLock = null;
+    async function requestWakeLock() {
+        try {
+            if ('wakeLock' in navigator) {
+                wakeLock = await navigator.wakeLock.request('screen');
+                wakeLock.addEventListener('release', () => { wakeLock = null; });
+            }
+        } catch (err) {
+            console.warn('螢幕喚醒鎖定失敗（不影響其他功能）：', err);
+        }
+    }
+    /* 頁面從背景切回前景時，喚醒鎖定可能已經失效，重新申請一次 */
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') requestWakeLock();
+    });
+
+    function setPrinterStatus(connected, text) {
+        const btn = document.getElementById('printer-btn');
+        btn.innerText = text;
+        btn.style.background = connected ? 'var(--success)' : 'var(--danger)';
+        btn.style.borderColor = connected ? 'var(--success)' : 'var(--danger)';
+    }
+
+    /* 斷線時嘗試自動重連，同一個裝置在同一次瀏覽期間不需要使用者重新選擇裝置 */
+    async function handlePrinterDisconnected() {
+        setPrinterStatus(false, '🔴 印表機已斷線，重連中...');
+        try {
+            const server = await savedDevice.gatt.connect();
+            const services = await server.getPrimaryServices();
+            for (const s of services) {
+                const chars = await s.getCharacteristics();
+                savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+                if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
+            }
+            setPrinterStatus(true, '✅ 印表機已連線');
+        } catch (err) {
+            setPrinterStatus(false, '🔴 已斷線，請按此重新連接');
+        }
+    }
+
     async function connectPrinter() {
         ensureAudioCtx();   // 藉這次使用者點擊順便解鎖音效播放權限
+        requestWakeLock();  // 同一次點擊順便申請螢幕保持開啟
         const btn = document.getElementById('printer-btn');
         btn.innerText = '🔍 搜尋中...';
         try {
@@ -141,6 +195,9 @@
                 acceptAllDevices: true,
                 optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
             });
+            /* ✅ 監聽斷線事件，斷線當下立刻更新畫面狀態並嘗試自動重連 */
+            savedDevice.addEventListener('gattserverdisconnected', handlePrinterDisconnected);
+
             const server = await savedDevice.gatt.connect();
 
             /* ✅ 修正 Android「連接失敗：No Services found in device」問題：
@@ -162,16 +219,23 @@
                 savedCharacteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
                 if (savedCharacteristic) { isFastMode = !!chars.find(c => c.properties.writeWithoutResponse); break; }
             }
-            btn.innerText = '✅ 印表機已連線';
-            btn.style.background = 'var(--success)';
-            btn.style.borderColor = 'var(--success)';
+            setPrinterStatus(true, '✅ 印表機已連線');
         } catch (e) {
             btn.innerText = '🔗 連接印表機';
+            btn.style.background = '';
+            btn.style.borderColor = '';
             alert('連接失敗：' + e.message);
         }
     }
     async function getPrinter() {
         if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
+        /* 印表機已斷線：先嘗試自動重連一次，成功就直接使用，不用中斷這次列印 */
+        if (savedDevice) {
+            try {
+                await handlePrinterDisconnected();
+                if (savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
+            } catch (err) { /* 重連失敗，繼續往下拋出原本的錯誤訊息 */ }
+        }
         throw new Error('印表機尚未連接，請先按上方「連接印表機」');
     }
 
@@ -391,6 +455,7 @@
         checkBluetoothSupport();
         printedKeys = loadPrintedKeys();
         startListening();
+        requestWakeLock();   // ✅ 開機就先申請一次螢幕保持開啟（部分瀏覽器允許不需使用者手勢也能申請）
     });
 
     /* 防止意外滑動觸發整頁重新整理（會中斷監聽，需要重新整理才會恢復）*/
