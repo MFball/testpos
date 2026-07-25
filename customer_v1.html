@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 1.1.0</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.0.0</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -147,6 +147,7 @@
 
     /* ── 送出前確認彈窗 ── */
     #submit-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3100; align-items:center; justify-content:center; padding:20px; }
+    #paynow-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3200; align-items:center; justify-content:center; padding:20px; }
     .sm-card { background:#fff; border-radius:20px; padding:22px; max-width:380px; width:100%; }
     .sm-title { font-weight:900; font-size:1.2rem; margin-bottom:14px; text-align:center; }
     .sm-field-label { font-size: 0.85rem; font-weight: 900; color: #555; margin: 12px 0 6px; }
@@ -200,7 +201,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million</div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.0.0</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -250,17 +251,36 @@
 
         <div class="sm-total">$<span id="sm-total-amount">0.00</span></div>
 
-        <button class="sm-btn sm-btn-go" onclick="confirmSubmitOrder()" id="sm-go-btn">🚀 確定送出</button>
+        <button class="sm-btn sm-btn-go" onclick="proceedToPayment()" id="sm-go-btn">🚀 確定送出</button>
         <button class="sm-btn sm-btn-cancel" onclick="closeSubmitModal()" id="sm-cancel-btn">返回修改</button>
     </div>
 </div>
+
+<!-- ✅ PayNow 付款彈窗：訂單編號確定之後、真正記錄訂單之前，先請客人完成付款
+     ⚠️ 這裡沒有接銀行API，沒辦法自動驗證真的有收到款項——客人按「我已完成付款」
+     後，訂單會先進「待確認付款」清單，需要店員在收銀機那邊核對PayNow收款、
+     手動放行後，廚房才會真的印出這張單開始準備 -->
+<div id="paynow-modal">
+    <div class="sm-card" style="text-align:center;">
+        <div class="sm-title" id="paynow-title">📱 PayNow 掃碼付款</div>
+        <div style="font-size:0.85rem; color:#888; margin:-6px 0 14px;" id="paynow-subtitle">請使用您的銀行App掃描下方QR Code付款</div>
+        <div id="paynow-qr-container" style="display:flex; justify-content:center; margin:10px 0; min-height:180px; align-items:center;"></div>
+        <div style="font-size:1.6rem; font-weight:900; margin:10px 0;">$<span id="paynow-amount">0.00</span></div>
+        <div style="font-size:0.8rem; color:#999; margin-bottom:16px;" id="paynow-ref-line">訂單編號：<span id="paynow-ref"></span>（此編號已放入付款備註，方便店家核對）</div>
+        <button class="sm-btn sm-btn-go" onclick="confirmPaymentDone()" id="paynow-done-btn">✅ 我已完成付款</button>
+        <button class="sm-btn sm-btn-cancel" onclick="cancelPayment()" id="paynow-cancel-btn">返回修改訂單</button>
+    </div>
+</div>
+
+<!-- ✅ 顧客端QR Code產生器：純前端JS產生，不需要另外的伺服器或API -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <!-- ✅ 訂單完成畫面：全螢幕顯示取餐號碼 -->
 <div id="done-screen">
     <div class="done-check">✅</div>
     <div id="done-title" style="font-size:1.3rem; font-weight:900;">訂單已送出！</div>
     <div class="done-orderno" id="done-orderno">No. ----</div>
-    <div class="done-hint" id="done-hint">請記住這個號碼<br>店員會依號碼叫您取餐／送餐<br>付款請在取餐時進行</div>
+    <div class="done-hint" id="done-hint">請記住這個號碼<br>店家核對付款後即會開始準備<br>完成後會依號碼叫您取餐／送餐</div>
     <button class="done-btn" onclick="startNewOrder()" id="done-btn">➕ 再點一份</button>
 </div>
 
@@ -277,7 +297,61 @@
     /* ═══════════════ 設定：跟收銀機／後台共用同一個 Firebase 專案 ═══════════════ */
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
+    /* ✅ ver2.0.0：訂單「按下確定送出」後，不會直接進這個給廚房自動列印的 /orders 節點，
+       而是先進下面這個「待確認付款」節點——因為沒有接銀行API，無法自動驗證PayNow款項
+       真的入帳，需要店員在收銀機那邊核對後手動「放行」，才會真的送進 /orders 給廚房列印。
+       這樣可以避免有人亂按「已付款」但其實沒付錢，讓廚房白做一份沒人要的餐點。 */
+    const PENDING_ORDERS_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/pendingOrders.json";
     const MENU_URL  = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/menu.json";
+
+    /* ═══════════════ PayNow QR Code 產生（SGQR / EMVCo 標準）═══════════════
+       ⚠️⚠️ 請把下面兩個值換成你自己的資料，這是唯一需要你自己修改的地方：
+       PAYNOW_UEN：你登記PayNow用的UEN號碼（例如 "201234567A"）
+       PAYNOW_MERCHANT_NAME：顯示在QR/付款頁上的商戶名稱（最多25個字元，超過會被截掉）
+       沒填正確的UEN之前，這裡只是一組測試用的假資料，掃出來的QR碼「收不到錢」，
+       請務必在正式上線前換成你自己的真實UEN！ */
+    const PAYNOW_UEN = "53495345W";              // <==== 請改成你自己的 UEN
+    const PAYNOW_MERCHANT_NAME = "MILLION FISHBALL NOODLE";  // <==== 請改成你想顯示的商戶名稱
+
+    /* CRC-16/CCITT-FALSE 校驗碼計算，EMVCo QR格式規定的標準演算法，逐位元運算 */
+    function paynowCrc16(str) {
+        let crc = 0xFFFF;
+        for (let i = 0; i < str.length; i++) {
+            crc ^= (str.charCodeAt(i) << 8);
+            for (let j = 0; j < 8; j++) {
+                crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+                crc &= 0xFFFF;
+            }
+        }
+        return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+    /* TLV = Tag-Length-Value，EMVCo QR格式裡每一個欄位都是這種「代碼+長度+內容」的組合 */
+    function paynowTlv(id, value) {
+        return `${id}${String(value.length).padStart(2, '0')}${value}`;
+    }
+    /* 組出符合SGQR/EMVCo規格的PayNow付款字串（已用官方範例驗證過CRC16計算完全正確）*/
+    function buildPayNowQrString(amount, reference) {
+        const amountStr = Number(amount).toFixed(2);
+        const merchantInfo =
+            paynowTlv('00', 'SG.PAYNOW') +
+            paynowTlv('01', '2') +              // proxy type：2 = UEN（登記方式）
+            paynowTlv('02', PAYNOW_UEN) +
+            paynowTlv('03', '0');               // 金額不可讓客人自己修改
+        let payload =
+            paynowTlv('00', '01') +
+            paynowTlv('01', '12') +             // 12 = 動態QR（含固定金額），非可重複使用的靜態QR
+            paynowTlv('26', merchantInfo) +
+            paynowTlv('52', '0000') +
+            paynowTlv('53', '702') +            // 702 = SGD 新加坡幣
+            paynowTlv('54', amountStr) +
+            paynowTlv('58', 'SG') +
+            paynowTlv('59', PAYNOW_MERCHANT_NAME.substring(0, 25)) +
+            paynowTlv('60', 'Singapore') +
+            paynowTlv('62', paynowTlv('01', String(reference).substring(0, 25)));
+        payload += '6304';
+        payload += paynowCrc16(payload);
+        return payload;
+    }
     const CLAIMS_URL_BASE = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderClaims";
 
     let userLang = 'zh';
@@ -840,19 +914,60 @@
     }
     function closeSubmitModal() { document.getElementById('submit-modal').style.display = 'none'; }
 
-    async function confirmSubmitOrder() {
+    let pendingOrderInfo = null;   // 暫存已經跟雲端搶好的訂單編號/key，付款彈窗跟實際送出中間共用
+
+    /* ✅ 送出前先訂好訂單編號，把編號當作PayNow的付款備註，並顯示付款QR Code，
+       這樣店員之後核對PayNow收款時，看備註欄的編號就能對上是哪一筆訂單 */
+    async function proceedToPayment() {
         const goBtn = document.getElementById('sm-go-btn');
         goBtn.disabled = true;
-        goBtn.innerText = userLang==='zh' ? '送出中...' : 'Submitting...';
+        goBtn.innerText = userLang==='zh' ? '處理中...' : 'Processing...';
         try {
-            const orderInfo = await getNextOrderNo();
+            pendingOrderInfo = await getNextOrderNo();
+            const total = document.getElementById('cart-total-sum').innerText;
 
-            /* ✅ 修正：訂單摘要文字過去只包含「品名[大小] 麵種 醬料 x數量」，
-               客人選的「★特別要求」「不要什麼」「加料」完全沒有被送出去，
-               廚房單上因此看不到——等於客人選了少辣/不要蔥/加魚圓，廚房完全不知道。
-               現在把這三項也組進摘要文字裡，用換行字元(\n)當作「這個品項的附加說明」，
-               跟下一個品項之間的分隔符號 " | " 是不同符號，不會互相干擾，
-               廚房那邊解析時只要先用 " | " 拆成每個品項、再用 \n 拆出附加說明即可。 */
+            document.getElementById('paynow-amount').innerText = total;
+            document.getElementById('paynow-ref').innerText = pendingOrderInfo.no;
+
+            const qrContainer = document.getElementById('paynow-qr-container');
+            qrContainer.innerHTML = '';
+            new QRCode(qrContainer, {
+                text: buildPayNowQrString(total, pendingOrderInfo.no),
+                width: 200, height: 200,
+                colorDark: "#000000", colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.M
+            });
+
+            document.getElementById('submit-modal').style.display = 'none';
+            document.getElementById('paynow-modal').style.display = 'flex';
+        } catch (err) {
+            alert((userLang==='zh' ? '準備付款失敗，請重新嘗試：' : 'Failed to prepare payment, please try again: ') + err.message);
+        } finally {
+            goBtn.disabled = false;
+            goBtn.innerText = userLang==='zh' ? '🚀 確定送出' : '🚀 Confirm & Submit';
+        }
+    }
+
+    /* 客人改變心意想先修改訂單內容：關掉付款彈窗、回到送出確認彈窗，購物車內容不受影響。
+       ⚠️ 已經跟雲端搶到的訂單編號(pendingOrderInfo)就先閒置不用，不會真的送出訂單，
+       之後客人若重新點「確定送出」會再搶一個新的編號，原本這個號碼會被跳過不使用。*/
+    function cancelPayment() {
+        document.getElementById('paynow-modal').style.display = 'none';
+        document.getElementById('submit-modal').style.display = 'flex';
+    }
+
+    /* ✅ 客人按下「我已完成付款」──這裡沒有接銀行API，沒辦法自動確認款項真的入帳，
+       所以訂單會先送進 /pendingOrders「待確認付款」節點，不會直接給廚房自動列印；
+       需要店員在收銀機那邊核對PayNow收款後手動「放行」，才會真的送進 /orders 給廚房。 */
+    async function confirmPaymentDone() {
+        const doneBtn = document.getElementById('paynow-done-btn');
+        doneBtn.disabled = true;
+        doneBtn.innerText = userLang==='zh' ? '送出中...' : 'Submitting...';
+        try {
+            const orderInfo = pendingOrderInfo;
+
+            /* ✅ 摘要文字格式：品項附加說明用 \n 分隔，品項與品項之間用 " | "，
+               廚房那邊解析時先用 " | " 拆成每個品項、再用 \n 拆出附加說明 */
             const summaryParts = cart.map(item => {
                 const name = getItemName(item.mainKey, 'zh');
                 const size = getItemName(item.sizeKey, 'zh');
@@ -890,9 +1005,6 @@
                 orderNo:    String(orderInfo.no),
                 claimKey:   orderInfo.key || null,
                 summary:    finalSummary,
-                /* ✅ 桌號／顧客稱呼改成獨立欄位送出（不再塞進 summary 文字裡），
-                   這樣廚房那邊才能依照後台「顯示桌號/取餐號」設定，決定要不要印這行，
-                   如果混在文字裡，設定關掉時沒辦法只單獨抽掉這一段 */
                 tableNo:    tableNo || null,
                 custName:   custName || null,
                 totalPrice: totalPrice,
@@ -900,19 +1012,21 @@
                 time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`,
                 isTakeaway:  isTakeaway,
                 diningOption: isTakeaway ? "打包" : "堂食",
-                source: "customer"   /* ✅ 標記這張單是顧客手機自助下單，方便跟收銀機下的單區分 */
+                source: "customer",
+                awaitingConfirmation: true   // ✅ 標記「等待店員核對PayNow付款」，收銀機看到這個標記才會顯示在待確認清單
             };
 
-            await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            await fetch(PENDING_ORDERS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
-            closeSubmitModal();
+            document.getElementById('paynow-modal').style.display = 'none';
             showDoneScreen(orderInfo.no);
             cart = [];
+            pendingOrderInfo = null;
         } catch (err) {
             alert((userLang==='zh' ? '送出失敗，請重新嘗試：' : 'Submit failed, please try again: ') + err.message);
         } finally {
-            goBtn.disabled = false;
-            goBtn.innerText = userLang==='zh' ? '🚀 確定送出' : '🚀 Confirm & Submit';
+            doneBtn.disabled = false;
+            doneBtn.innerText = userLang==='zh' ? '✅ 我已完成付款' : '✅ I have paid';
         }
     }
 
@@ -941,10 +1055,14 @@
         document.getElementById('sm-table-label').innerText = l==='zh' ? '桌號（堂食可填，選填）' : 'Table No. (optional, dine-in)';
         document.getElementById('sm-name-label').innerText = l==='zh' ? '您的稱呼（選填，方便叫號時使用）' : 'Your name (optional, for pickup call)';
         document.getElementById('sm-cancel-btn').innerText = l==='zh' ? '返回修改' : 'Back to edit';
+        document.getElementById('paynow-title').innerText = l==='zh' ? '📱 PayNow 掃碼付款' : '📱 Pay with PayNow';
+        document.getElementById('paynow-subtitle').innerText = l==='zh' ? '請使用您的銀行App掃描下方QR Code付款' : 'Scan the QR code below with your banking app';
+        document.getElementById('paynow-done-btn').innerText = l==='zh' ? '✅ 我已完成付款' : '✅ I have paid';
+        document.getElementById('paynow-cancel-btn').innerText = l==='zh' ? '返回修改訂單' : 'Back to edit order';
         document.getElementById('done-title').innerText = l==='zh' ? '訂單已送出！' : 'Order submitted!';
         document.getElementById('done-hint').innerHTML = l==='zh'
-            ? '請記住這個號碼<br>店員會依號碼叫您取餐／送餐<br>付款請在取餐時進行'
-            : 'Please remember this number<br>Staff will call your number when ready<br>Payment is collected at pickup';
+            ? '請記住這個號碼<br>店家核對付款後即會開始準備<br>完成後會依號碼叫您取餐／送餐'
+            : 'Please remember this number<br>Staff will start preparing after confirming payment<br>Your number will be called when ready';
         document.getElementById('done-btn').innerText = l==='zh' ? '➕ 再點一份' : '➕ Order more';
         renderSideList();
         if (tempItem) renderCustomizePanel();
