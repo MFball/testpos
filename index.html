@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.5.0 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.6.0 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -153,6 +153,8 @@
 
     /* ── 歷史記錄面板 / 預覽 Modal（沿用舊版）── */
     #history-panel { display:none; position:fixed; top:6%; left:5%; right:5%; bottom:6%; background:white; z-index:2000; border-radius:24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); padding:20px; border:3px solid var(--primary); overflow-y:auto; }
+    #pending-payment-panel { display:none; position:fixed; top:6%; left:5%; right:5%; bottom:6%; background:white; z-index:2000; border-radius:24px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); padding:20px; border:3px solid #e53935; overflow-y:auto; }
+    .pending-item { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px; border:1px solid #eee; border-radius:12px; margin-bottom:10px; }
     .hist-item { display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid #eee; }
     #preview-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center; padding:20px; }
     /* ✅ 列印語言選擇彈窗：取代原本只能兩個按鈕的 confirm()，改成可以放第三個「取消返回」按鈕 */
@@ -210,10 +212,11 @@
             <button class="cat-tab" data-cat="人氣" onclick="selectCategory('人氣')">🔥 人氣</button>
         </div>
         <div id="status-text">● 準備送單</div>
+        <button class="icon-btn" title="待確認付款" onclick="togglePendingPayments()" style="position:relative;">⏳<span id="pending-count-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#e53935; color:white; font-size:0.65rem; border-radius:50%; width:18px; height:18px; line-height:18px; text-align:center; font-weight:bold;"></span></button>
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.5.0</span>
+        <span id="version-tag">v5.6.0</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -274,6 +277,14 @@
     <button style="background:#666; color:white; border:none; padding:12px; width:100%; border-radius:12px; margin-top:15px; font-weight:bold;" onclick="toggleHistory()">關閉面板</button>
 </div>
 
+<!-- ✅ 待確認付款面板：顧客手機PayNow下單先進這裡，店員核對收款後手動放行給廚房 -->
+<div id="pending-payment-panel">
+    <h3 style="margin-top:0;">⏳ 待確認付款訂單</h3>
+    <div style="font-size:0.8rem; color:#888; margin:-8px 0 12px;">請核對自己PayNow收款App裡的金額與訂單編號一致後，再按「放行給廚房」</div>
+    <div id="pending-payment-list"></div>
+    <button style="background:#666; color:white; border:none; padding:12px; width:100%; border-radius:12px; margin-top:15px; font-weight:bold;" onclick="togglePendingPayments()">關閉面板</button>
+</div>
+
 <script>
     /* ═══════════════ iOS 適配：動態量測實際可視高度（解決 iPhone Safari 100vh 誤差） ═══════════════ */
     function setAppHeight() {
@@ -305,6 +316,11 @@
     const START_NO = 8238;
     const CLOUD_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orders.json";
     const PRINT_CONFIG_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/printConfig.json";
+    /* ✅ ver5.6.0：顧客手機下單改成先付款(PayNow)，因為沒接銀行API無法自動驗證款項，
+       客人按「已付款」後訂單會先進這個「待確認付款」節點，需要收銀機這邊的店員核對
+       PayNow收款後手動「放行」，才會真的轉進 CLOUD_URL 給廚房自動列印，避免有人亂按
+       已付款但沒真的付錢，讓廚房白做一份沒人要的餐點 */
+    const PENDING_ORDERS_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/pendingOrders.json";
 
     /* ✅ ver5.4.0：收銀機列印收據過去也是完全寫死的樣板（店名、是否印價錢都固定），
        跟主理員後台的「列印設定」沒有任何關聯。現在改成開機讀取雲端 /printConfig，
@@ -335,6 +351,123 @@
         } catch (err) {
             console.log('讀取列印設定失敗，暫時沿用目前設定：', err.message);
         }
+    }
+
+    /* ═══════════════ 待確認付款（顧客PayNow下單，需人工核對收款後才放行給廚房）═══════════════ */
+    let pendingPaymentsData = {};   // { key: orderObj, ... } 目前畫面上看到的所有待確認訂單
+    let pendingEs = null;
+    let audioCtx = null;
+
+    /* 提示音：沿用跟廚房出單機一樣的做法（Web Audio API 現場產生音效，不需要額外音效檔）*/
+    function ensurePendingAudioCtx() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        return audioCtx;
+    }
+    function playPendingBell() {
+        try {
+            const ctx = ensurePendingAudioCtx();
+            const osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.type = 'sine'; osc.frequency.value = 660;
+            gain.gain.setValueAtTime(0.001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(); osc.stop(ctx.currentTime + 0.5);
+        } catch (err) { console.error('待確認付款提示音播放失敗：', err); }
+    }
+    /* 第一次點擊畫面任何地方時順便解鎖瀏覽器的音效播放權限（瀏覽器規定音效必須源自使用者手勢）*/
+    document.addEventListener('click', function unlockAudioOnce() {
+        ensurePendingAudioCtx();
+        document.removeEventListener('click', unlockAudioOnce);
+    }, { once: true });
+
+    function renderPendingPaymentsList() {
+        const list = document.getElementById('pending-payment-list');
+        const keys = Object.keys(pendingPaymentsData);
+        const badge = document.getElementById('pending-count-badge');
+        if (keys.length > 0) { badge.style.display = 'block'; badge.innerText = keys.length; }
+        else { badge.style.display = 'none'; }
+
+        list.innerHTML = keys.length === 0 ? '<div style="text-align:center;color:gray;padding:30px;">目前沒有待確認付款的訂單</div>' :
+            keys.map(key => {
+                const o = pendingPaymentsData[key];
+                return `<div class="pending-item">
+                    <div style="text-align:left;">
+                        <div style="font-weight:bold; font-size:1.1rem;">No. ${o.orderNo}　$${o.totalPrice}</div>
+                        <div style="font-size:0.8rem; color:#888; white-space:pre-line;">${(o.summary||'').replace(/\|/g,'\n')}</div>
+                        <div style="font-size:0.7rem; color:#aaa;">${o.time || ''}</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <button onclick="releaseToKitchen('${key}')" style="background:#34a853; color:white; border:none; padding:10px 14px; border-radius:10px; font-weight:bold;">✅ 放行給廚房</button>
+                        <button onclick="rejectPendingPayment('${key}')" style="background:#eee; color:#666; border:none; padding:8px 14px; border-radius:10px; font-size:0.85rem;">❌ 未收到款項</button>
+                    </div>
+                </div>`;
+            }).join('');
+    }
+
+    function togglePendingPayments() {
+        const p = document.getElementById('pending-payment-panel');
+        p.style.display = (p.style.display === 'block') ? 'none' : 'block';
+        if (p.style.display === 'block') renderPendingPaymentsList();
+    }
+
+    /* ✅ 店員核對過自己PayNow收款App裡的金額/訂單編號無誤後，按這個「放行」：
+       把訂單轉存進 CLOUD_URL（廚房出單機監聽的節點，會自動列印），
+       再從「待確認付款」節點移除，避免重複處理 */
+    async function releaseToKitchen(key) {
+        const order = pendingPaymentsData[key];
+        if (!order) return;
+        if (!confirm(`確認已收到 No. ${order.orderNo} 的 $${order.totalPrice} PayNow款項，放行給廚房列印？`)) return;
+        try {
+            await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(order) });
+            await fetch(`${PENDING_ORDERS_URL.replace('.json', '')}/${key}.json`, { method: 'DELETE' });
+            delete pendingPaymentsData[key];
+            renderPendingPaymentsList();
+        } catch (err) {
+            alert('放行失敗，請重新嘗試：' + err.message);
+        }
+    }
+
+    /* ❌ 核對後發現沒收到款項（客人亂按已付款）：直接刪除，這筆單永遠不會送到廚房 */
+    async function rejectPendingPayment(key) {
+        const order = pendingPaymentsData[key];
+        if (!order) return;
+        if (!confirm(`確認 No. ${order.orderNo} 沒有收到款項，要直接刪除這筆訂單嗎？（廚房不會印出這張單）`)) return;
+        try {
+            await fetch(`${PENDING_ORDERS_URL.replace('.json', '')}/${key}.json`, { method: 'DELETE' });
+            delete pendingPaymentsData[key];
+            renderPendingPaymentsList();
+        } catch (err) {
+            alert('刪除失敗，請重新嘗試：' + err.message);
+        }
+    }
+
+    /* ✅ 即時監聽 /pendingOrders，沿用廚房出單機一樣的 EventSource(SSE) 做法，
+       客人一按「已完成付款」，這裡幾乎立刻就會跳出提示音+清單更新 */
+    function startListeningPendingPayments() {
+        if (pendingEs) pendingEs.close();
+        pendingEs = new EventSource(PENDING_ORDERS_URL);
+
+        const handleData = (path, data) => {
+            let changed = false;
+            if (path === '/') {
+                if (data) Object.entries(data).forEach(([key, order]) => {
+                    if (!pendingPaymentsData[key]) changed = true;
+                    pendingPaymentsData[key] = order;
+                });
+            } else {
+                const key = path.replace(/^\//, '');
+                if (data === null) { delete pendingPaymentsData[key]; }
+                else { if (!pendingPaymentsData[key]) changed = true; pendingPaymentsData[key] = data; }
+            }
+            if (changed) playPendingBell();
+            renderPendingPaymentsList();
+        };
+
+        pendingEs.addEventListener('put', (e) => { const { path, data } = JSON.parse(e.data); handleData(path, data); });
+        pendingEs.addEventListener('patch', (e) => { const { path, data } = JSON.parse(e.data); handleData(path, data); });
+        pendingEs.onerror = () => { /* EventSource 會自動重試連線，不需要手動處理 */ };
     }
 
     /* ✅ 主理員菜單同步：主理員後台寫入 /menu，這裡在開機時讀取一次，
@@ -1727,6 +1860,7 @@
         await loadCloudMenu();   /* ✅ 開機時先讀取主理員設定的最新菜單，再渲染畫面 */
         loadPrintConfig();                        // 開機先讀一次列印設定
         setInterval(loadPrintConfig, 60000);       // 之後每60秒背景重新讀取一次，讓後台的設定變更能自動生效
+        startListeningPendingPayments();           // 開機即時監聽待確認付款訂單
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
     });
