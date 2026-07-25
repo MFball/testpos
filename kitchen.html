@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.2.0</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.3.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -413,6 +413,7 @@
             const cardClass = failed ? 'print-failed' : (isTakeaway ? 'takeaway' : '');
             const locTag = isTakeaway ? `<span class="loc-tag ta">🥡 外賣/打包</span>` : `<span class="loc-tag di">🍽 堂食</span>`;
             const srcTag = o.source === 'customer' ? `<span class="src-tag">📱顧客自助</span>` : '';
+            const noPrintTag = o.noPrint ? `<span class="src-tag" style="background:#607d8b;">🚫 不收據</span>` : '';
             return `<div class="order-card ${cardClass}">
                 <div class="order-top">
                     <span class="order-badge">No. ${o.orderNo}</span>
@@ -420,12 +421,12 @@
                 </div>
                 <div class="order-summary">${(o.summary || '').replace(/\|/g, '\n')}</div>
                 <div class="order-bottom">
-                    <div>${locTag}${srcTag}</div>
+                    <div>${locTag}${srcTag}${noPrintTag}</div>
                     <div class="order-total">$${o.totalPrice || '0.00'}</div>
                 </div>
                 ${failed ? `<div class="print-fail-note">⚠️ 自動列印失敗，請確認印表機已連線後按下方重印</div>` : ''}
                 <div class="order-actions">
-                    <button class="oa-btn reprint" onclick="manualReprint('${key}')">🖨️ 重印</button>
+                    <button class="oa-btn reprint" onclick="manualReprint('${key}')">🖨️ ${o.noPrint ? '補印' : '重印'}</button>
                     <button class="oa-btn" onclick="removeFromScreen('${key}')">✕ 從畫面移除</button>
                 </div>
             </div>`;
@@ -464,6 +465,11 @@
         savePrintedKeys();
         ordersOnScreen[key] = { ...order };
         renderOrderList();
+
+        /* ✅ 收銀機按「不收據」送出的訂單會帶上 noPrint 標記——這種單不響鈴、不自動列印，
+           但仍然加進畫面清單，讓廚房知道有這筆單（跟收銀機那邊「不收據但仍記錄」的邏輯一致）*/
+        if (order.noPrint) return;
+
         playBell();
 
         try {
