@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 1.0.0</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 1.1.0</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -847,13 +847,32 @@
         try {
             const orderInfo = await getNextOrderNo();
 
-            /* 摘要文字格式跟收銀機完全一致，確保後台/廚房顯示邏輯不需要另外調整 */
+            /* ✅ 修正：訂單摘要文字過去只包含「品名[大小] 麵種 醬料 x數量」，
+               客人選的「★特別要求」「不要什麼」「加料」完全沒有被送出去，
+               廚房單上因此看不到——等於客人選了少辣/不要蔥/加魚圓，廚房完全不知道。
+               現在把這三項也組進摘要文字裡，用換行字元(\n)當作「這個品項的附加說明」，
+               跟下一個品項之間的分隔符號 " | " 是不同符號，不會互相干擾，
+               廚房那邊解析時只要先用 " | " 拆成每個品項、再用 \n 拆出附加說明即可。 */
             const summaryParts = cart.map(item => {
                 const name = getItemName(item.mainKey, 'zh');
                 const size = getItemName(item.sizeKey, 'zh');
                 const noodle = item.noodleKey && item.noodleKey !== '湯品' ? getItemName(item.noodleKey, 'zh') : '';
                 const sauces = (item.sauceKeys||[]).map(k=>getItemName(k,'zh')).join('/');
-                return `${name}[${size}]${noodle ? ' '+noodle : ''} ${sauces} x${item.qty}`;
+                const mainLine = `${name}[${size}]${noodle ? ' '+noodle : ''} ${sauces} x${item.qty}`;
+
+                const subLines = [];
+                if (item.specialKeys && item.specialKeys.length) {
+                    subLines.push(`★${item.specialKeys.map(k=>getItemName(k,'zh')).join('/')}`);
+                }
+                const adds = Object.entries(item.additionKeys||{})
+                    .filter(([k,v]) => v > 0)
+                    .map(([k,v]) => `${getItemName(k,'zh')}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
+                if (adds.length) subLines.push(`+${adds.join(', ')}`);
+                if (item.noExtraKeys && item.noExtraKeys.length) {
+                    subLines.push(`不要:${item.noExtraKeys.map(k=>getItemName(k,'zh')).join('/')}`);
+                }
+
+                return subLines.length ? `${mainLine}\n${subLines.join('\n')}` : mainLine;
             });
             const summaryText = summaryParts.join(' | ');
             const isTakeaway = Boolean(cart.length > 0 && cart.every(item => item.isTakeaway === true));
@@ -861,10 +880,6 @@
 
             const tableNo = document.getElementById('sm-table-input').value.trim();
             const custName = document.getElementById('sm-name-input').value.trim();
-            const noteParts = [];
-            if (tableNo) noteParts.push(`桌號${tableNo}`);
-            if (custName) noteParts.push(custName);
-            const finalSummaryWithNote = noteParts.length ? `${finalSummary} 【${noteParts.join(' ')}】` : finalSummary;
 
             const totalPrice = document.getElementById('cart-total-sum').innerText;
             const _now = new Date();
@@ -874,7 +889,12 @@
             const payload = {
                 orderNo:    String(orderInfo.no),
                 claimKey:   orderInfo.key || null,
-                summary:    finalSummaryWithNote,
+                summary:    finalSummary,
+                /* ✅ 桌號／顧客稱呼改成獨立欄位送出（不再塞進 summary 文字裡），
+                   這樣廚房那邊才能依照後台「顯示桌號/取餐號」設定，決定要不要印這行，
+                   如果混在文字裡，設定關掉時沒辦法只單獨抽掉這一段 */
+                tableNo:    tableNo || null,
+                custName:   custName || null,
                 totalPrice: totalPrice,
                 dateKey:    dateKey,
                 time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`,
