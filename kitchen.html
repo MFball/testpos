@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.6.1</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.6.2</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -291,6 +291,12 @@
     const CANVAS_SCALE = 2.2;
 
     function buildKitchenReceiptLayout(order) {
+        /* ✅ 跟點餐機 ver5.7.1 的對應說明：
+           點餐機那邊如果用「🖨️本機搜尋印表機並直接列印」（藍牙直印），從 ver5.7.1 開始
+           那張單「完全不會」被送進這個廚房監聽的節點（orders.json），本機已經印過收據了；
+           所以這台廚房出單機只會印到「☁️使用 Firebase 命令」送出的單，不會再重複印到
+           本機已經印過的那一張。這裡的字級/欄位設定（printConfig）也只影響這台廚房單，
+           跟點餐機本機直印的固定版面收據無關（那邊是各自寫死的版面，不讀這裡的設定）。*/
         const cfg = printConfig;
         const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
         const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
