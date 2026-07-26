@@ -310,8 +310,8 @@
        PAYNOW_MERCHANT_NAME：顯示在QR/付款頁上的商戶名稱（最多25個字元，超過會被截掉）
        沒填正確的UEN之前，這裡只是一組測試用的假資料，掃出來的QR碼「收不到錢」，
        請務必在正式上線前換成你自己的真實UEN！ */
-    const PAYNOW_UEN = "REPLACE_WITH_YOUR_UEN";              // <==== 請改成你自己的 UEN
-    const PAYNOW_MERCHANT_NAME = "Million FishBall Noodle";  // <==== 請改成你想顯示的商戶名稱
+    const PAYNOW_UEN = "53495345W";              // <==== 請改成你自己的 UEN
+    const PAYNOW_MERCHANT_NAME = "MILLION FISHBALL NOODLE";  // <==== 請改成你想顯示的商戶名稱
 
     /* CRC-16/CCITT-FALSE 校驗碼計算，EMVCo QR格式規定的標準演算法，逐位元運算 */
     function paynowCrc16(str) {
