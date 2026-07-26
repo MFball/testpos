@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.6.2 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.7.4 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -217,7 +217,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.7.2</span>
+        <span id="version-tag">v5.7.4</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -777,26 +777,29 @@
             /* ✅ 依照新版廚房單版面需求調整格式（跟顧客點餐頁面一致）：
                第1行只放「品名[大小] x數量」，第2行改放「麵種/醬料」；
                子行順序改成 特別要求 → 不要什麼 → 加料 */
+            /* ✅ 外觀細節對齊本機列印(A)的風格，但保留分行結構與子項順序：
+               數量改「(N份)」、[大小]移到第二行跟麵種醬料放一起、分隔符號改用「、」、
+               「不要什麼」改用全形冒號「：」*/
             const summaryParts = (last.items || []).map(item => {
                 const name = (dictionary.items[item.mainKey] && dictionary.items[item.mainKey].zh) ? dictionary.items[item.mainKey].zh : item.mainKey;
                 const size = (dictionary.items[item.sizeKey] && dictionary.items[item.sizeKey].zh) ? dictionary.items[item.sizeKey].zh : item.sizeKey;
                 const noodle = item.noodleKey && item.noodleKey !== '湯品' ? ((dictionary.items[item.noodleKey] && dictionary.items[item.noodleKey].zh) ? dictionary.items[item.noodleKey].zh : item.noodleKey) : '';
-                const sauces = (item.sauceKeys || []).map(k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k).join('/');
-                const nameLine = `${name}[${size}] x${item.qty}`;
-                const noodleSauceLine = [noodle, sauces].filter(Boolean).join(' ');
+                const sauces = (item.sauceKeys || []).map(k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k);
+                const nameLine = `${name} (${item.qty}份)`;
+                const noodleSauceLine = [`[${size}]`, noodle, ...sauces].filter(Boolean).join(' ');
 
                 const nameOf = k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k;
                 const subLines = [];
                 if (item.specialKeys && item.specialKeys.length) {
-                    subLines.push(`★${item.specialKeys.map(nameOf).join('/')}`);
+                    subLines.push(`★${item.specialKeys.map(nameOf).join('、')}`);
                 }
                 if (item.noExtraKeys && item.noExtraKeys.length) {
-                    subLines.push(`不要:${item.noExtraKeys.map(nameOf).join('/')}`);
+                    subLines.push(`不要：${item.noExtraKeys.map(nameOf).join('、')}`);
                 }
                 const adds = Object.entries(item.additionKeys||{})
                     .filter(([k,v]) => v > 0)
                     .map(([k,v]) => `${nameOf(k)}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
-                if (adds.length) subLines.push(`+${adds.join(', ')}`);
+                if (adds.length) subLines.push(`+${adds.join('、')}`);
 
                 return [nameLine, noodleSauceLine, ...subLines].join('\n');
             });
@@ -1097,7 +1100,12 @@
             document.getElementById('status-text').innerText = '🖨️ 正在本機列印...';
             await writeDirectReceipt(printer);
 
-            // ✅ 本機已經印出收據了，這張單不再送進廚房出單機的雲端列印佇列（避免重複出單，見 saveOrderData 上方註解）
+            // ✅ 修正資料漏失問題：本機已經印出收據，但訂單紀錄仍然要正常同步到雲端
+            // （帶著 noPrint:true 標記），這樣廚房出單機看到這筆單會自動跳過響鈴/重印
+            // （沿用「不收據」按鈕原本就有的 noPrint 機制），但銷售紀錄、訂單清單都不會遺失。
+            // 之前這裡用 { skipCloudSync: true } 整個跳過雲端同步，導致這筆單完全沒有存進
+            // Firebase，後台/收銀機的「待確認付款」「銷售報表」等任何依賴雲端資料的地方
+            // 都看不到這筆單，這才是你說的「資料漏失」的根本原因。
             const orderData = getOrderData();
             orderData.history.unshift({
                 num: orderInfo.no, key: orderInfo.key,
@@ -1105,10 +1113,10 @@
                 items: JSON.parse(JSON.stringify(cart)), noPrint: true
             });
             recordSale(cart);
-            await saveOrderData(orderData, { skipCloudSync: true });
+            await saveOrderData(orderData);
             clearWholeOrder(true);
             document.getElementById('status-text').innerText = '✅ 已本機列印並送出訂單';
-            alert('✅ 已本機列印。這張單不會再送到廚房出單機，不會重複出單。');
+            alert('✅ 已本機列印，訂單紀錄也已正常同步到雲端（廚房出單機不會重複列印這張單）。');
         } catch (error) {
             document.getElementById('status-text').innerText = '❌ 本機列印失敗';
             alert('本機列印失敗：' + error.message);
