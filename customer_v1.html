@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.0.1</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.0.2</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -201,7 +201,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.0.1</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.0.2</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -968,26 +968,30 @@
 
             /* ✅ 摘要文字格式：品項附加說明用 \n 分隔，品項與品項之間用 " | "，
                廚房那邊解析時先用 " | " 拆成每個品項、再用 \n 拆出附加說明 */
+            /* ✅ 依照新版廚房單版面需求調整格式：
+               第1行只放「品名[大小] x數量」，第2行改放「麵種/醬料」（原本兩者擠在同一行）；
+               子行順序也改成 特別要求 → 不要什麼 → 加料（原本是 特別要求 → 加料 → 不要什麼）*/
             const summaryParts = cart.map(item => {
                 const name = getItemName(item.mainKey, 'zh');
                 const size = getItemName(item.sizeKey, 'zh');
                 const noodle = item.noodleKey && item.noodleKey !== '湯品' ? getItemName(item.noodleKey, 'zh') : '';
                 const sauces = (item.sauceKeys||[]).map(k=>getItemName(k,'zh')).join('/');
-                const mainLine = `${name}[${size}]${noodle ? ' '+noodle : ''} ${sauces} x${item.qty}`;
+                const nameLine = `${name}[${size}] x${item.qty}`;
+                const noodleSauceLine = [noodle, sauces].filter(Boolean).join(' ');
 
                 const subLines = [];
                 if (item.specialKeys && item.specialKeys.length) {
                     subLines.push(`★${item.specialKeys.map(k=>getItemName(k,'zh')).join('/')}`);
                 }
+                if (item.noExtraKeys && item.noExtraKeys.length) {
+                    subLines.push(`不要:${item.noExtraKeys.map(k=>getItemName(k,'zh')).join('/')}`);
+                }
                 const adds = Object.entries(item.additionKeys||{})
                     .filter(([k,v]) => v > 0)
                     .map(([k,v]) => `${getItemName(k,'zh')}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
                 if (adds.length) subLines.push(`+${adds.join(', ')}`);
-                if (item.noExtraKeys && item.noExtraKeys.length) {
-                    subLines.push(`不要:${item.noExtraKeys.map(k=>getItemName(k,'zh')).join('/')}`);
-                }
 
-                return subLines.length ? `${mainLine}\n${subLines.join('\n')}` : mainLine;
+                return [nameLine, noodleSauceLine, ...subLines].join('\n');
             });
             const summaryText = summaryParts.join(' | ');
             const isTakeaway = Boolean(cart.length > 0 && cart.every(item => item.isTakeaway === true));
