@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.4.0</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.5.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -92,7 +92,11 @@
        同時在每次要列印前也重新讀一次最新設定，盡量避免印到舊設定。
        ✅ ver1.2.0：修正「客人選的特別要求/加料/不要什麼會整個遺失、廚房單上看不到」
        的問題（根源在顧客點餐/收銀機送出訂單時就漏掉了，見 buildKitchenReceiptLayout）；
-       同時新增桌號/取餐人顯示（依「顯示桌號/取餐號」設定決定要不要印）。 */
+       同時新增桌號/取餐人顯示（依「顯示桌號/取餐號」設定決定要不要印）。
+       ✅ ver1.5.0新增：主理員後台可自行設定
+         (A) itemDividerEnabled / itemDividerGap — 每份品項之間是否印分隔線、分隔線的行距
+         (B) dineInTagSize — 「堂食/外賣」大字標籤的字體大小（0或未設定＝沿用舊行為自動計算）
+         (C) itemLineGap — 品項內部（品名→麵種/醬料→不要什麼→加料…）每一行之間的行距 */
     let printConfig = {
         shopName: "Million FishBall Noodle",
         paperSize: "80mm",
@@ -108,7 +112,11 @@
         showPrice: true,
         showNotes: true,
         showFooter: true,
-        showTicketId: false   // ✅ ver1.4.0新增：廚房單的Firebase ID這行，預設不顯示（可在主理員後台重新開啟）
+        showTicketId: false,  // ✅ ver1.4.0新增：廚房單的Firebase ID這行，預設不顯示（可在主理員後台重新開啟）
+        itemDividerEnabled: true,  // ✅ ver1.5.0新增(A)：每份品項之間是否印一條分隔線
+        itemDividerGap: 16,        // ✅ ver1.5.0新增(A)：分隔線與上下品項之間的行距(px)
+        itemLineGap: 8,            // ✅ ver1.5.0新增(C)：品項內部每一行（品名/麵種醬料/不要什麼/加料）之間的行距(px)
+        dineInTagSize: 0           // ✅ ver1.5.0新增(B)：堂食/外賣標籤字體大小(px)，0或空＝自動(標題字級×1.6)
     };
     async function loadPrintConfig() {
         try {
@@ -290,7 +298,15 @@
         const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
         const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
         const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE));
-        const bigPx   = Math.round(titlePx * 1.6);   // ✅ 堂食/外賣一定是全單最大字體，跟著titleSize等比放大
+        /* ✅ ver1.5.0(B)：堂食/外賣標籤字體大小改成可在主理員後台自行輸入，
+           數值為0或沒設定時，維持舊版行為：自動等於標題字級的1.6倍 */
+        const bigPx = Math.max(16, Math.round((cfg.dineInTagSize ? cfg.dineInTagSize : (cfg.titleSize || 18) * 1.6) * CANVAS_SCALE));
+        /* ✅ ver1.5.0(A)(C)：品項之間的分隔行距、品項內部每一行的行距，改成可在主理員後台自行輸入，
+           跟字級一樣用 CANVAS_SCALE 換算成印表機解析度下的實際像素間距 */
+        const itemLineGap    = Math.max(2, Math.round((cfg.itemLineGap    ?? 8)  * CANVAS_SCALE));
+        const itemDividerGap = Math.max(2, Math.round((cfg.itemDividerGap ?? 16) * CANVAS_SCALE));
+        const dividerThick   = Math.max(3, Math.round(3 * CANVAS_SCALE));
+        const LINE_WIDTH = 540;
 
         const lines = (order.summary || '').split('|').map(s => s.trim()).filter(Boolean);
         const isTakeaway = order.isTakeaway === true || order.isTakeaway === 'true';
@@ -334,24 +350,34 @@
         /* ✅ 每個品項固定拆成最多5行，全部往下排列（不會並排在同一行右側）：
            第1行：品名　第2行：麵種/醬料　第3行：★特別要求　第4行：不要什麼　第5行：+加料
            （摘要文字裡用 \n 分隔這幾行，customer_v1.html／收銀機負責組出這個順序）
-           每個品項結束後印一條分隔線，跟下一個品項的內容區隔開來 */
+           ✅ ver1.5.0(C)：品名→麵種醬料→不要什麼→加料，這幾行之間的行距(itemLineGap)
+           改成讀取主理員後台設定，不再是寫死的 +8 / +6。
+           ✅ ver1.5.0(A)：品項結束後的分隔線，改成畫一條實心黑色橫線(type:'hr')，
+           取代舊版用文字畫的灰色虛線——舊版灰色(#999)在轉成印表機黑白點陣圖時，
+           亮度剛好超過印表機的「算黑」門檻，導致實際列印出來完全看不見這條線，
+           這正是圖一裡需要手動用筆畫線標記的原因。分隔線是否顯示、上下行距，
+           都可在主理員後台「顯示品項分隔線／分隔線行距」設定。 */
         lines.forEach(line => {
             const [nameLine, noodleSauceLine, ...subLines] = line.split('\n');
             blocks.push({ text: nameLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
-            y += bodyPx + 8;
+            y += bodyPx + itemLineGap;
             if (noodleSauceLine) {
                 blocks.push({ text: noodleSauceLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
-                y += bodyPx + 8;
+                y += bodyPx + itemLineGap;
             }
             if (cfg.showNotes !== false) {
                 subLines.forEach(sub => {
                     blocks.push({ text: sub, font: `bold ${notePx}px sans-serif`, color: '#c0392b', y });
-                    y += notePx + 6;
+                    y += notePx + itemLineGap;
                 });
             }
-            y += 8;
-            blocks.push({ text: '--------------------------------------------------------------', font: 'bold 20px sans-serif', color: '#999', y });
-            y += 20 + 16;
+            if (cfg.itemDividerEnabled !== false) {
+                y += Math.round(itemDividerGap / 2);
+                blocks.push({ type: 'hr', y, color: 'black', thickness: dividerThick, width: LINE_WIDTH });
+                y += dividerThick + Math.round(itemDividerGap / 2) + 10;
+            } else {
+                y += itemDividerGap;
+            }
         });
 
         /* ✅ 金額先印，堂食/外賣標籤最後印且是全單最大字體 */
@@ -380,7 +406,15 @@
         ctx.textBaseline = "top"; ctx.textAlign = "center";
         const centerX = 288, maxW = 540;
 
+        /* ✅ ver1.5.0新增：'hr' 是實心橫線分隔線(見A)，跟一般文字行(fillText)畫法不同，
+           要用 fillRect 畫一條實心矩形，才能保證轉成印表機黑白點陣圖後真的看得見 */
         blocks.forEach(b => {
+            if (b.type === 'hr') {
+                ctx.fillStyle = b.color || 'black';
+                const w = b.width || maxW;
+                ctx.fillRect(centerX - w / 2, b.y, w, b.thickness || 4);
+                return;
+            }
             ctx.font = b.font;
             ctx.fillStyle = b.color;
             ctx.fillText(b.text, centerX, b.y, maxW);
