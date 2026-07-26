@@ -104,6 +104,8 @@
         gapWithinItem: 8,
         gapBetweenItems: 8,
         gapBeforeTag: 20,
+        itemDivider: '--------------------------------------------------------------',
+        tagSize: 29,
         showShopName: true,
         showOrderNo: true,
         showTime: true,
@@ -293,7 +295,7 @@
         const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
         const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
         const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE));
-        const bigPx   = Math.round(titlePx * 1.6);   // ✅ 堂食/外賣一定是全單最大字體，跟著titleSize等比放大
+        const tagPx   = Math.max(24, Math.round((cfg.tagSize || 29) * CANVAS_SCALE));
 
         const lines = (order.summary || '').split('|').map(s => s.trim()).filter(Boolean);
         const isTakeaway = order.isTakeaway === true || order.isTakeaway === 'true';
@@ -338,7 +340,7 @@
            第1行：品名　第2行：麵種/醬料　第3行：★特別要求　第4行：不要什麼　第5行：+加料
            （摘要文字裡用 \n 分隔這幾行，customer_v1.html／收銀機負責組出這個順序）
            每個品項結束後印一條分隔線，跟下一個品項的內容區隔開來 */
-        lines.forEach(line => {
+        lines.forEach((line, index) => {
             const [nameLine, noodleSauceLine, ...subLines] = line.split('\n');
             blocks.push({ text: nameLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
             y += bodyPx + (cfg.gapWithinItem ?? 8);
@@ -352,9 +354,14 @@
                     y += notePx + 6;
                 });
             }
-            y += (cfg.gapBetweenItems ?? 8);
-            blocks.push({ text: '--------------------------------------------------------------', font: 'bold 20px sans-serif', color: '#999', y });
-            y += 20 + 16;
+            if (index < lines.length - 1) {
+                y += (cfg.gapBetweenItems ?? 8);
+                const itemDivider = String(cfg.itemDivider ?? '--------------------------------------------------------------').trim();
+                if (itemDivider) {
+                    blocks.push({ text: itemDivider, font: 'bold 20px sans-serif', color: '#999', y });
+                    y += 20 + 16;
+                }
+            }
         });
 
         /* ✅ 金額先印，堂食/外賣標籤最後印且是全單最大字體 */
@@ -363,8 +370,8 @@
             y += 42 + (cfg.gapBeforeTag ?? 20);
         }
 
-        blocks.push({ text: isTakeaway ? '🥡 外賣 / 打包' : '🍽 堂食', font: `bold ${bigPx}px sans-serif`, color: isTakeaway ? '#3949ab' : '#1b5e20', y });
-        y += bigPx + 20;
+        blocks.push({ text: isTakeaway ? '🥡 外賣 / 打包' : '🍽 堂食', font: `bold ${tagPx}px sans-serif`, color: isTakeaway ? '#3949ab' : '#1b5e20', y });
+        y += tagPx + 20;
 
         if (cfg.showFooter && cfg.footerText) {
             blocks.push({ text: cfg.footerText, font: `${notePx}px sans-serif`, color: '#555', y });
