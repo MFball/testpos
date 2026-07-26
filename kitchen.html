@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.3.0</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.4.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -107,7 +107,8 @@
         showTableNo: true,
         showPrice: true,
         showNotes: true,
-        showFooter: true
+        showFooter: true,
+        showTicketId: false   // ✅ ver1.4.0新增：廚房單的Firebase ID這行，預設不顯示（可在主理員後台重新開啟）
     };
     async function loadPrintConfig() {
         try {
@@ -289,6 +290,7 @@
         const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
         const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
         const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE));
+        const bigPx   = Math.round(titlePx * 1.6);   // ✅ 堂食/外賣一定是全單最大字體，跟著titleSize等比放大
 
         const lines = (order.summary || '').split('|').map(s => s.trim()).filter(Boolean);
         const isTakeaway = order.isTakeaway === true || order.isTakeaway === 'true';
@@ -296,27 +298,31 @@
         const blocks = [];
         let y = 20;
 
+        /* 第1行：店名 */
         if (cfg.showShopName !== false) {
             blocks.push({ text: `${cfg.shopName || 'Million FishBall Noodle'} - 廚房單`, font: `bold ${titlePx}px sans-serif`, color: 'black', y });
             y += titlePx + 15;
         }
+        /* 第2行：時間 */
         if (cfg.showTime !== false) {
             blocks.push({ text: order.time || new Date().toLocaleString(), font: `${notePx}px sans-serif`, color: 'black', y });
             y += notePx + 12;
         }
+        /* 第3行：單號 */
         if (cfg.showOrderNo !== false) {
             blocks.push({ text: `No. ${order.orderNo}`, font: 'bold 48px sans-serif', color: 'black', y });
             y += 48 + 20;
         }
-
-        blocks.push({ text: `ID: ${order.claimKey || '--'}${order.source === 'customer' ? '　📱顧客自助下單' : ''}`, font: `${notePx}px sans-serif`, color: '#555', y });
-        y += notePx + 23;
+        /* 第4行：ID——預設不顯示，可在主理員後台「顯示廚房單ID」重新開啟 */
+        if (cfg.showTicketId) {
+            blocks.push({ text: `ID: ${order.claimKey || '--'}${order.source === 'customer' ? '　📱顧客自助下單' : ''}`, font: `${notePx}px sans-serif`, color: '#555', y });
+            y += notePx + 23;
+        }
 
         blocks.push({ text: '--------------------------------------------------------------', font: 'bold 20px sans-serif', color: 'black', y });
         y += 20 + 17;
 
-        /* ✅ 桌號／取餐人：customer_v1.html 會把這兩個欄位獨立送過來(不再塞在summary文字裡)，
-           這樣才能真的依照「顯示桌號/取餐號」設定決定要不要印這一行 */
+        /* 桌號／取餐人：customer_v1.html 會把這兩個欄位獨立送過來(不再塞在summary文字裡) */
         if (cfg.showTableNo !== false && (order.tableNo || order.custName)) {
             const parts = [];
             if (order.tableNo) parts.push(`桌號${order.tableNo}`);
@@ -325,28 +331,37 @@
             y += bodyPx + 12;
         }
 
-        /* ✅ 每個品項的摘要文字可能包含用 \n 分隔的附加說明(★特別要求／+加料／不要什麼)，
-           主行(品名/大小/麵種/醬料)一律顯示；附加說明依照「顯示客製化備註與特別要求」設定決定要不要印 */
+        /* ✅ 每個品項固定拆成最多5行，全部往下排列（不會並排在同一行右側）：
+           第1行：品名　第2行：麵種/醬料　第3行：★特別要求　第4行：不要什麼　第5行：+加料
+           （摘要文字裡用 \n 分隔這幾行，customer_v1.html／收銀機負責組出這個順序）
+           每個品項結束後印一條分隔線，跟下一個品項的內容區隔開來 */
         lines.forEach(line => {
-            const [mainLine, ...subLines] = line.split('\n');
-            blocks.push({ text: mainLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
+            const [nameLine, noodleSauceLine, ...subLines] = line.split('\n');
+            blocks.push({ text: nameLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
             y += bodyPx + 8;
+            if (noodleSauceLine) {
+                blocks.push({ text: noodleSauceLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
+                y += bodyPx + 8;
+            }
             if (cfg.showNotes !== false) {
                 subLines.forEach(sub => {
                     blocks.push({ text: sub, font: `bold ${notePx}px sans-serif`, color: '#c0392b', y });
                     y += notePx + 6;
                 });
             }
+            y += 8;
+            blocks.push({ text: '--------------------------------------------------------------', font: 'bold 20px sans-serif', color: '#999', y });
+            y += 20 + 16;
         });
-        y += 10;
 
-        blocks.push({ text: isTakeaway ? '🥡 外賣 / 打包' : '🍽 堂食', font: 'bold 40px sans-serif', color: isTakeaway ? '#3949ab' : '#1b5e20', y });
-        y += 40 + 20;
-
+        /* ✅ 金額先印，堂食/外賣標籤最後印且是全單最大字體 */
         if (cfg.showPrice !== false) {
             blocks.push({ text: 'TOTAL: $' + (order.totalPrice || '0.00'), font: 'bold 42px sans-serif', color: 'black', y });
-            y += 42 + 16;
+            y += 42 + 20;
         }
+
+        blocks.push({ text: isTakeaway ? '🥡 外賣 / 打包' : '🍽 堂食', font: `bold ${bigPx}px sans-serif`, color: isTakeaway ? '#3949ab' : '#1b5e20', y });
+        y += bigPx + 20;
 
         if (cfg.showFooter && cfg.footerText) {
             blocks.push({ text: cfg.footerText, font: `${notePx}px sans-serif`, color: '#555', y });
