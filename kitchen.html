@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.4.0</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.6.1</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -358,7 +358,8 @@
                 y += (cfg.gapBetweenItems ?? 8);
                 const itemDivider = String(cfg.itemDivider ?? '--------------------------------------------------------------').trim();
                 if (itemDivider) {
-                    blocks.push({ text: itemDivider, font: 'bold 20px sans-serif', color: '#999', y });
+                    // Thermal printing is black/white; light grey (#999) becomes white after rasterisation.
+                    blocks.push({ text: itemDivider, font: 'bold 20px sans-serif', color: 'black', y });
                     y += 20 + 16;
                 }
             }
