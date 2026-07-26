@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.6.0 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.6.1 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -216,7 +216,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.6.0</span>
+        <span id="version-tag">v5.6.1</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -386,10 +386,14 @@
         const list = document.getElementById('pending-payment-list');
         const keys = Object.keys(pendingPaymentsData);
         const badge = document.getElementById('pending-count-badge');
-        if (keys.length > 0) { badge.style.display = 'block'; badge.innerText = keys.length; }
-        else { badge.style.display = 'none'; }
+        if (badge.innerText !== '!') {   // 連線警告(!)由 show/hidePendingConnectionWarning 專門管理，這裡不覆蓋
+            if (keys.length > 0) { badge.style.display = 'block'; badge.innerText = keys.length; }
+            else { badge.style.display = 'none'; }
+        }
 
-        list.innerHTML = keys.length === 0 ? '<div style="text-align:center;color:gray;padding:30px;">目前沒有待確認付款的訂單</div>' :
+        list.innerHTML = badge.innerText === '!'
+            ? '<div style="text-align:center;color:#f9a825;padding:30px;font-weight:bold;">⚠️ 連線異常，可能是 Firebase 資料庫規則尚未開放 /pendingOrders 節點<br><span style="font-weight:normal;color:#888;font-size:0.85rem;">請檢查 Realtime Database → Rules 設定</span></div>'
+            : keys.length === 0 ? '<div style="text-align:center;color:gray;padding:30px;">目前沒有待確認付款的訂單</div>' :
             keys.map(key => {
                 const o = pendingPaymentsData[key];
                 return `<div class="pending-item">
@@ -420,8 +424,10 @@
         if (!order) return;
         if (!confirm(`確認已收到 No. ${order.orderNo} 的 $${order.totalPrice} PayNow款項，放行給廚房列印？`)) return;
         try {
-            await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(order) });
-            await fetch(`${PENDING_ORDERS_URL.replace('.json', '')}/${key}.json`, { method: 'DELETE' });
+            const res1 = await fetch(CLOUD_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(order) });
+            if (!res1.ok) throw new Error(`轉入廚房佇列失敗（伺服器回應 ${res1.status}）`);
+            const res2 = await fetch(`${PENDING_ORDERS_URL.replace('.json', '')}/${key}.json`, { method: 'DELETE' });
+            if (!res2.ok) throw new Error(`從待確認清單移除失敗（伺服器回應 ${res2.status}），但已成功轉給廚房，請留意這筆單可能重複出現`);
             delete pendingPaymentsData[key];
             renderPendingPaymentsList();
         } catch (err) {
@@ -435,7 +441,8 @@
         if (!order) return;
         if (!confirm(`確認 No. ${order.orderNo} 沒有收到款項，要直接刪除這筆訂單嗎？（廚房不會印出這張單）`)) return;
         try {
-            await fetch(`${PENDING_ORDERS_URL.replace('.json', '')}/${key}.json`, { method: 'DELETE' });
+            const res = await fetch(`${PENDING_ORDERS_URL.replace('.json', '')}/${key}.json`, { method: 'DELETE' });
+            if (!res.ok) throw new Error(`刪除失敗（伺服器回應 ${res.status}）`);
             delete pendingPaymentsData[key];
             renderPendingPaymentsList();
         } catch (err) {
@@ -448,8 +455,11 @@
     function startListeningPendingPayments() {
         if (pendingEs) pendingEs.close();
         pendingEs = new EventSource(PENDING_ORDERS_URL);
+        let everConnected = false;
 
         const handleData = (path, data) => {
+            everConnected = true;
+            hidePendingConnectionWarning();
             let changed = false;
             if (path === '/') {
                 if (data) Object.entries(data).forEach(([key, order]) => {
@@ -467,7 +477,24 @@
 
         pendingEs.addEventListener('put', (e) => { const { path, data } = JSON.parse(e.data); handleData(path, data); });
         pendingEs.addEventListener('patch', (e) => { const { path, data } = JSON.parse(e.data); handleData(path, data); });
-        pendingEs.onerror = () => { /* EventSource 會自動重試連線，不需要手動處理 */ };
+        pendingEs.onerror = () => { if (!everConnected) showPendingConnectionWarning(); };
+        /* ✅ 開連線後6秒內完全沒收到任何資料（Firebase一連上就一定會先送一次現有資料，
+           就算是空的也一樣），代表連線根本沒有真的成功——最常見原因是 Firebase 資料庫規則
+           還沒開放 /pendingOrders 節點的讀取權限，不是「剛好沒有訂單」，用驚嘆號跟一般的
+           0筆/沒有訂單區分開來，避免店員誤以為系統正常運作、只是剛好沒人下單 */
+        setTimeout(() => { if (!everConnected) showPendingConnectionWarning(); }, 6000);
+    }
+
+    function showPendingConnectionWarning() {
+        const badge = document.getElementById('pending-count-badge');
+        badge.style.display = 'block';
+        badge.style.background = '#f9a825';
+        badge.innerText = '!';
+        badge.title = '待確認付款清單連線異常，可能是 Firebase 資料庫規則尚未開放 /pendingOrders 節點的讀取權限，請檢查 Realtime Database → Rules';
+    }
+    function hidePendingConnectionWarning() {
+        const badge = document.getElementById('pending-count-badge');
+        if (badge.innerText === '!') { badge.style.display = 'none'; badge.style.background = '#e53935'; badge.title = ''; }
     }
 
     /* ✅ 主理員菜單同步：主理員後台寫入 /menu，這裡在開機時讀取一次，
