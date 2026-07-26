@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.7.4 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.7.5 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -159,6 +159,8 @@
     #preview-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center; padding:20px; }
     /* ✅ 列印語言選擇彈窗：取代原本只能兩個按鈕的 confirm()，改成可以放第三個「取消返回」按鈕 */
     #print-lang-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3100; align-items:center; justify-content:center; padding:20px; }
+    /* ✅ ver5.7.5：語言選擇彈窗，共用 .plm-card / .plm-btn 樣式，z-index 比列印方式彈窗更高，確保先問語言再問方式 */
+    #print-lang-choice-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3200; align-items:center; justify-content:center; padding:20px; }
     .plm-card { background:#fff; border-radius:20px; padding:22px; max-width:360px; width:100%; text-align:center; }
     .plm-title { font-weight:900; font-size:1.15rem; margin-bottom:18px; }
     .plm-btn { display:block; width:100%; padding:16px; border-radius:14px; border:none; font-weight:900; font-size:1.1rem; margin-bottom:10px; color:#fff; }
@@ -217,7 +219,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.7.4</span>
+        <span id="version-tag">v5.7.5</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -247,6 +249,18 @@
         </div>
         <div id="cart-modal-body" style="overflow-y:auto; flex:1;"></div>
         <button onclick="closeCartModal()" style="margin-top:12px; background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">關閉 Close</button>
+    </div>
+</div>
+
+<!-- ✅ ver5.7.5：每次「確認送出」都會先跳出這個列印語言選擇彈窗（中文／English／取消三選一），
+     不再像 v5.7.4 只問一次列印方式就永遠沿用——語言選擇會一路帶到本機列印與雲端／廚房單列印，
+     確保不管走哪一種列印方式，收據上的文字語言都跟這裡選的一致。 -->
+<div id="print-lang-choice-modal">
+    <div class="plm-card">
+        <div class="plm-title">選擇列印文字語言<br>Select Print Language</div>
+        <button class="plm-btn plm-btn-zh" onclick="choosePrintLang('zh')">🇹🇼 中文</button>
+        <button class="plm-btn plm-btn-en" onclick="choosePrintLang('en')">🇬🇧 English</button>
+        <button class="plm-btn plm-btn-cancel" onclick="cancelPrintLangChoice()">取消 Cancel</button>
     </div>
 </div>
 
@@ -780,30 +794,49 @@
             /* ✅ 外觀細節對齊本機列印(A)的風格，但保留分行結構與子項順序：
                數量改「(N份)」、[大小]移到第二行跟麵種醬料放一起、分隔符號改用「、」、
                「不要什麼」改用全形冒號「：」*/
+            /* ✅ ver5.7.5：語言不再寫死為 'zh'——改用這張單實際選擇的列印語言（last.printLang），
+               沒有的話（例如舊資料）才退回中文，確保雲端／廚房單收據的文字語言
+               跟送單當下選的語言一致，而不是永遠只有中文。 */
+            const cloudPrintLang = last.printLang || 'zh';
+            const nameOf = k => (dictionary.items[k] && dictionary.items[k][cloudPrintLang]) ? dictionary.items[k][cloudPrintLang] : k;
             const summaryParts = (last.items || []).map(item => {
-                const name = (dictionary.items[item.mainKey] && dictionary.items[item.mainKey].zh) ? dictionary.items[item.mainKey].zh : item.mainKey;
-                const size = (dictionary.items[item.sizeKey] && dictionary.items[item.sizeKey].zh) ? dictionary.items[item.sizeKey].zh : item.sizeKey;
-                const noodle = item.noodleKey && item.noodleKey !== '湯品' ? ((dictionary.items[item.noodleKey] && dictionary.items[item.noodleKey].zh) ? dictionary.items[item.noodleKey].zh : item.noodleKey) : '';
-                const sauces = (item.sauceKeys || []).map(k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k);
-                const nameLine = `${name} (${item.qty}份)`;
+                const name = nameOf(item.mainKey);
+                const size = nameOf(item.sizeKey);
+                const noodle = item.noodleKey && item.noodleKey !== '湯品' ? nameOf(item.noodleKey) : '';
+                const sauces = (item.sauceKeys || []).map(nameOf);
+                const nameLine = `${name} (${item.qty}${cloudPrintLang === 'zh' ? '份' : 'qty'})`;
                 const noodleSauceLine = [`[${size}]`, noodle, ...sauces].filter(Boolean).join(' ');
 
-                const nameOf = k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k;
                 const subLines = [];
                 if (item.specialKeys && item.specialKeys.length) {
                     subLines.push(`★${item.specialKeys.map(nameOf).join('、')}`);
                 }
                 if (item.noExtraKeys && item.noExtraKeys.length) {
-                    subLines.push(`不要：${item.noExtraKeys.map(nameOf).join('、')}`);
+                    subLines.push((cloudPrintLang === 'zh' ? '不要：' : 'No: ') + item.noExtraKeys.map(nameOf).join('、'));
                 }
                 const adds = Object.entries(item.additionKeys||{})
                     .filter(([k,v]) => v > 0)
-                    .map(([k,v]) => `${nameOf(k)}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
+                    .map(([k,v]) => `${nameOf(k)}(${v*getItemRatio(k)}${getItemUnit(k,cloudPrintLang)})`);
                 if (adds.length) subLines.push(`+${adds.join('、')}`);
 
                 return [nameLine, noodleSauceLine, ...subLines].join('\n');
             });
             const summaryText = summaryParts.join(' | ');
+            /* ✅ ver5.7.5：除了給廚房單舊版相容用的純文字 summary，另外多送一份「結構化」的
+               items 明細（跟本機直接列印 drawDirectReceiptCanvas 用的是同一套欄位），
+               讓廚房出單機可以照著跟本機列印一模一樣的排版（字級/順序/堂食外賣標籤）印出來，
+               而不是繼續印看起來不同的「廚房單」樣式。*/
+            const structuredLines = (last.items || []).map(item => {
+                const unit = item.category === '湯' ? (cloudPrintLang === 'zh' ? '碗' : 'bowl') : (cloudPrintLang === 'zh' ? '份' : 'qty');
+                const options = [`[${nameOf(item.sizeKey)}]`, item.noodleKey ? nameOf(item.noodleKey) : '', (item.sauceKeys || []).map(nameOf).join(' ')].filter(Boolean).join(' ');
+                const notes = [];
+                if (item.specialKeys && item.specialKeys.length) notes.push('★' + item.specialKeys.map(nameOf).join('、'));
+                const adds = Object.entries(item.additionKeys || {}).filter(([, v]) => v > 0)
+                    .map(([k, v]) => `${nameOf(k)}(${v * getItemRatio(k)}${getItemUnit(k, cloudPrintLang)})`).join('、');
+                if (adds) notes.push('+' + adds);
+                if (item.noExtraKeys && item.noExtraKeys.length) notes.push((cloudPrintLang === 'zh' ? '不要：' : 'No: ') + item.noExtraKeys.map(nameOf).join('、'));
+                return { name: nameOf(item.mainKey), qty: item.qty, unit, options, notes, isTakeaway: !!item.isTakeaway };
+            });
             const totalPrice = String(last.total || '0');
             const _now = new Date();
             const _pad = n => String(n).padStart(2, '0');
@@ -839,6 +872,11 @@
         // 👇 👈 新增下面這兩行關鍵欄位！
         isTakeaway:  isTakeaway,
         diningOption: isTakeaway ? "打包" : "堂食",
+        /* ✅ ver5.7.5：把送單當下選的語言、以及跟本機列印同一套結構化明細一起送過去，
+           讓廚房出單機（Kitchen_Ver1_6_1 以上）可以印出語言正確、排版跟本機列印一致的收據。
+           舊版廚房出單機（不認得 lines/printLang 欄位）仍會退回用 summary 純文字列印，不影響運作。*/
+        printLang:  cloudPrintLang,
+        lines:      structuredLines,
         /* ✅ ver5.5.0：印表機統一交給廚房出單機管理後，「不收據」按鈕不再只是跳過
            收銀機自己的列印——這個 noPrint 標記會一路帶到雲端，讓廚房那台裝置看到
            後也跳過自動列印/響鈴，維持「按了不收據＝完全不印這張單」的原本設計 */
@@ -993,29 +1031,48 @@
 
     /* ✅ ver5.5.0：印表機現在統一由廚房出單機管理（因為藍牙印表機一次只能跟一台裝置連線，
        這台收銀機不再自己連印表機，避免兩邊搶著連同一部印表機、導致其中一邊列印失敗）。
-       原本「選擇列印語言」的彈窗已經沒有意義──廚房那邊一律用中文摘要列印，這裡的語言
-       選擇不會再影響任何實際印出來的東西──所以改成單純的「確認送出」彈窗。*/
-    /* ✅ ver5.7.1：「選擇列印方式」只需要在這台裝置第一次送單時詢問一次，
+       ✅ ver5.7.1：「選擇列印方式」只需要在這台裝置第一次送單時詢問一次，
        選好之後存進 localStorage，之後每一次「確認送出」都直接沿用同一個選擇，
-       不再重複彈出詢問視窗（想改變選擇可按頂部的🖨️⚙️圖示）。*/
+       不再重複彈出詢問視窗（想改變選擇可按頂部的🖨️⚙️圖示）。
+       ✅ ver5.7.5 修正「語言選擇彈窗不見了」的問題：
+       v5.5.0 的註解說「廚房那邊一律用中文摘要列印，語言選擇不會影響任何實際印出來的東西」，
+       所以把語言彈窗直接拿掉了——但這其實是另一個沒修好的問題（雲端／廚房單收據永遠只有
+       中文），不是「語言選擇本來就沒用」。現在反過來：每次按「確認送出」都會先跳出
+       中文／English／取消 三選一的語言彈窗，選好的語言會一路帶到本機列印（drawDirectReceiptCanvas）
+       跟雲端／廚房單列印（saveOrderData → payload.printLang，廚房出單機依此顯示對應語言），
+       兩邊收據語言才會真的跟著這裡的選擇走。按「取消」則什麼都不做，購物車維持原狀。*/
     const PRINT_METHOD_KEY = 'million_print_method'; // 存的值：'direct'（本機列印）或 'cloud'（Firebase／廚房出單機）
+    let pendingPrintLang = 'zh'; // 這次送單暫存的語言選擇，選完方式後就會用它印出收據
 
     function confirmSubmitPrompt() {
         if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
+        // 每次送出都先問語言（中文／English／取消），不再省略、也不會被記住沿用
+        document.getElementById('print-lang-choice-modal').style.display = 'flex';
+    }
+
+    /* 語言彈窗選了「中文」或「English」：記住這次要用的語言，接著才進入列印方式的判斷 */
+    function choosePrintLang(lang) {
+        pendingPrintLang = lang;
+        document.getElementById('print-lang-choice-modal').style.display = 'none';
         const savedMethod = localStorage.getItem(PRINT_METHOD_KEY);
-        if (savedMethod === 'direct') { submitOrderDirectPrint(); return; }
-        if (savedMethod === 'cloud') { submitOrderViaFirebase(); return; }
+        if (savedMethod === 'direct') { submitOrderDirectPrint(pendingPrintLang); return; }
+        if (savedMethod === 'cloud') { submitOrderViaFirebase(pendingPrintLang); return; }
         // 尚未選過列印方式（第一次啟動）：詢問一次
         configurePrintMethodDialog();
         document.getElementById('print-lang-modal').style.display = 'flex';
     }
 
-    /* 使用者在彈窗上點了其中一個列印方式：記住選擇，之後不再詢問，並立刻執行這次送單 */
+    /* 語言彈窗按「取消」：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不送單、不列印 */
+    function cancelPrintLangChoice() {
+        document.getElementById('print-lang-choice-modal').style.display = 'none';
+    }
+
+    /* 使用者在彈窗上點了其中一個列印方式：記住選擇，之後不再詢問，並立刻用剛剛選好的語言執行這次送單 */
     function choosePrintMethod(method) {
         localStorage.setItem(PRINT_METHOD_KEY, method);
         document.getElementById('print-lang-modal').style.display = 'none';
-        if (method === 'direct') submitOrderDirectPrint();
-        else submitOrderViaFirebase();
+        if (method === 'direct') submitOrderDirectPrint(pendingPrintLang);
+        else submitOrderViaFirebase(pendingPrintLang);
     }
 
     /* 頂部🖨️⚙️圖示：清除已記住的選擇，重新跳出選擇視窗（不會立刻送單，只是重新詢問一次） */
@@ -1025,9 +1082,9 @@
         document.getElementById('print-lang-modal').style.display = 'flex';
     }
 
-    function submitOrderViaFirebase() {
+    function submitOrderViaFirebase(printLang = 'zh') {
         document.getElementById('print-lang-modal').style.display = 'none';
-        handleFinalizeAndPrint('zh');
+        handleFinalizeAndPrint(printLang);
     }
 
     function configurePrintMethodDialog() {
@@ -1089,14 +1146,14 @@
         await characteristic.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
     }
 
-    async function submitOrderDirectPrint() {
+    async function submitOrderDirectPrint(printLang = 'zh') {
         document.getElementById('print-lang-modal').style.display = 'none';
         const button = document.getElementById('printBtn');
         try {
             button.disabled = true;
             const printer = await getDirectPrinter();
             const orderInfo = await getNextOrderNo();
-            drawDirectReceiptCanvas(orderInfo.no, 'zh', orderInfo.key);
+            drawDirectReceiptCanvas(orderInfo.no, printLang, orderInfo.key);
             document.getElementById('status-text').innerText = '🖨️ 正在本機列印...';
             await writeDirectReceipt(printer);
 
@@ -1110,7 +1167,7 @@
             orderData.history.unshift({
                 num: orderInfo.no, key: orderInfo.key,
                 total: document.getElementById('cart-total-sum').innerText,
-                items: JSON.parse(JSON.stringify(cart)), noPrint: true
+                items: JSON.parse(JSON.stringify(cart)), noPrint: true, printLang
             });
             recordSale(cart);
             await saveOrderData(orderData);
@@ -1212,7 +1269,7 @@
                 const currentNo = orderInfo.no, currentKey = orderInfo.key;
                 document.getElementById('status-text').innerText = "📤 送出中...";
                 const orderData = getOrderData();
-                orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)) });
+                orderData.history.unshift({ num: currentNo, key: currentKey, total: document.getElementById('cart-total-sum').innerText, items: JSON.parse(JSON.stringify(cart)), printLang });
                 recordSale(cart);
                 await saveOrderData(orderData);
                 alert(successMsg || (userLang==='zh' ? '✅ 訂單已送出！廚房出單機將自動列印。' : '✅ Order submitted! The kitchen printer will print it automatically.'));
