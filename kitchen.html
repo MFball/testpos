@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.6.2</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.6.3</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -62,7 +62,7 @@
 <div id="app">
     <div id="topbar">
         <div id="topbar-row1">
-            <div id="shop-title">🍳 廚房接單</div>
+            <div id="shop-title">🍳 廚房接單 <span id="kitchen-version-tag" style="font-size:0.65rem; font-weight:900; color:#999;">v1.6.3</span></div>
             <div id="listen-status" class="status-pill status-bad"><span class="dot"></span><span id="listen-status-text">連線中...</span></div>
         </div>
         <div id="topbar-row2">
@@ -295,23 +295,29 @@
            點餐機那邊如果用「🖨️本機搜尋印表機並直接列印」（藍牙直印），從 ver5.7.1 開始
            那張單「完全不會」被送進這個廚房監聽的節點（orders.json），本機已經印過收據了；
            所以這台廚房出單機只會印到「☁️使用 Firebase 命令」送出的單，不會再重複印到
-           本機已經印過的那一張。這裡的字級/欄位設定（printConfig）也只影響這台廚房單，
-           跟點餐機本機直印的固定版面收據無關（那邊是各自寫死的版面，不讀這裡的設定）。*/
+           本機已經印過的那一張。這裡的字級/欄位設定（printConfig）也只影響這台廚房單。
+           ✅ ver1.6.1 修正「雲端／廚房單排版跟本機列印看起來不一樣、而且永遠只有中文」：
+           點餐機 ver5.7.5 開始，除了舊版就有的 summary 純文字，還會多送一份跟本機直印
+           （drawDirectReceiptCanvas）同一套欄位的結構化 order.lines（已依 order.printLang
+           翻譯好文字），這裡優先使用 order.lines 畫出跟本機列印一致的排版與語言；
+           如果收到的是舊版點餐機送來、沒有 lines 欄位的單，才退回用 summary 文字解析
+           （沿用原本邏輯，確保新舊版本互相相容）。*/
         const cfg = printConfig;
         const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
         const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
         const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE));
         const tagPx   = Math.max(24, Math.round((cfg.tagSize || 29) * CANVAS_SCALE));
+        const printLang = order.printLang === 'en' ? 'en' : 'zh';
+        const hasStructuredLines = Array.isArray(order.lines) && order.lines.length > 0;
 
-        const lines = (order.summary || '').split('|').map(s => s.trim()).filter(Boolean);
         const isTakeaway = order.isTakeaway === true || order.isTakeaway === 'true';
 
         const blocks = [];
         let y = 20;
 
-        /* 第1行：店名 */
+        /* 第1行：店名（跟本機列印一致，不再加「- 廚房單」字樣，兩邊排版才會看起來一樣） */
         if (cfg.showShopName !== false) {
-            blocks.push({ text: `${cfg.shopName || 'Million FishBall Noodle'} - 廚房單`, font: `bold ${titlePx}px sans-serif`, color: 'black', y });
+            blocks.push({ text: cfg.shopName || 'Million FishBall Noodle', font: `bold ${titlePx}px sans-serif`, color: 'black', y });
             y += titlePx + 15;
         }
         /* 第2行：時間 */
@@ -324,11 +330,9 @@
             blocks.push({ text: `No. ${order.orderNo}`, font: 'bold 48px sans-serif', color: 'black', y });
             y += 48 + 20;
         }
-        /* 第4行：ID——預設不顯示，可在主理員後台「顯示廚房單ID」重新開啟 */
-        if (cfg.showTicketId) {
-            blocks.push({ text: `ID: ${order.claimKey || '--'}${order.source === 'customer' ? '　📱顧客自助下單' : ''}`, font: `${notePx}px sans-serif`, color: '#555', y });
-            y += notePx + 23;
-        }
+        /* 第4行：ID——跟本機列印一致，一律顯示（不再受「顯示廚房單ID」設定隱藏），方便兩邊互相核對 */
+        blocks.push({ text: `ID: ${order.claimKey || '--'}${order.source === 'customer' ? (printLang === 'zh' ? '　📱顧客自助下單' : '  📱Customer self-order') : ''}`, font: `${notePx}px sans-serif`, color: '#555', y });
+        y += notePx + 23;
 
         blocks.push({ text: '--------------------------------------------------------------', font: 'bold 20px sans-serif', color: 'black', y });
         y += 20 + 17;
@@ -342,34 +346,65 @@
             y += bodyPx + 12;
         }
 
-        /* ✅ 每個品項固定拆成最多5行，全部往下排列（不會並排在同一行右側）：
-           第1行：品名　第2行：麵種/醬料　第3行：★特別要求　第4行：不要什麼　第5行：+加料
-           （摘要文字裡用 \n 分隔這幾行，customer_v1.html／收銀機負責組出這個順序）
-           每個品項結束後印一條分隔線，跟下一個品項的內容區隔開來 */
-        lines.forEach((line, index) => {
-            const [nameLine, noodleSauceLine, ...subLines] = line.split('\n');
-            blocks.push({ text: nameLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
-            y += bodyPx + (cfg.gapWithinItem ?? 8);
-            if (noodleSauceLine) {
-                blocks.push({ text: noodleSauceLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
+        /* ✅ ver1.6.1：優先用結構化 order.lines（跟本機列印同一套欄位）畫出品項，
+           字級順序比照 drawDirectReceiptCanvas：品名(N份/qty) → [大小] 麵種 醬料 → 備註（紅字）
+           → 外賣附加費（若混合單） → 每項一條分隔線。 */
+        const itemCount = hasStructuredLines ? order.lines.length : 0;
+        if (hasStructuredLines) {
+            order.lines.forEach((item, index) => {
+                blocks.push({ text: `${item.name} (${item.qty}${item.unit || ''})`, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
                 y += bodyPx + (cfg.gapWithinItem ?? 8);
-            }
-            if (cfg.showNotes !== false) {
-                subLines.forEach(sub => {
-                    blocks.push({ text: sub, font: `bold ${notePx}px sans-serif`, color: '#c0392b', y });
-                    y += notePx + 6;
-                });
-            }
-            if (index < lines.length - 1) {
-                y += (cfg.gapBetweenItems ?? 8);
-                const itemDivider = String(cfg.itemDivider ?? '--------------------------------------------------------------').trim();
-                if (itemDivider) {
-                    // Thermal printing is black/white; light grey (#999) becomes white after rasterisation.
-                    blocks.push({ text: itemDivider, font: 'bold 20px sans-serif', color: 'black', y });
-                    y += 20 + 16;
+                if (item.options) {
+                    blocks.push({ text: item.options, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
+                    y += bodyPx + (cfg.gapWithinItem ?? 8);
                 }
-            }
-        });
+                if (cfg.showNotes !== false) {
+                    (item.notes || []).forEach(sub => {
+                        blocks.push({ text: sub, font: `bold ${notePx}px sans-serif`, color: '#c0392b', y });
+                        y += notePx + 6;
+                    });
+                }
+                if (item.isTakeaway && !isTakeaway) {
+                    blocks.push({ text: printLang === 'zh' ? '🥡(外賣)' : '🥡(TAKEAWAY)', font: `bold ${notePx}px sans-serif`, color: '#3949ab', y });
+                    y += notePx + 6;
+                }
+                if (index < itemCount - 1) {
+                    y += (cfg.gapBetweenItems ?? 8);
+                    const itemDivider = String(cfg.itemDivider ?? '--------------------------------------------------------------').trim();
+                    if (itemDivider) {
+                        blocks.push({ text: itemDivider, font: 'bold 20px sans-serif', color: 'black', y });
+                        y += 20 + 16;
+                    }
+                }
+            });
+        } else {
+            /* 🔙 相容舊版點餐機（< ver5.7.5，沒有 order.lines）：退回解析純文字 summary，
+               維持跟過去完全一樣的行為，不會因為升級廚房出單機就讓舊版點餐機的單印不出來。 */
+            const lines = (order.summary || '').split('|').map(s => s.trim()).filter(Boolean);
+            lines.forEach((line, index) => {
+                const [nameLine, noodleSauceLine, ...subLines] = line.split('\n');
+                blocks.push({ text: nameLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
+                y += bodyPx + (cfg.gapWithinItem ?? 8);
+                if (noodleSauceLine) {
+                    blocks.push({ text: noodleSauceLine, font: `bold ${bodyPx}px sans-serif`, color: 'black', y });
+                    y += bodyPx + (cfg.gapWithinItem ?? 8);
+                }
+                if (cfg.showNotes !== false) {
+                    subLines.forEach(sub => {
+                        blocks.push({ text: sub, font: `bold ${notePx}px sans-serif`, color: '#c0392b', y });
+                        y += notePx + 6;
+                    });
+                }
+                if (index < lines.length - 1) {
+                    y += (cfg.gapBetweenItems ?? 8);
+                    const itemDivider = String(cfg.itemDivider ?? '--------------------------------------------------------------').trim();
+                    if (itemDivider) {
+                        blocks.push({ text: itemDivider, font: 'bold 20px sans-serif', color: 'black', y });
+                        y += 20 + 16;
+                    }
+                }
+            });
+        }
 
         /* ✅ 金額先印，堂食/外賣標籤最後印且是全單最大字體 */
         if (cfg.showPrice !== false) {
@@ -377,7 +412,10 @@
             y += 42 + (cfg.gapBeforeTag ?? 20);
         }
 
-        blocks.push({ text: isTakeaway ? '🥡 外賣 / 打包' : '🍽 堂食', font: `bold ${tagPx}px sans-serif`, color: isTakeaway ? '#3949ab' : '#1b5e20', y });
+        const tagText = isTakeaway
+            ? (printLang === 'zh' ? '🥡 外賣 / 打包' : '🥡 TAKEAWAY')
+            : (printLang === 'zh' ? '🍽 堂食' : '🍽 DINE-IN');
+        blocks.push({ text: tagText, font: `bold ${tagPx}px sans-serif`, color: isTakeaway ? '#3949ab' : '#1b5e20', y });
         y += tagPx + 20;
 
         if (cfg.showFooter && cfg.footerText) {
@@ -498,9 +536,16 @@
         ordersOnScreen[key] = { ...order };
         renderOrderList();
 
-        /* ✅ 收銀機按「不收據」送出的訂單會帶上 noPrint 標記——這種單不響鈴、不自動列印，
-           但仍然加進畫面清單，讓廚房知道有這筆單（跟收銀機那邊「不收據但仍記錄」的邏輯一致）*/
-        if (order.noPrint) return;
+        /* ✅ 收銀機按「不收據」或用「本機直接列印」送出的訂單會帶上 noPrint 標記——
+           這種單不響鈴、不自動列印，但仍然加進畫面清單，讓廚房知道有這筆單
+           （跟收銀機那邊「不收據但仍記錄」的邏輯一致）。
+           若日後又發生「本機列印卻仍被廚房重複印出」，可以打開瀏覽器 Console 檢查
+           這裡有沒有印出「⏭️ 略過」訊息——如果完全沒印出這行，代表這台裝置收到的
+           order 資料裡根本沒有 noPrint:true（多半是點餐機那邊版本太舊或快取沒更新）。*/
+        if (order.noPrint) {
+            console.log('⏭️ 略過自動列印/響鈴（noPrint=true，這張單已經在收銀機本機列印過）：No.' + order.orderNo);
+            return;
+        }
 
         playBell();
 
