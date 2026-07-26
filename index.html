@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.7.1 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.6.2 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -217,7 +217,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.7.1</span>
+        <span id="version-tag">v5.7.2</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -1118,11 +1118,19 @@
     }
 
     // Direct-print layout: retained from ver_5_3_6 to match receipt A in the reference photo.
+    /* ✅ ver5.7.2 修正「本機列印少了堂食/外賣標籤」：
+       根源：雲端／廚房單（buildReceiptLayout + kitchen 端 buildKitchenReceiptLayout）本來就會在
+       單子最後印一個全單最大字體的「🍽 堂食」或「🥡 外賣/打包」標籤，但本機直接列印
+       （drawDirectReceiptCanvas，供藍牙印表機使用）當初漏了這一段，只有每個外賣品項旁邊印一行
+       小小的「(Takeaway fee...)」，沒有整單堂食/外賣的大標籤——所以本機印出來的單看起來
+       「少了」這個標記，雲端那邊（廚房單）才有。這裡補上跟雲端一致的邏輯：只要購物車裡
+       每一份餐點都勾了外賣，整單才算外帶，印大大的「外賣/打包」；否則印「堂食」。*/
     function drawDirectReceiptCanvas(orderNo, printLang, orderKey = null) {
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const centerX = 288, maxW = 450;
         const getName = key => (dictionary.items[key] && dictionary.items[key][printLang]) ? dictionary.items[key][printLang] : (key || '');
+        const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
         const itemLines = cart.map(item => {
             const unit = item.category === '湯' ? (printLang === 'zh' ? '碗' : 'bowl') : (printLang === 'zh' ? '份' : 'qty');
             const options = [`[${getName(item.sizeKey)}]`, item.noodleKey ? getName(item.noodleKey) : '', (item.sauceKeys || []).map(getName).join(' ')].filter(Boolean).join(' ');
@@ -1136,6 +1144,7 @@
         });
         let height = 215;
         itemLines.forEach(line => { height += 45 + (line.options ? 40 : 0) + line.notes.length * 36 + (line.item.isTakeaway ? 28 : 0) + 28; });
+        height += 100; // 底部「堂食/外賣」大標籤預留的高度
         canvas.height = height + 100;
         ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 576, canvas.height);
         ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = 'black';
@@ -1154,7 +1163,16 @@
             ctx.save(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
             ctx.beginPath(); ctx.moveTo(0, y + 8); ctx.lineTo(576, y + 8); ctx.stroke(); ctx.restore(); y += 28;
         });
-        ctx.font = 'bold 42px sans-serif'; ctx.fillText('TOTAL: $' + document.getElementById('cart-total-sum').innerText, centerX, y + 12);
+        ctx.font = 'bold 42px sans-serif'; ctx.fillStyle = 'black'; ctx.fillText('TOTAL: $' + document.getElementById('cart-total-sum').innerText, centerX, y + 12);
+        y += 42 + 20;
+        // ✅ 整單堂食/外賣的大標籤，跟雲端（廚房單）版面一致，放在金額之後、全單最大字體
+        ctx.font = 'bold 48px sans-serif';
+        ctx.fillStyle = isAllTakeaway ? '#3949ab' : '#1b5e20';
+        const tagText = isAllTakeaway
+            ? (printLang === 'zh' ? '🥡 外賣 / 打包' : '🥡 TAKEAWAY')
+            : (printLang === 'zh' ? '🍽 堂食' : '🍽 DINE-IN');
+        ctx.fillText(tagText, centerX, y + 20, maxW);
+        ctx.fillStyle = 'black';
     }
 
     /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或送出動作 */
