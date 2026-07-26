@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.6.1 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.6.2 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -216,7 +216,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.6.1</span>
+        <span id="version-tag">v5.6.2</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -758,27 +758,31 @@
                客人在櫃檯點的「★特別要求」「不要什麼」「加料」完全沒有送進雲端，
                如果這張單同時也要給廚房那台裝置列印，廚房單上就會看不到這些內容。
                現在補上，格式跟顧客點餐頁面一致：品項附加說明用 \n 分隔，品項與品項之間仍用 " | "。*/
+            /* ✅ 依照新版廚房單版面需求調整格式（跟顧客點餐頁面一致）：
+               第1行只放「品名[大小] x數量」，第2行改放「麵種/醬料」；
+               子行順序改成 特別要求 → 不要什麼 → 加料 */
             const summaryParts = (last.items || []).map(item => {
                 const name = (dictionary.items[item.mainKey] && dictionary.items[item.mainKey].zh) ? dictionary.items[item.mainKey].zh : item.mainKey;
                 const size = (dictionary.items[item.sizeKey] && dictionary.items[item.sizeKey].zh) ? dictionary.items[item.sizeKey].zh : item.sizeKey;
                 const noodle = item.noodleKey && item.noodleKey !== '湯品' ? ((dictionary.items[item.noodleKey] && dictionary.items[item.noodleKey].zh) ? dictionary.items[item.noodleKey].zh : item.noodleKey) : '';
                 const sauces = (item.sauceKeys || []).map(k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k).join('/');
-                const mainLine = `${name}[${size}]${noodle ? ' '+noodle : ''} ${sauces} x${item.qty}`;
+                const nameLine = `${name}[${size}] x${item.qty}`;
+                const noodleSauceLine = [noodle, sauces].filter(Boolean).join(' ');
 
                 const nameOf = k => (dictionary.items[k] && dictionary.items[k].zh) ? dictionary.items[k].zh : k;
                 const subLines = [];
                 if (item.specialKeys && item.specialKeys.length) {
                     subLines.push(`★${item.specialKeys.map(nameOf).join('/')}`);
                 }
+                if (item.noExtraKeys && item.noExtraKeys.length) {
+                    subLines.push(`不要:${item.noExtraKeys.map(nameOf).join('/')}`);
+                }
                 const adds = Object.entries(item.additionKeys||{})
                     .filter(([k,v]) => v > 0)
                     .map(([k,v]) => `${nameOf(k)}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
                 if (adds.length) subLines.push(`+${adds.join(', ')}`);
-                if (item.noExtraKeys && item.noExtraKeys.length) {
-                    subLines.push(`不要:${item.noExtraKeys.map(nameOf).join('/')}`);
-                }
 
-                return subLines.length ? `${mainLine}\n${subLines.join('\n')}` : mainLine;
+                return [nameLine, noodleSauceLine, ...subLines].join('\n');
             });
             const summaryText = summaryParts.join(' | ');
             const totalPrice = String(last.total || '0');
