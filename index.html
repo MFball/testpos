@@ -216,7 +216,7 @@
         <button class="icon-btn" title="歷史重印" onclick="toggleHistory()">🕒</button>
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
-        <span id="version-tag">v5.6.2</span>
+        <span id="version-tag">v5.7.0</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -648,6 +648,7 @@
     }
     const SALES_KEY = "million_sales_data";
 
+    let savedDevice = null, savedCharacteristic = null, isFastMode = false;
     let userLang = 'zh';
     let cart = [];
     let currentCategory = '面';
@@ -977,13 +978,144 @@
        原本「選擇列印語言」的彈窗已經沒有意義──廚房那邊一律用中文摘要列印，這裡的語言
        選擇不會再影響任何實際印出來的東西──所以改成單純的「確認送出」彈窗。*/
     function confirmSubmitPrompt() {
+        configurePrintMethodDialog();
         if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
         document.getElementById('print-lang-modal').style.display = 'flex';
     }
 
-    function submitOrderConfirmed() {
+    function submitOrderViaFirebase() {
         document.getElementById('print-lang-modal').style.display = 'none';
         handleFinalizeAndPrint('zh');
+    }
+
+    function configurePrintMethodDialog() {
+        const card = document.querySelector('#print-lang-modal .plm-card');
+        card.innerHTML = `
+            <div class="plm-title">選擇列印方式</div>
+            <div style="font-size:0.85rem; color:#888; font-weight:normal; margin:-10px 0 16px;">本機列印會搜尋這部裝置附近的藍牙印表機；雲端列印則交由廚房出單機處理。</div>
+            <button class="plm-btn plm-btn-zh" onclick="submitOrderDirectPrint()">🖨️ 本機搜尋印表機並直接列印</button>
+            <button class="plm-btn plm-btn-en" onclick="submitOrderViaFirebase()">☁️ 使用 Firebase 命令（廚房出單機）</button>
+            <button class="plm-btn plm-btn-cancel" onclick="cancelSubmitPrompt()">取消返回</button>
+        `;
+    }
+
+    async function getDirectPrinter() {
+        if (!navigator.bluetooth) throw new Error('此瀏覽器不支援藍牙列印。請使用 Android Chrome。');
+        if (savedDevice && savedDevice.gatt.connected && savedCharacteristic) return savedCharacteristic;
+        document.getElementById('status-text').innerText = '🔍 搜尋印表機...';
+        savedDevice = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['0000ffe0-0000-1000-8000-00805f9b34fb']
+        });
+        const server = await savedDevice.gatt.connect();
+        const services = await server.getPrimaryServices();
+        for (const service of services) {
+            const chars = await service.getCharacteristics();
+            const characteristic = chars.find(c => c.properties.writeWithoutResponse) || chars.find(c => c.properties.write);
+            if (characteristic) {
+                savedCharacteristic = characteristic;
+                isFastMode = !!characteristic.properties.writeWithoutResponse;
+                break;
+            }
+        }
+        if (!savedCharacteristic) throw new Error('找不到可寫入的印表機服務。');
+        document.getElementById('status-text').innerText = '● 藍牙印表機已連線';
+        document.getElementById('status-text').style.color = '#34a853';
+        return savedCharacteristic;
+    }
+
+    async function writeDirectReceipt(characteristic) {
+        const canvas = document.getElementById('printCanvas');
+        const pixels = canvas.getContext('2d').getImageData(0, 0, 576, canvas.height).data;
+        const widthBytes = 72;
+        await characteristic.writeValue(new Uint8Array([0x1B, 0x40]));
+        for (let y = 0; y < canvas.height; y++) {
+            const row = new Uint8Array(8 + widthBytes);
+            row.set([0x1D, 0x76, 0x30, 0, widthBytes, 0, 1, 0]);
+            for (let x = 0; x < widthBytes; x++) {
+                let byte = 0;
+                for (let bit = 0; bit < 8; bit++) {
+                    const index = ((y * 576) + (x * 8 + bit)) * 4;
+                    if (pixels[index] * 0.3 + pixels[index + 1] * 0.59 + pixels[index + 2] * 0.11 < 135) byte |= (1 << (7 - bit));
+                }
+                row[8 + x] = byte;
+            }
+            if (isFastMode) await characteristic.writeValueWithoutResponse(row);
+            else await characteristic.writeValue(row);
+            if (y % 20 === 0) await new Promise(resolve => setTimeout(resolve, 40));
+        }
+        await characteristic.writeValue(new Uint8Array([0x1B, 0x64, 0x03, 0x1D, 0x56, 0x00]));
+    }
+
+    async function submitOrderDirectPrint() {
+        document.getElementById('print-lang-modal').style.display = 'none';
+        const button = document.getElementById('printBtn');
+        try {
+            button.disabled = true;
+            const printer = await getDirectPrinter();
+            const orderInfo = await getNextOrderNo();
+            drawDirectReceiptCanvas(orderInfo.no, 'zh', orderInfo.key);
+            document.getElementById('status-text').innerText = '🖨️ 正在本機列印...';
+            await writeDirectReceipt(printer);
+
+            // noPrint prevents the kitchen device from printing this order a second time.
+            const orderData = getOrderData();
+            orderData.history.unshift({
+                num: orderInfo.no, key: orderInfo.key,
+                total: document.getElementById('cart-total-sum').innerText,
+                items: JSON.parse(JSON.stringify(cart)), noPrint: true
+            });
+            recordSale(cart);
+            await saveOrderData(orderData);
+            clearWholeOrder(true);
+            document.getElementById('status-text').innerText = '✅ 已本機列印並送出訂單';
+            alert('✅ 已本機列印。廚房出單機會跳過這一張，避免重複出單。');
+        } catch (error) {
+            document.getElementById('status-text').innerText = '❌ 本機列印失敗';
+            alert('本機列印失敗：' + error.message);
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    // Direct-print layout: retained from ver_5_3_6 to match receipt A in the reference photo.
+    function drawDirectReceiptCanvas(orderNo, printLang, orderKey = null) {
+        const canvas = document.getElementById('printCanvas');
+        const ctx = canvas.getContext('2d');
+        const centerX = 288, maxW = 450;
+        const getName = key => (dictionary.items[key] && dictionary.items[key][printLang]) ? dictionary.items[key][printLang] : (key || '');
+        const itemLines = cart.map(item => {
+            const unit = item.category === '湯' ? (printLang === 'zh' ? '碗' : 'bowl') : (printLang === 'zh' ? '份' : 'qty');
+            const options = [`[${getName(item.sizeKey)}]`, item.noodleKey ? getName(item.noodleKey) : '', (item.sauceKeys || []).map(getName).join(' ')].filter(Boolean).join(' ');
+            const notes = [];
+            if (item.specialKeys && item.specialKeys.length) notes.push('★' + item.specialKeys.map(getName).join('、'));
+            const adds = Object.entries(item.additionKeys || {}).filter(([, value]) => value > 0)
+                .map(([key, value]) => `${getName(key)}(${value * getItemRatio(key)}${getItemUnit(key, printLang)})`).join('、');
+            if (adds) notes.push('+' + adds);
+            if (item.noExtraKeys && item.noExtraKeys.length) notes.push((printLang === 'zh' ? '不要：' : 'No: ') + item.noExtraKeys.map(getName).join('、'));
+            return { item, unit, options, notes };
+        });
+        let height = 215;
+        itemLines.forEach(line => { height += 45 + (line.options ? 40 : 0) + line.notes.length * 36 + (line.item.isTakeaway ? 28 : 0) + 28; });
+        canvas.height = height + 100;
+        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 576, canvas.height);
+        ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = 'black';
+        ctx.font = 'bold 26px sans-serif'; ctx.fillText('Million FishBall Noodle', centerX, 20);
+        ctx.font = '18px sans-serif'; ctx.fillText(new Date().toLocaleString(), centerX, 55);
+        ctx.font = 'bold 44px sans-serif'; ctx.fillText(`No. ${orderNo}`, centerX, 85);
+        ctx.font = '20px sans-serif'; ctx.fillStyle = '#555'; ctx.fillText(`ID: ${orderKey || '--'}`, centerX, 140);
+        ctx.fillStyle = 'black'; ctx.font = 'bold 20px sans-serif'; ctx.fillText('--------------------------------------------------------------', centerX, 175);
+        let y = 215;
+        itemLines.forEach(line => {
+            ctx.font = printLang === 'en' ? 'bold 36px sans-serif' : 'bold 42px sans-serif';
+            ctx.fillText(`${getName(line.item.mainKey)} (${line.item.qty}${line.unit})`, centerX, y, maxW); y += 45;
+            if (line.options) { ctx.font = 'bold 30px sans-serif'; ctx.fillText(line.options, centerX, y, maxW); y += 40; }
+            line.notes.forEach(note => { ctx.font = 'bold 24px sans-serif'; ctx.fillText(note, centerX, y, maxW); y += 36; });
+            if (line.item.isTakeaway) { ctx.font = '18px sans-serif'; ctx.fillStyle = '#555'; ctx.fillText(`(Takeaway fee: +$${(0.30 * line.item.qty).toFixed(2)})`, centerX, y, maxW); ctx.fillStyle = 'black'; y += 28; }
+            ctx.save(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(0, y + 8); ctx.lineTo(576, y + 8); ctx.stroke(); ctx.restore(); y += 28;
+        });
+        ctx.font = 'bold 42px sans-serif'; ctx.fillText('TOTAL: $' + document.getElementById('cart-total-sum').innerText, centerX, y + 12);
     }
 
     /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或送出動作 */
