@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.1.1</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.1.2</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -72,7 +72,16 @@
     .collapse-body.closed { display: none; }
     .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { padding: 11px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fff; font-weight: 900; font-size: 0.92rem; color: #444; }
-    .sauce-layout { display: flex; gap: 8px; align-items: stretch; }
+    /* ✅ 整個「Sauce(multi)」列改成單一條可以左右拖曳捲動的區域：
+       中文的直書側邊按鈕(辣椒/湯)、中間的醬料選項，全部放在同一條橫向列裡，
+       選項太多、或英文字比較長塞不下時，手指左右滑就能看到全部，不會被擠壓變形 */
+    .sauce-layout {
+        display: flex; gap: 8px; align-items: stretch;
+        overflow-x: auto; -webkit-overflow-scrolling: touch;
+        padding-bottom: 10px;
+    }
+    .sauce-layout::-webkit-scrollbar { height: 6px; }
+    .sauce-layout::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 3px; }
     .sauce-side-btn {
         flex: 0 0 68px;
         display: flex; align-items: center; justify-content: center;
@@ -82,11 +91,23 @@
     }
     .sauce-side-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
     .sauce-side-btn.soup-side { border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.15); }
-    .sauce-mid-grid {
-        flex: 1; min-width: 0;
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-content: start;
+    /* ✅ 英文模式下，「Chili」「Soup Base」這種英文單字如果照中文那樣直書，
+       會變成一個字母一行、又長又難讀。這裡改成正常橫排文字；
+       按鈕寬度改成依文字內容自動加寬(不再自己內部捲動)，捲動交給外層 .sauce-layout 統一處理 */
+    body.lang-en .sauce-side-btn {
+        flex: 0 0 auto;
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+        letter-spacing: normal;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        padding: 0 16px;
     }
-    .sauce-mid-grid .chip { width: 100%; padding: 10px 4px; font-size: 0.85rem; }
+    .sauce-mid-grid {
+        flex: 0 0 auto;
+        display: flex; gap: 8px;
+    }
+    .sauce-mid-grid .chip { flex: 0 0 auto; white-space: nowrap; padding: 10px 14px; font-size: 0.85rem; }
     .chip.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
     .chip.warn.selected { border-color: #e53935; background: #ffebee; color: #e53935; }
     .chip.big { padding: 14px 22px; font-size: 1rem; }
@@ -203,7 +224,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million Fishball <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.1.1</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.1.2</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -1100,6 +1121,7 @@
     /* ═══════════════ 語言切換 ═══════════════ */
     function setLang(l) {
         userLang = l;
+        document.body.classList.toggle('lang-en', l === 'en');
         document.querySelectorAll('#lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
         document.querySelectorAll('.cat-tab').forEach(t => {
             const cat = t.dataset.cat;
