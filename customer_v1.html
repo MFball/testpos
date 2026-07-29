@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.0.3</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.1.1</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -160,6 +160,8 @@
     /* ── 訂單完成確認畫面 ── */
     #done-screen { display:none; position:fixed; inset:0; background:#fff; z-index:4000; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center; }
     #done-screen.show { display:flex; }
+    #review-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:4100; align-items:center; justify-content:center; padding:20px; }
+    #review-modal.show { display:flex; }
     .done-check { font-size:4rem; margin-bottom:10px; }
     .done-orderno { font-size:3rem; font-weight:900; background:#111; color:#fff; padding:14px 30px; border-radius:20px; margin:16px 0; }
     .done-hint { color:#666; font-size:1rem; line-height:1.8; margin-bottom:24px; }
@@ -201,7 +203,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.0.3</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.1.1</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -284,6 +286,19 @@
     <button class="done-btn" onclick="startNewOrder()" id="done-btn">➕ 再點一份</button>
 </div>
 
+<!-- ✅ Google評分邀請彈窗：客人看到訂單號碼之後，問要不要順手給個評分。
+     按「好」→開新分頁跳轉到Google評分頁；按「不用了」→關掉彈窗，
+     停留在原本的訂單號碼畫面（後面還是看得到「➕ 再點一份」按鈕）-->
+<div id="review-modal">
+    <div class="sm-card" style="text-align:center;">
+        <div style="font-size:2.5rem; margin-bottom:6px;">⭐</div>
+        <div class="sm-title" id="review-title">喜歡我們的餐點嗎？</div>
+        <div style="font-size:0.9rem; color:#888; margin:-6px 0 18px;" id="review-subtitle">給我們一個Google評分，讓更多人看到！</div>
+        <button class="sm-btn sm-btn-go" onclick="goToGoogleReview()" id="review-yes-btn">⭐ 好，去評分</button>
+        <button class="sm-btn sm-btn-cancel" onclick="closeReviewModal()" id="review-no-btn">不用了，謝謝</button>
+    </div>
+</div>
+
 <script>
     /* ═══════════════ iOS 適配 ═══════════════ */
     function setAppHeight() { document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`); }
@@ -312,6 +327,15 @@
        請務必在正式上線前換成你自己的真實UEN！ */
     const PAYNOW_UEN = "REPLACE_WITH_YOUR_UEN";              // <==== 請改成你自己的 UEN
     const PAYNOW_MERCHANT_NAME = "Million FishBall Noodle";  // <==== 請改成你想顯示的商戶名稱
+
+    /* ═══════════════ Google評分邀請 ═══════════════
+       ⚠️ 請把下面這個網址換成你自己商家的Google評分連結，取得方式二選一：
+       1. 手機Google地圖搜尋你的店 → 點「分享」→ 複製連結，直接貼在這裡即可
+       2. 或用 https://developers.google.com/maps/documentation/places/web-service/place-id
+          查出你店家的 Place ID，換成：
+          https://search.google.com/local/writereview?placeid=你的PlaceID
+       沒換成正確連結之前，客人按「去評分」會連到一個無效的頁面。 */
+    const GOOGLE_REVIEW_URL = "https://g.page/r/CVtthnmtXT8PEBM/review";
 
     /* CRC-16/CCITT-FALSE 校驗碼計算，EMVCo QR格式規定的標準演算法，逐位元運算 */
     function paynowCrc16(str) {
@@ -1049,13 +1073,28 @@
     function showDoneScreen(orderNo) {
         document.getElementById('done-orderno').innerText = `No. ${orderNo}`;
         document.getElementById('done-screen').classList.add('show');
+        setTimeout(showReviewPrompt, 1200);   // 讓客人先看清楚號碼，稍等一下再問評分邀請
     }
     function startNewOrder() {
         document.getElementById('done-screen').classList.remove('show');
+        document.getElementById('review-modal').classList.remove('show');
         document.getElementById('sm-table-input').value = '';
         document.getElementById('sm-name-input').value = '';
         selectCategory('推薦');
         updateBottomBar();
+    }
+
+    /* ✅ Google評分邀請：按「好」開新分頁前往評分（不離開目前這頁，客人還能繼續看訂單號碼／再點一份）；
+       按「不用了」單純關掉彈窗，畫面回到訂單號碼那頁（彈窗只是疊在上面，底下的畫面本來就沒被換掉）*/
+    function showReviewPrompt() {
+        document.getElementById('review-modal').classList.add('show');
+    }
+    function goToGoogleReview() {
+        window.open(GOOGLE_REVIEW_URL, '_blank');
+        closeReviewModal();
+    }
+    function closeReviewModal() {
+        document.getElementById('review-modal').classList.remove('show');
     }
 
     /* ═══════════════ 語言切換 ═══════════════ */
@@ -1075,6 +1114,10 @@
         document.getElementById('paynow-subtitle').innerText = l==='zh' ? '請使用您的銀行App掃描下方QR Code付款' : 'Scan the QR code below with your banking app';
         document.getElementById('paynow-done-btn').innerText = l==='zh' ? '✅ 我已完成付款' : '✅ I have paid';
         document.getElementById('paynow-cancel-btn').innerText = l==='zh' ? '返回修改訂單' : 'Back to edit order';
+        document.getElementById('review-title').innerText = l==='zh' ? '喜歡我們的餐點嗎？' : 'Enjoyed your meal?';
+        document.getElementById('review-subtitle').innerText = l==='zh' ? '給我們一個Google評分，讓更多人看到！' : 'Leave us a Google review to help others find us!';
+        document.getElementById('review-yes-btn').innerText = l==='zh' ? '⭐ 好，去評分' : '⭐ Sure, rate us';
+        document.getElementById('review-no-btn').innerText = l==='zh' ? '不用了，謝謝' : 'No thanks';
         document.getElementById('done-title').innerText = l==='zh' ? '訂單已送出！' : 'Order submitted!';
         document.getElementById('done-hint').innerHTML = l==='zh'
             ? '請記住這個號碼<br>店家核對付款後即會開始準備<br>完成後會依號碼叫您取餐／送餐'
