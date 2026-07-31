@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 廚房接單 Ver 1.6.3</title>
+<title>Million FishBall Noodle - 廚房接單 Ver 1.6.4</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025;
@@ -406,8 +406,19 @@
             });
         }
 
-        /* ✅ 金額先印，堂食/外賣標籤最後印且是全單最大字體 */
+        /* ✅ 金額先印，堂食/外賣標籤最後印且是全單最大字體
+           ✅ 有活動折扣時（order.discountAmount，由點餐機送單當下算好），
+           跟本機列印一樣先印「原價」「活動折扣」兩行，最後才是折扣後的 TOTAL，
+           確保不管走本機列印還是這台廚房出單機列印，收據呈現的金額結構都一致。 */
         if (cfg.showPrice !== false) {
+            const discountAmt = parseFloat(order.discountAmount) || 0;
+            if (discountAmt > 0) {
+                const originalAmt = parseFloat(order.originalPrice) || (parseFloat(order.totalPrice) || 0) + discountAmt;
+                blocks.push({ text: (printLang === 'zh' ? '原價: $' : 'Subtotal: $') + originalAmt.toFixed(2), font: 'bold 26px sans-serif', color: 'black', y });
+                y += 26 + 10;
+                blocks.push({ text: (printLang === 'zh' ? '🎉活動折扣: -$' : '🎉Promo Discount: -$') + discountAmt.toFixed(2), font: 'bold 26px sans-serif', color: '#c62828', y });
+                y += 26 + 14;
+            }
             blocks.push({ text: 'TOTAL: $' + (order.totalPrice || '0.00'), font: 'bold 42px sans-serif', color: 'black', y });
             y += 42 + (cfg.gapBeforeTag ?? 20);
         }
@@ -492,7 +503,7 @@
                 <div class="order-summary">${(o.summary || '').replace(/\|/g, '\n')}</div>
                 <div class="order-bottom">
                     <div>${locTag}${srcTag}${noPrintTag}</div>
-                    <div class="order-total">$${o.totalPrice || '0.00'}</div>
+                    <div class="order-total">${parseFloat(o.discountAmount) > 0 ? `<span style="font-size:0.7rem; color:#c62828; font-weight:900; margin-right:4px;">🎉-$${parseFloat(o.discountAmount).toFixed(2)}</span>` : ''}$${o.totalPrice || '0.00'}</div>
                 </div>
                 ${failed ? `<div class="print-fail-note">⚠️ 自動列印失敗，請確認印表機已連線後按下方重印</div>` : ''}
                 <div class="order-actions">
