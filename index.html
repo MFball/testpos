@@ -1279,9 +1279,9 @@
         let y = 215;
         itemLines.forEach(line => {
             ctx.font = printLang === 'en' ? 'bold 36px sans-serif' : 'bold 42px sans-serif';
-            ctx.fillText(`${getName(line.item.mainKey)} (${line.item.qty}${line.unit})`, centerX, y, maxW); y += 45;
-            if (line.options) { ctx.font = 'bold 30px sans-serif'; ctx.fillText(line.options, centerX, y, maxW); y += 40; }
-            line.notes.forEach(note => { ctx.font = 'bold 24px sans-serif'; ctx.fillText(note, centerX, y, maxW); y += 36; });
+            ctx.fillText(`${getName(line.item.mainKey)} (${line.item.qty}${line.unit})`, centerX, y, maxW); y += 65;
+            if (line.options) { ctx.font = 'bold 30px sans-serif'; ctx.fillText(line.options, centerX, y, maxW); y += 60; }
+            line.notes.forEach(note => { ctx.font = 'bold 24px sans-serif'; ctx.fillText(note, centerX, y, maxW); y += 56; });
             if (line.item.isTakeaway) { ctx.font = '18px sans-serif'; ctx.fillStyle = '#555'; ctx.fillText(`(Takeaway fee: +$${(0.30 * line.item.qty).toFixed(2)})`, centerX, y, maxW); ctx.fillStyle = 'black'; y += 28; }
             ctx.save(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
             ctx.beginPath(); ctx.moveTo(0, y + 8); ctx.lineTo(576, y + 8); ctx.stroke(); ctx.restore(); y += 28;
@@ -1421,16 +1421,16 @@
             if (item.sizeKey === '大的') {
                 cmds.push({ type:'circleBadge', cx:550, cy:y+20, r:26, label:'大' });
             }
-            y += 45;
+            y += 60;
 
             if (item.isTakeaway && !isAllTakeaway) {
                 cmds.push({ type:'text', text: printLang === 'zh' ? '🥡(外賣)' : '🥡(TAKEAWAY)', font:'bold 34px sans-serif', x:568, y, align:'right' });
-                y += 42;
+                y += 62;
             }
 
             if (item.category !== '小食') {
                 cmds.push({ type:'text', text:`[${getName(item.sizeKey).replace('的','')}] ${item.noodleKey==='湯品'?'':getName(item.noodleKey)} ${item.sauceKeys.map(k=>getName(k)).join(',')}`, font:'bold 30px sans-serif', x:centerX, y, align:'center', maxW });
-                y += 40;
+                y += 60;
             }
 
             /* ✅ 「顯示客製化備註與特別要求」設定：關閉時，特別要求/加料/不要什麼這三行都不印 */
@@ -1472,7 +1472,8 @@
             y += 12 + 55;
         }
 
-        /* 外賣Logo：整單外賣時才顯示，位置在Total下方，字體為原本(45px)的2倍(90px) */
+        /* 外賣Logo：整單外賣時才顯示，位置在Total下方，
+字體為原本(45px)的2倍(90px) */
         if (isAllTakeaway) {
             cmds.push({ type:'text', text: printLang === 'zh' ? '(外賣)' : '(TAKEAWAY)', font:'bold 90px sans-serif', x:centerX, y: y + 65, align:'center', maxW:550 });
             y += 165;
