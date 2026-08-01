@@ -1311,6 +1311,7 @@
     /* 取消返回：只關閉彈窗，購物車與所有已選擇的內容維持原狀，不做任何清除或送出動作 */
     function cancelSubmitPrompt() {
         document.getElementById('print-lang-modal').style.display = 'none';
+
     }
 
     /* --- 預覽列印：與正式列印共用同一套 drawPrintCanvas 繪圖邏輯，跳過藍牙傳輸 --- */
@@ -1468,8 +1469,8 @@
                 cmds.push({ type:'text', text:(printLang==='zh'?'🎉活動折扣: -$':'🎉Promo Discount: -$') + receiptTotals.discount.toFixed(2), font:'bold 26px sans-serif', color:'#c62828', x:centerX, y, align:'center' });
                 y += 26 + 14;
             }
-            cmds.push({ type:'text', text:'TOTAL: $' + receiptTotals.final.toFixed(2), font:'bold 42px sans-serif', x:centerX, y: y + 12, align:'center' });
-            y += 12 + 55;
+            cmds.push({ type:'text', text:'TOTAL: $' + receiptTotals.final.toFixed(2), font:'bold 42px sans-serif', x:centerX, y: y + 32, align:'center' });
+            y += 32 + 55;
         }
 
         /* 外賣Logo：整單外賣時才顯示，位置在Total下方，
