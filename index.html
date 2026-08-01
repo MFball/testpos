@@ -1400,7 +1400,7 @@
         }
         if (cfg.showOrderNo !== false) {
             cmds.push({ type:'text', text:`No. ${orderNo}`, font:'bold 44px sans-serif', x:centerX, y, align:'center' });
-            y += 44 + 21;
+            y += 24 + 21;
         }
         /* ✅ 客號下方印出 Firebase「新增子節點」保證全域唯一的原始 key（orderClaims 裡的識別碼），
            這行不受設定控制、一律顯示，方便日後追查來源 */
