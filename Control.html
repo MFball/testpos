@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.6.0</title>
+<title>Million 麵店 · 主理員後台 ver2.7.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -77,6 +77,11 @@
     .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
     .checkbox-group { display: flex; flex-direction: column; gap: 8px; background: #f9f9f9; padding: 12px; border-radius: 10px; border: 1px solid var(--border); }
     .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; }
+
+    .cat-btn {
+        padding: 4px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-weight: bold;
+    }
+    .cat-btn:hover { background: #e0e0e0; }
 
     /* ── 編輯/新增表單 (Modal) ── */
     #formModal {
@@ -280,13 +285,22 @@
         </div>
 
         <div class="field-label" style="margin-top:20px;">買滿多少份減多少錢（自己新增/刪除檔位，方便日後改成不同優惠）</div>
-        <div style="font-size:0.8rem; color:#888; margin:-4px 0 10px;">例如：買滿2份減$2、買滿3份減$3——結帳時系統會自動找「符合的份數中，檔位最高」的那一檔套用，不會疊加</div>
+        <div style="font-size:0.8rem; color:#888; margin:-4px 0 10px;">例如：只設買滿2份減$2——結帳時買2碗減$2、買3碗自動變減$3、買4碗自動變減$4，以此類推，超過最高檔位後每多1份自動再多折$1，不需要每個數量都手動新增檔位；如果之後想改成不一樣的折法，可以自己新增更多檔位當作特別的門檻</div>
         <div id="promo-tiers-list" style="margin-bottom:10px;"></div>
         <button class="btn" style="background:#eee; color:#444;" onclick="addPromoTier()">➕ 新增檔位</button>
 
         <div class="field-label" style="margin-top:24px;">例外餐單（勾選的品項不計入活動、也不會被打折）</div>
         <div style="font-size:0.8rem; color:#888; margin:-6px 0 10px;">下面是目前系統內的全部餐單，預設全部都適用活動，勾選代表要把這項排除在活動之外</div>
-        <div id="promo-item-checklist" class="checkbox-group" style="max-height:320px; overflow-y:auto;"></div>
+        
+        <!-- ✨ 全選與分類快速選擇列 -->
+        <div style="margin: 8px 0 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: #eee; padding: 8px 12px; border-radius: 8px;">
+            <label class="checkbox-item" style="margin-right: 8px;">
+                <input type="checkbox" id="promo-select-all" onchange="toggleSelectAllPromo(this.checked)">
+                <strong>全部品項全選 (全部排除)</strong>
+            </label>
+        </div>
+
+        <div id="promo-item-checklist" class="checkbox-group" style="max-height:360px; overflow-y:auto;"></div>
     </div>
 </div>
 
@@ -343,10 +357,7 @@
 /* ═══════════════════════════════════════════════════
    設定區
    ═══════════════════════════════════════════════════ */
-const ADMIN_PIN = "8238";  // ⚠️ 這只是簡單防呆用的密碼，不是真正的安全機制
-                            // （網頁原始碼本身看得到這個值，不能防止懂技術的人繞過）
-                            // 如果要真正的帳號權限控管，需要後端搭配 Firebase Authentication
-
+const ADMIN_PIN = "8238";  
 const MENU_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/menu.json";
 const PRINT_CONFIG_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/printConfig.json";
 const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
@@ -374,7 +385,6 @@ const SEED_DEFAULTS = {
         '紫菜':      { price: 1,   img: 'https://i.ibb.co/placeholder/seaweed.png', ratio:1, unit:{zh:'片',en:'sheet'} },
         '魚餅(圓)':  { price: 1.8, img: 'https://i.ibb.co/placeholder/round-fishcake.png', ratio:1, unit:{zh:'個',en:'pcs'} }
     },
-    /* ✅ 不要什麼：跟前台目前內建的「不要什麼」清單一致（前台 config.noExtraImgs） */
     noWant: {
         '肉碎':        { en: 'Minced Meat',  order: 10 },
         '香菇':        { en: 'Mushroom',     order: 20 },
@@ -382,7 +392,6 @@ const SEED_DEFAULTS = {
         '油':          { en: 'Oil',          order: 40 },
         '黑醬油(不要)': { en: 'Black Soy',    order: 50 }
     },
-    /* ✅ 特別要求：跟前台目前內建的「特別要求」清單一致（前台 config.specials） */
     specialRequest: {
         '剪麵':      { en: 'Cut Noodle',          order: 10 },
         '面煮軟':    { en: 'Soft Noodle',          order: 20 },
@@ -393,26 +402,17 @@ const SEED_DEFAULTS = {
     }
 };
 
-/* ═══════════════════════════════════════════════════
-   分類設定：定義每個分類頁籤的行為
-   - type: 'food'  → 面/湯：有價錢、圖片，排序存在 meta 裡
-   - type: 'addon' → 小食/加料：有價錢、圖片、每份數量/單位，排序存在自己的資料表裡
-   - type: 'simple'→ 不要什麼/特別要求：純文字選項，沒有價錢/圖片
-   ═══════════════════════════════════════════════════ */
 const CATS = {
     '面':      { type: 'food',   addName: '麵食',       imgField: 'foodImgs' },
     '湯':      { type: 'food',   addName: '湯品',       imgField: 'soupImgs' },
     '小食':    { type: 'addon',  addName: '小食',       dataKey: 'additions', icon: '🍢' },
-    '加料':    { type: 'addon',  addName: '加料',       dataKey: 'additions', icon: '🧂' },  // ✅ 跟小食類共用同一份清單：前台點餐時第6步「加料區」跟「小食類」本來就是同一份資料，這裡改一邊、兩邊會一起同步
+    '加料':    { type: 'addon',  addName: '加料',       dataKey: 'additions', icon: '🧂' },
     '不要什麼': { type: 'simple', addName: '不要什麼選項', dataKey: 'noWant',        icon: '🚫' },
     '特別要求': { type: 'simple', addName: '特別要求選項', dataKey: 'specialRequest', icon: '📝' },
     '列印設定': { type: 'print' },
     '活動': { type: 'promo' }
 };
 
-/* ═══════════════════════════════════════════════════
-   全域狀態
-   ═══════════════════════════════════════════════════ */
 let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
 let printConfig = {
     shopName: "Million 麵店",
@@ -437,13 +437,13 @@ let printConfig = {
     showTicketId: false
 };
 let currentTab = '面';
-let editingKey = null;   // null = 新增模式；否則是正在編輯的品項 key
+let editingKey = null;   
 let promotionConfig = {
     enabled: false,
     startDateTime: '',
     endDateTime: '',
-    tiers: [],           // [{ qty: 2, discount: 2 }, ...]
-    excludedItems: []    // 品項 key 陣列，這些品項不計入活動、不打折
+    tiers: [],           
+    excludedItems: []    
 };
 
 /* ═══════════════════════════════════════════════════
@@ -467,28 +467,22 @@ function logout() {
     sessionStorage.removeItem('admin_authed');
     location.reload();
 }
-/* 同一個瀏覽器分頁內，重新整理不用再輸入一次密碼（session 有效） */
 if (sessionStorage.getItem('admin_authed') === '1') {
     document.getElementById('pinGate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
 }
 
-/* ═══════════════════════════════════════════════════
-   Toast
-   ═══════════════════════════════════════════════════ */
 function toast(msg) {
     const el = document.getElementById('toast');
     el.innerText = msg;
     el.classList.add('show');
-    const duration = Math.min(Math.max(2200, msg.length * 80), 8000); // 訊息越長顯示越久，最多 8 秒
+    const duration = Math.min(Math.max(2200, msg.length * 80), 8000); 
     clearTimeout(el._hideTimer);
     el._hideTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
 /* ═══════════════════════════════════════════════════
-   讀取與儲存列印設定 (ver2.6.0)
-   ✅ 這裡存的設定，會被「廚房接單機」「收銀機/點餐機」等前台裝置讀取套用，
-   所以這裡按下「儲存列印設定」之後，前台印出來的單據才會真的跟著改變。
+   讀取與儲存列印設定
    ═══════════════════════════════════════════════════ */
 async function loadPrintConfig() {
     try {
@@ -562,19 +556,18 @@ async function savePrintConfig() {
             body: JSON.stringify(printConfig)
         });
         if (!res.ok) {
-            // 把伺服器實際回應的狀態碼/錯誤內容顯示出來，方便判斷是否為 Firebase 資料庫規則權限問題
             let detail = '';
             try {
                 const errBody = await res.json();
                 if (errBody && errBody.error) detail = `：${errBody.error}`;
-            } catch (_) { /* 沒有可解析的錯誤內容就略過 */ }
+            } catch (_) { }
             const hint = res.status === 401 || res.status === 403
-                ? '（很可能是 Firebase 資料庫規則尚未開放 /printConfig 節點的寫入權限，請到 Firebase 主控台的 Realtime Database → Rules 檢查，是否只設定了 /menu 可寫入，補上與 /menu 相同的規則給 /printConfig 即可）'
+                ? '（很可能是 Firebase 資料庫規則尚未開放 /printConfig 節點的寫入權限）'
                 : '';
             throw new Error(`伺服器回應 ${res.status}${detail}${hint}`);
         }
         toast("✓ 列印設定已成功儲存至雲端！");
-        await loadPrintConfig(); // 儲存成功後立即從雲端重新讀回，畫面同步更新（與其他分頁的即時更新行為一致）
+        await loadPrintConfig(); 
     } catch (err) {
         toast("儲存失敗：" + err.message);
     }
@@ -614,9 +607,7 @@ function testPrint() {
 }
 
 /* ═══════════════════════════════════════════════════
-   活動優惠設定 (新增於 ver2.6.0)
-   ✅ 顧客點餐頁面、收銀機都會讀取這裡存的設定，在結帳時自動套用折扣，
-   確保兩邊算出來的優惠價一致。
+   活動優惠設定
    ═══════════════════════════════════════════════════ */
 async function loadPromotion() {
     try {
@@ -633,32 +624,89 @@ async function loadPromotion() {
     document.getElementById('promo-end').value = promotionConfig.endDateTime || '';
 }
 
-function getAllMenuItemKeys() {
-    return [
-        ...Object.keys(menuData.foodImgs || {}),
-        ...Object.keys(menuData.soupImgs || {}),
-        ...Object.keys(menuData.additions || {})
-    ];
+function getAllPromoItemKeys() {
+    const foodKeys = Object.keys(menuData.foodImgs || {});
+    const soupKeys = Object.keys(menuData.soupImgs || {});
+    const addonKeys = Object.keys(menuData.additions || {});
+    return [...foodKeys, ...soupKeys, ...addonKeys];
 }
 
 function renderPromoItemChecklist() {
     const container = document.getElementById('promo-item-checklist');
-    const keys = getAllMenuItemKeys();
-    if (keys.length === 0) {
+    const groups = [
+        { type: 'noodle', title: '🍜 麵類', keys: Object.keys(menuData.foodImgs || {}) },
+        { type: 'soup', title: '🥣 湯品類', keys: Object.keys(menuData.soupImgs || {}) },
+        { type: 'addon', title: '🍢 小食・加料類', keys: Object.keys(menuData.additions || {}) }
+    ];
+    const totalKeys = groups.reduce((n, g) => n + g.keys.length, 0);
+    if (totalKeys === 0) {
         container.innerHTML = '<div style="color:#999; font-size:0.85rem;">目前沒有讀到任何餐單品項，請先確認菜單分頁已經有品項</div>';
         return;
     }
-    container.innerHTML = keys.map(key => {
-        const nm = menuData.items[key] || {};
-        const label = nm.zh || key;
-        const checked = promotionConfig.excludedItems.includes(key) ? 'checked' : '';
-        return `<label class="checkbox-item"><input type="checkbox" ${checked} onchange="togglePromoExclude('${key}', this.checked)"> ${label}</label>`;
+
+    const selectAllBox = document.getElementById('promo-select-all');
+    if (selectAllBox) {
+        const allKeys = getAllPromoItemKeys();
+        selectAllBox.checked = allKeys.length > 0 && allKeys.every(k => promotionConfig.excludedItems.includes(k));
+    }
+
+    container.innerHTML = groups.filter(g => g.keys.length > 0).map(g => {
+        const isAllCatSelected = g.keys.length > 0 && g.keys.every(k => promotionConfig.excludedItems.includes(k));
+        return `
+        <div style="display:flex; align-items:center; justify-content:space-between; margin:12px 0 6px;">
+            <div style="font-weight:900; color:#333; font-size:0.9rem;">${g.title}</div>
+            <div style="display:flex; gap:6px;">
+                <button class="cat-btn" onclick="toggleGroupPromo('${g.type}', true)">全選</button>
+                <button class="cat-btn" onclick="toggleGroupPromo('${g.type}', false)">取消全選</button>
+            </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:4px 14px; background:#fff; padding:8px; border-radius:8px; border:1px solid var(--border);">
+            ${g.keys.map(key => {
+                const nm = menuData.items[key] || {};
+                const label = nm.zh || key;
+                const checked = promotionConfig.excludedItems.includes(key) ? 'checked' : '';
+                return `<label class="checkbox-item"><input type="checkbox" ${checked} onchange="togglePromoExclude('${key}', this.checked)"> ${label}</label>`;
+            }).join('')}
+        </div>`;
     }).join('');
 }
+
 function togglePromoExclude(key, isExcluded) {
     const idx = promotionConfig.excludedItems.indexOf(key);
     if (isExcluded && idx === -1) promotionConfig.excludedItems.push(key);
     if (!isExcluded && idx !== -1) promotionConfig.excludedItems.splice(idx, 1);
+    
+    const allKeys = getAllPromoItemKeys();
+    const selectAllBox = document.getElementById('promo-select-all');
+    if (selectAllBox) {
+        selectAllBox.checked = allKeys.length > 0 && allKeys.every(k => promotionConfig.excludedItems.includes(k));
+    }
+}
+
+function toggleSelectAllPromo(selectAll) {
+    const allKeys = getAllPromoItemKeys();
+    if (selectAll) {
+        promotionConfig.excludedItems = [...allKeys];
+    } else {
+        promotionConfig.excludedItems = [];
+    }
+    renderPromoItemChecklist();
+}
+
+/* ✨ 分類（麵類 / 湯品 / 小食）獨立全選或取消全選 */
+function toggleGroupPromo(groupType, selectAll) {
+    let targetKeys = [];
+    if (groupType === 'noodle') targetKeys = Object.keys(menuData.foodImgs || {});
+    else if (groupType === 'soup') targetKeys = Object.keys(menuData.soupImgs || {});
+    else if (groupType === 'addon') targetKeys = Object.keys(menuData.additions || {});
+
+    targetKeys.forEach(k => {
+        const idx = promotionConfig.excludedItems.indexOf(k);
+        if (selectAll && idx === -1) promotionConfig.excludedItems.push(k);
+        if (!selectAll && idx !== -1) promotionConfig.excludedItems.splice(idx, 1);
+    });
+
+    renderPromoItemChecklist();
 }
 
 function renderPromoTiers() {
@@ -690,7 +738,6 @@ async function savePromotion() {
     promotionConfig.enabled = document.getElementById('promo-enabled').checked;
     promotionConfig.startDateTime = document.getElementById('promo-start').value;
     promotionConfig.endDateTime = document.getElementById('promo-end').value;
-    // tiers 跟 excludedItems 已經在使用者操作當下即時同步進 promotionConfig 物件了，這裡不用再抓一次
 
     if (promotionConfig.enabled && promotionConfig.startDateTime && promotionConfig.endDateTime
         && promotionConfig.startDateTime >= promotionConfig.endDateTime) {
@@ -708,7 +755,7 @@ async function savePromotion() {
             let detail = '';
             try { const errBody = await res.json(); if (errBody && errBody.error) detail = `：${errBody.error}`; } catch (_) {}
             const hint = (res.status === 401 || res.status === 403)
-                ? '（很可能是 Firebase 資料庫規則尚未開放 /promotion 節點的寫入權限，請到 Firebase 主控台 Realtime Database → Rules 補上跟 /menu 一樣的讀寫權限）'
+                ? '（很可能是 Firebase 資料庫規則尚未開放 /promotion 節點的寫入權限）'
                 : '';
             throw new Error(`伺服器回應 ${res.status}${detail}${hint}`);
         }
@@ -730,11 +777,6 @@ async function loadMenu() {
             menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
             document.getElementById('seedBanner').style.display = 'block';
         } else {
-            /* ✅ 自動補齊：如果雲端「完全沒有」某個分類（例如從沒建立過 noWant／specialRequest），
-               不用等使用者手動按「補齊預設資料」，直接把該分類的預設值背景寫進雲端，
-               並同時補進這次要顯示的資料裡，讓畫面立刻就看得到，跟麵食類/湯品類的體驗一致。
-               只有「完全沒有這個分類」才會自動補（不會動到使用者已經自己建立、哪怕只有一筆的分類），
-               所以不會有覆蓋既有資料的風險。 */
             const missingCats = Object.keys(SEED_DEFAULTS).filter(k => !cloud[k] || Object.keys(cloud[k]).length === 0);
             if (missingCats.length > 0) {
                 const autoUpdates = {};
@@ -753,16 +795,16 @@ async function loadMenu() {
                     });
                     if (!patchRes.ok) throw new Error(`伺服器回應 ${patchRes.status}`);
                 } catch (seedErr) {
-                    toast('自動補齊預設資料失敗：' + seedErr.message + '（畫面暫時仍會顯示，但雲端還沒存到）');
+                    toast('自動補齊預設資料失敗：' + seedErr.message);
                 }
             }
 
             menuData = {
                 prices: cloud.prices || {}, foodImgs: cloud.foodImgs || {},
-                soupImgs: cloud.soupImgs || {}, additions: cloud.additions || {},   // ✅ 小食／加料共用同一份 additions
-                items: cloud.items || {}, meta: cloud.meta || {},   // ✅ meta：面/湯品項各自的排序(order)與缺貨(soldOut)狀態
-                noWant: cloud.noWant || {},               // ✅ 不要什麼：純文字選項清單
-                specialRequest: cloud.specialRequest || {} // ✅ 特別要求：純文字選項清單
+                soupImgs: cloud.soupImgs || {}, additions: cloud.additions || {},
+                items: cloud.items || {}, meta: cloud.meta || {},
+                noWant: cloud.noWant || {},
+                specialRequest: cloud.specialRequest || {}
             };
             document.getElementById('seedBanner').style.display = 'none';
         }
@@ -773,11 +815,8 @@ async function loadMenu() {
 }
 async function reloadMenu() { await loadMenu(); toast('已重新整理'); }
 
-/* 一鍵把預設菜單上傳到雲端，作為第一次使用時的起始資料。
-   ✅ 會先讀取雲端目前的資料，逐一比對「這個品項是不是已經存在」，只把真正缺少的品項送出去，
-   已經存在的品項（不管是不是你自己改過的）完全不會被動到，可以放心重複點擊。 */
 async function seedDefaults() {
-    if (!confirm('確定要把預設菜單補進雲端嗎？只會逐筆補上目前雲端還沒有的品項，已經存在的品項不會被覆蓋或更動。')) return;
+    if (!confirm('確定要把預設菜單補進雲端嗎？')) return;
     try {
         const res0 = await fetch(MENU_URL + '?t=' + Date.now(), { cache: 'no-store' });
         if (!res0.ok) throw new Error(`讀取雲端現況失敗（伺服器回應 ${res0.status}）`);
@@ -844,10 +883,9 @@ function switchTab(cat) {
 
 function getImgMap(cat) {
     const c = CATS[cat];
-    return c.imgField ? menuData[c.imgField] : null; // 小食/加料用自己資料裡的 img 欄位
+    return c.imgField ? menuData[c.imgField] : null; 
 }
 
-/* 取得目前分類的所有品項 key */
 function getKeysForTab() {
     const cat = CATS[currentTab];
     if (!cat || cat.type === 'print' || cat.type === 'promo') return [];
@@ -855,8 +893,6 @@ function getKeysForTab() {
     return Object.keys(menuData[cat.dataKey]);
 }
 
-/* 取得某個品項的排序值：面/湯存在 meta[key].order 裡；其他分類存在自己資料表的 order 裡。
-   沒有設定過 order 的品項給一個很大的預設值，排到清單最後面 */
 function getOrder(key) {
     const cat = CATS[currentTab];
     if (cat.type === 'food') return (menuData.meta[key] && menuData.meta[key].order) ?? 9999;
@@ -864,7 +900,7 @@ function getOrder(key) {
 }
 function isSoldOut(key) {
     const cat = CATS[currentTab];
-    if (cat.type === 'simple') return false;   // 純文字選項沒有缺貨的概念
+    if (cat.type === 'simple') return false;   
     if (cat.type === 'food') return !!(menuData.meta[key] && menuData.meta[key].soldOut);
     return !!(menuData[cat.dataKey][key] && menuData[cat.dataKey][key].soldOut);
 }
@@ -875,7 +911,6 @@ function renderList() {
     const cat = CATS[currentTab];
     let keys = getKeysForTab();
 
-    /* ✅ 依照「排放位置」(order) 由小到大排序，這個順序就是前台實際顯示的順序 */
     keys.sort((a, b) => getOrder(a) - getOrder(b));
 
     if (keys.length === 0) {
@@ -891,7 +926,6 @@ function renderList() {
         const actionBtns = `<button class="icon-btn" onclick="openForm('${key}')">✏️</button>
                 <button class="icon-btn" onclick="deleteItem('${key}')">🗑️</button>`;
 
-        /* 「不要什麼」「特別要求」：純文字選項，沒有價錢/圖片/缺貨狀態 */
         if (cat.type === 'simple') {
             const rec = menuData[cat.dataKey][key] || {};
             return `<div class="item-card">
@@ -939,14 +973,11 @@ function renderList() {
     }).join('');
 }
 
-/* ✅ 排序：跟相鄰品項互換 order 值並存回雲端，讓「排放位置」立即生效 */
 async function moveItem(key, dir) {
     const cat = CATS[currentTab];
     let keys = getKeysForTab();
     keys.sort((a, b) => getOrder(a) - getOrder(b));
 
-    /* 先確保清單裡每個品項都有明確的 order 數值（原本用預設值9999排序的，這裡一次補上實際序號），
-       避免多筆同時是 9999 時，交換排序出現「看起來沒反應」的情形 */
     const orderedPairs = keys.map((k, i) => [k, (i + 1) * 10]);
 
     const curIdx = keys.indexOf(key);
@@ -971,7 +1002,6 @@ async function moveItem(key, dir) {
     }
 }
 
-/* ✅ 缺貨切換：翻轉 soldOut 狀態並立即存回雲端（只有 food/addon 分類才有這個按鈕） */
 async function toggleSoldOut(key) {
     const cat = CATS[currentTab];
     const newVal = !isSoldOut(key);
@@ -1024,7 +1054,7 @@ function openForm(key) {
                 document.getElementById('f-img').value = getImgMap(currentTab)[key] || '';
             }
         }
-        document.getElementById('f-zh').disabled = true;   // 中文名是 key，編輯模式不可改，避免資料對不上
+        document.getElementById('f-zh').disabled = true;   
     } else {
         document.getElementById('f-zh').value = '';
         document.getElementById('f-en').value = '';
@@ -1060,11 +1090,9 @@ async function saveItem() {
         if (isNaN(price)) return toast('請輸入正確的價錢');
     }
 
-    const key = editingKey || zh;   // 新增時，中文名稱本身當作這個品項的 key
+    const key = editingKey || zh;   
     const isNewItem = !editingKey;
 
-    /* ✅ 新增的品項給一個明確的排序值（目前清單最大值+10），確保排在最後面，
-       不依賴預設的 9999 fallback，避免多筆新品項排序時序不明確 */
     let newOrder = 10;
     if (isNewItem) {
         const existingKeys = getKeysForTab();
@@ -1074,12 +1102,10 @@ async function saveItem() {
 
     try {
         if (cat.type === 'simple') {
-            /* 「不要什麼」「特別要求」：純文字選項，直接存中/英文與排序，不需要價錢/圖片 */
             const payload = { en };
             if (isNewItem) payload.order = newOrder;
             await patchPath(`/menu/${cat.dataKey}/${encodeURIComponent(key)}`, payload);
         } else if (cat.type === 'addon') {
-            /* 「小食」「加料」共用同一種結構：價錢、圖片、每份數量、單位 */
             const ratio = parseInt(document.getElementById('f-ratio').value) || 1;
             const unitZh = document.getElementById('f-unit-zh').value.trim() || '份';
             const unitEn = document.getElementById('f-unit-en').value.trim() || 'serv';
@@ -1102,8 +1128,6 @@ async function saveItem() {
     }
 }
 
-/* Firebase 單一路徑寫入：rawValue=true 代表直接 PUT 一個純值（數字/字串），
-   否則用 PATCH 寫入一個物件（只更新提供的欄位，不影響同層其他資料）*/
 async function patchPath(path, value, rawValue = false) {
     const url = `https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app${path}.json`;
     const res = await fetch(url, {
@@ -1144,7 +1168,6 @@ async function deletePath(path) {
     return res;
 }
 
-/* 按 Enter 直接送出 PIN */
 document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPin(); });
 </script>
 </body>
