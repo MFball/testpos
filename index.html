@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.8.1 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.8.3 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -146,9 +146,11 @@
     .hot-order-btn { background: var(--hot); color: #fff; border: none; padding: 9px 16px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
 
     /* ── 底部固定操作列 ── */
-    #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
+    #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 6px; z-index: 500; }
+    #bottombar-buttons { display: flex; align-items: center; gap: 8px; width: 100%; }
     #cart-summary-mini { font-weight: 900; font-size: 1rem; white-space: nowrap; background: #fff3e0; border: 2px solid var(--hot); border-radius: 12px; padding: 12px 14px; color: #222; }
     #cart-summary-mini span#cart-total-sum { color: var(--price-tag); font-size: 1.2rem; }
+    #cart-promo-tag { display: none; width: 100%; box-sizing: border-box; text-align: center; font-size: 0.8rem; color: #e53935; font-weight: 900; background: #fff3e0; border: 2px solid var(--hot); border-radius: 10px; padding: 5px 8px; }
     .bb-btn { flex: 1; padding: 16px 6px; border-radius: 12px; border: none; font-weight: 900; color: #fff; font-size: 0.95rem; white-space: nowrap; }
 
     /* ── 歷史記錄面板 / 預覽 Modal（沿用舊版）── */
@@ -159,7 +161,7 @@
     #preview-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3000; align-items:center; justify-content:center; padding:20px; }
     /* ✅ 列印語言選擇彈窗：取代原本只能兩個按鈕的 confirm()，改成可以放第三個「取消返回」按鈕 */
     #print-lang-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:3100; align-items:center; justify-content:center; padding:20px; }
-    /* ✅ ver5.8.1：語言選擇彈窗，共用 .plm-card / .plm-btn 樣式，z-index 比列印方式彈窗更高，確保先問語言再問方式 */
+    /* ✅ ver5.8.3：語言選擇彈窗，共用 .plm-card / .plm-btn 樣式，z-index 比列印方式彈窗更高，確保先問語言再問方式 */
     .plm-card { background:#fff; border-radius:20px; padding:22px; max-width:360px; width:100%; text-align:center; }
     .plm-title { font-weight:900; font-size:1.15rem; margin-bottom:18px; }
     .plm-btn { display:block; width:100%; padding:16px; border-radius:14px; border:none; font-weight:900; font-size:1.1rem; margin-bottom:10px; color:#fff; }
@@ -218,7 +220,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.8.1</span>
+        <span id="version-tag">v5.8.3</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -231,10 +233,13 @@
     </div>
 
     <div id="bottombar">
-        <button class="bb-btn" style="background:var(--price-tag); flex:0.7;" onclick="clearWholeOrder()">❌ 清空</button>
-        <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span> <span id="cart-promo-tag" style="display:none; font-size:0.75rem; color:#e53935; font-weight:900;"></span></button>
-        <button class="bb-btn" style="background:#607d8b; flex:0.9;" onclick="handleNoReceipt()">🚫 不收據</button>
-        <button class="bb-btn" id="printBtn" style="background:var(--primary); flex:1.3;" onclick="confirmSubmitPrompt()">📤 確認送出</button>
+        <div id="bottombar-buttons">
+            <button class="bb-btn" style="background:var(--price-tag); flex:0.7;" onclick="clearWholeOrder()">❌ 清空</button>
+            <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span></button>
+            <button class="bb-btn" style="background:#607d8b; flex:0.9;" onclick="handleNoReceipt()">🚫 不收據</button>
+            <button class="bb-btn" id="printBtn" style="background:var(--primary); flex:1.3;" onclick="confirmSubmitPrompt()">📤 確認送出</button>
+        </div>
+        <div id="cart-promo-tag"></div>
     </div>
 </div>
 
@@ -845,7 +850,7 @@
             /* ✅ 外觀細節對齊本機列印(A)的風格，但保留分行結構與子項順序：
                數量改「(N份)」、[大小]移到第二行跟麵種醬料放一起、分隔符號改用「、」、
                「不要什麼」改用全形冒號「：」*/
-            /* ✅ ver5.8.1：語言不再寫死為 'zh'——改用這張單實際選擇的列印語言（last.printLang），
+            /* ✅ ver5.8.3：語言不再寫死為 'zh'——改用這張單實際選擇的列印語言（last.printLang），
                沒有的話（例如舊資料）才退回中文，確保雲端／廚房單收據的文字語言
                跟送單當下選的語言一致，而不是永遠只有中文。 */
             const cloudPrintLang = last.printLang || 'zh';
@@ -873,7 +878,7 @@
                 return [nameLine, noodleSauceLine, ...subLines].join('\n');
             });
             const summaryText = summaryParts.join(' | ');
-            /* ✅ ver5.8.1：除了給廚房單舊版相容用的純文字 summary，另外多送一份「結構化」的
+            /* ✅ ver5.8.3：除了給廚房單舊版相容用的純文字 summary，另外多送一份「結構化」的
                items 明細（跟本機直接列印 drawDirectReceiptCanvas 用的是同一套欄位），
                讓廚房出單機可以照著跟本機列印一模一樣的排版（字級/順序/堂食外賣標籤）印出來，
                而不是繼續印看起來不同的「廚房單」樣式。*/
@@ -927,7 +932,7 @@
         // 👇 👈 新增下面這兩行關鍵欄位！
         isTakeaway:  isTakeaway,
         diningOption: isTakeaway ? "打包" : "堂食",
-        /* ✅ ver5.8.1：把送單當下選的語言、以及跟本機列印同一套結構化明細一起送過去，
+        /* ✅ ver5.8.3：把送單當下選的語言、以及跟本機列印同一套結構化明細一起送過去，
            讓廚房出單機（Kitchen_Ver1_6_1 以上）可以印出語言正確、排版跟本機列印一致的收據。
            舊版廚房出單機（不認得 lines/printLang 欄位）仍會退回用 summary 純文字列印，不影響運作。*/
         printLang:  cloudPrintLang,
@@ -1090,7 +1095,7 @@
        ✅ ver5.7.1：「選擇列印方式」只需要在這台裝置第一次送單時詢問一次，
        選好之後存進 localStorage，之後每一次「確認送出」都直接沿用同一個選擇，
        不再重複彈出詢問視窗（想改變選擇可按頂部的🖨️⚙️圖示）。
-       ✅ ver5.8.1 修正「語言選擇彈窗不見了」的問題：
+       ✅ ver5.8.3 修正「語言選擇彈窗不見了」的問題：
        v5.5.0 的註解說「廚房那邊一律用中文摘要列印，語言選擇不會影響任何實際印出來的東西」，
        所以把語言彈窗直接拿掉了——但這其實是另一個沒修好的問題（雲端／廚房單收據永遠只有
        中文），不是「語言選擇本來就沒用」。現在反過來：每次按「確認送出」都會先跳出
@@ -1104,7 +1109,7 @@
        畫面最上面本來就有一個中文／English 的語言切換鈕（userLang），使用者切成中文，
        整個點餐畫面就會變成中文；切成 English，畫面就會變成英文。收據語言理應直接跟著
        這個已經選好的介面語言走，不需要在「確認送出」的當下再多問一次、多一層操作。
-       所以拿掉 v5.8.1 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
+       所以拿掉 v5.8.3 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
        （列印方式——本機列印 or 雲端／廚房出單機——第一次仍會詢問一次，之後自動沿用，
        這部分維持不變，跟語言選擇是兩件事。） */
     function confirmSubmitPrompt() {
@@ -1718,7 +1723,7 @@
         const promoTag = document.getElementById('cart-promo-tag');
         if (promoTag) {
             if (totals.discount > 0) {
-                promoTag.style.display = 'inline';
+                promoTag.style.display = 'block';
                 promoTag.innerText = userLang === 'zh'
                     ? `🎉活動價 原$${totals.original.toFixed(2)} 折$${totals.discount.toFixed(2)}`
                     : `🎉Promo was $${totals.original.toFixed(2)} -$${totals.discount.toFixed(2)}`;
