@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.8.4 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.8.3 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -220,7 +220,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.8.4</span>
+        <span id="version-tag">v5.8.3</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -1109,7 +1109,7 @@
        畫面最上面本來就有一個中文／English 的語言切換鈕（userLang），使用者切成中文，
        整個點餐畫面就會變成中文；切成 English，畫面就會變成英文。收據語言理應直接跟著
        這個已經選好的介面語言走，不需要在「確認送出」的當下再多問一次、多一層操作。
-       所以拿掉 v5.8.4 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
+       所以拿掉 v5.8.3 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
        （列印方式——本機列印 or 雲端／廚房出單機——第一次仍會詢問一次，之後自動沿用，
        這部分維持不變，跟語言選擇是兩件事。） */
     function confirmSubmitPrompt() {
@@ -1251,43 +1251,9 @@
         const canvas = document.getElementById('printCanvas');
         const ctx = canvas.getContext('2d');
         const centerX = 288, maxW = 450;
-        const cfg = printConfig;
-        /* ✅ 修正核心bug：舊版「預先估算高度」跟「實際畫」用了兩套不同的行距數字
-           （估算用45/40/36，實際畫用65/60/56），只要品項一多、或多印了活動折扣兩行，
-           算出來的canvas高度就會比實際畫的內容還矮，底下的堂食/外賣標籤就會被切在畫布外面
-           （不是沒印，是印到看不到的地方去了）。改成跟廚房單一樣的做法：只算一次，
-           把每一行「要畫什麼、畫在哪個y座標」都記進 cmds 陣列，最後量出來的高度
-           保證跟實際畫出來的內容一致，不會再有兩邊對不起來的問題。
-           ✅ 同時把「A：品項內行距」「B/C：分隔線後留白、堂食標籤前留白、標籤字級」
-           都改成讀取主理員後台「列印設定」裡本來就有的 gapWithinItem／gapBetweenItems／
-           gapBeforeTag／tagSize 這幾個欄位，之後要調整，去後台改數字存檔就好，不用再找我改程式。 */
-        const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
-        const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
-        const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE));
-        const tagPx   = Math.max(20, Math.round((cfg.tagSize   || 29) * CANVAS_SCALE));
-        const gapWithin    = cfg.gapWithinItem   ?? 8;   // A：品項內每一行之間的間距
-        const gapBetween   = cfg.gapBetweenItems ?? 8;   // 品項跟品項之間分隔線後的留白
-        const gapBeforeTag = cfg.gapBeforeTag    ?? 20;  // B：金額跟堂食/外賣標籤之間的留白
-        const dividerText  = cfg.itemDivider || '--------------------------------------------------------------';
-
         const getName = key => (dictionary.items[key] && dictionary.items[key][printLang]) ? dictionary.items[key][printLang] : (key || '');
         const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
-
-        const cmds = [];
-        let y = 20;
-
-        cmds.push({ text: cfg.shopName || 'Million FishBall Noodle', font: `bold ${titlePx}px sans-serif`, y });
-        y += titlePx + 15;
-        cmds.push({ text: new Date().toLocaleString(), font: `${notePx}px sans-serif`, y });
-        y += notePx + 12;
-        cmds.push({ text: `No. ${orderNo}`, font: 'bold 44px sans-serif', y });
-        y += 44 + 20;
-        cmds.push({ text: `ID: ${orderKey || '--'}`, font: `${notePx}px sans-serif`, color: '#555', y });
-        y += notePx + 20;
-        cmds.push({ text: dividerText, font: 'bold 20px sans-serif', y });
-        y += 20 + 17;
-
-        cart.forEach(item => {
+        const itemLines = cart.map(item => {
             const unit = item.category === '湯' ? (printLang === 'zh' ? '碗' : 'bowl') : (printLang === 'zh' ? '份' : 'qty');
             const options = [`[${getName(item.sizeKey)}]`, item.noodleKey ? getName(item.noodleKey) : '', (item.sauceKeys || []).map(getName).join(' ')].filter(Boolean).join(' ');
             const notes = [];
@@ -1296,52 +1262,49 @@
                 .map(([key, value]) => `${getName(key)}(${value * getItemRatio(key)}${getItemUnit(key, printLang)})`).join('、');
             if (adds) notes.push('+' + adds);
             if (item.noExtraKeys && item.noExtraKeys.length) notes.push((printLang === 'zh' ? '不要：' : 'No: ') + item.noExtraKeys.map(getName).join('、'));
-
-            const mainPx = printLang === 'en' ? Math.round(bodyPx * 1.1) : Math.round(bodyPx * 1.3);
-            cmds.push({ text: `${getName(item.mainKey)} (${item.qty}${unit})`, font: `bold ${mainPx}px sans-serif`, y });
-            y += mainPx + gapWithin;
-
-            if (options) {
-                cmds.push({ text: options, font: `bold ${bodyPx}px sans-serif`, y });
-                y += bodyPx + gapWithin;
-            }
-            notes.forEach(note => {
-                cmds.push({ text: note, font: `bold ${notePx}px sans-serif`, y });
-                y += notePx + gapWithin;
-            });
-            if (item.isTakeaway) {
-                cmds.push({ text: (printLang === 'zh' ? '(外賣附加: +$' : '(Takeaway fee: +$') + (0.30 * item.qty).toFixed(2) + ')', font: '18px sans-serif', color: '#555', y });
-                y += 18 + gapWithin;
-            }
-            y += 8;
-            cmds.push({ text: dividerText, font: 'bold 20px sans-serif', color: '#999', y });
-            y += 20 + gapBetween;
+            return { item, unit, options, notes };
         });
-
+        let height = 215;
+                itemLines.forEach(line => { height += 85 + (line.options ? 80 : 0) + line.notes.length * 76 + (line.item.isTakeaway ? 28 : 0) + 28; });
+        if (getCartTotals(cart).discount > 0) height += 76; // 有活動折扣時，多預留「原價／折扣」兩行的高度
+        height += 100; // 底部「堂食/外賣」大標籤預留的高度
+        canvas.height = height + 100;
+        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 576, canvas.height);
+        ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = 'black';
+        ctx.font = 'bold 26px sans-serif'; ctx.fillText('Million FishBall Noodle', centerX, 20);
+        ctx.font = '18px sans-serif'; ctx.fillText(new Date().toLocaleString(), centerX, 55);
+        ctx.font = 'bold 44px sans-serif'; ctx.fillText(`No. ${orderNo}`, centerX, 85);
+        ctx.font = '20px sans-serif'; ctx.fillStyle = '#555'; ctx.fillText(`ID: ${orderKey || '--'}`, centerX, 140);
+        ctx.fillStyle = 'black'; ctx.font = 'bold 20px sans-serif'; ctx.fillText('--------------------------------------------------------------', centerX, 175);
+        let y = 215;
+        itemLines.forEach(line => {
+            ctx.font = printLang === 'en' ? 'bold 36px sans-serif' : 'bold 42px sans-serif';
+            ctx.fillText(`${getName(line.item.mainKey)} (${line.item.qty}${line.unit})`, centerX, y, maxW); y += 65;
+            if (line.options) { ctx.font = 'bold 30px sans-serif'; ctx.fillText(line.options, centerX, y, maxW); y += 60; }
+            line.notes.forEach(note => { ctx.font = 'bold 24px sans-serif'; ctx.fillText(note, centerX, y, maxW); y += 56; });
+            if (line.item.isTakeaway) { ctx.font = '18px sans-serif'; ctx.fillStyle = '#555'; ctx.fillText(`(Takeaway fee: +$${(0.30 * line.item.qty).toFixed(2)})`, centerX, y, maxW); ctx.fillStyle = 'black'; y += 28; }
+            ctx.save(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(0, y + 8); ctx.lineTo(576, y + 8); ctx.stroke(); ctx.restore(); y += 28;
+        });
         const directTotals = getCartTotals(cart);
         if (directTotals.discount > 0) {
-            cmds.push({ text: (printLang === 'zh' ? '原價: $' : 'Subtotal: $') + directTotals.original.toFixed(2), font: `${notePx}px sans-serif`, color: '#777', y });
-            y += notePx + 8;
-            cmds.push({ text: (printLang === 'zh' ? '🎉活動折扣: -$' : '🎉Promo Discount: -$') + directTotals.discount.toFixed(2), font: `bold ${notePx}px sans-serif`, color: '#c62828', y });
-            y += notePx + 12;
+            ctx.font = 'bold 26px sans-serif'; ctx.fillStyle = 'black';
+            ctx.fillText((printLang==='zh'?'原價: $':'Subtotal: $') + directTotals.original.toFixed(2), centerX, y);
+            y += 36 + 10;
+            ctx.fillStyle = '#c62828';
+            ctx.fillText((printLang==='zh'?'🎉活動折扣: -$':'🎉Promo Discount: -$') + directTotals.discount.toFixed(2), centerX, y);
+            y += 36 + 14;
+            ctx.fillStyle = 'black';
         }
-        cmds.push({ text: 'TOTAL: $' + directTotals.final.toFixed(2), font: 'bold 42px sans-serif', y });
-        y += 42 + gapBeforeTag;
-
+        ctx.font = 'bold 42px sans-serif'; ctx.fillStyle = 'black'; ctx.fillText('TOTAL: $' + directTotals.final.toFixed(2), centerX, y + 12);
+        y += 42 + 20;
+        // ✅ 整單堂食/外賣的大標籤，跟雲端（廚房單）版面一致，放在金額之後、全單最大字體
+        ctx.font = 'bold 48px sans-serif';
+        ctx.fillStyle = isAllTakeaway ? '#3949ab' : '#1b5e20';
         const tagText = isAllTakeaway
             ? (printLang === 'zh' ? '🥡 外賣 / 打包' : '🥡 TAKEAWAY')
             : (printLang === 'zh' ? '🍽 堂食' : '🍽 DINE-IN');
-        cmds.push({ text: tagText, font: `bold ${tagPx}px sans-serif`, color: isAllTakeaway ? '#3949ab' : '#1b5e20', y });
-        y += tagPx + 20;
-
-        canvas.height = y + 40;
-        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 576, canvas.height);
-        ctx.textBaseline = 'top'; ctx.textAlign = 'center';
-        cmds.forEach(c => {
-            ctx.font = c.font;
-            ctx.fillStyle = c.color || 'black';
-            ctx.fillText(c.text, centerX, c.y, maxW);
-        });
+        ctx.fillText(tagText, centerX, y + 40, maxW);
         ctx.fillStyle = 'black';
     }
 
