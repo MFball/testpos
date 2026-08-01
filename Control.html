@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Million 麵店 · 主理員後台 ver2.6.0</title>
+<style>
+    :root {
+        --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
+        --bg: #f4f6f8; --card: #ffffff; --border: #e6e6e6; --text: #222; --hint: #999;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Helvetica Neue", sans-serif; background: var(--bg); margin: 0; color: var(--text); }
+
+    /* ── PIN 登入畫面 ── */
+    #pinGate {
+        position: fixed; inset: 0; background: #fff; z-index: 999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+    }
+    #pinGate h2 { margin: 0 0 8px; }
+    #pinInput {
+        font-size: 1.8rem; letter-spacing: 8px; text-align: center;
+        width: 220px; padding: 14px; border: 3px solid var(--border); border-radius: 14px;
+    }
+    #pinBtn { font-size: 1.1rem; font-weight: 900; padding: 12px 40px; border-radius: 14px; border: none; background: var(--primary); color: #fff; }
+    #pinError { color: var(--danger); font-weight: bold; height: 20px; }
+
+    /* ── 主畫面 ── */
+    #app { display: none; max-width: 900px; margin: 0 auto; padding: 16px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .topbar h1 { font-size: 1.3rem; margin: 0; }
+    .btn { font-size: 0.95rem; font-weight: 900; padding: 10px 18px; border-radius: 12px; border: none; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger  { background: var(--danger); color: #fff; }
+    .btn-plain   { background: #eee; color: #444; }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tab-btn { flex: 1 1 20%; min-width: 96px; padding: 10px 6px; border-radius: 12px; border: 2.5px solid var(--border); background: #fff; font-weight: 900; cursor: pointer; font-size: 0.88rem; text-align: center; }
+    .tab-btn.active { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
+
+    #seedBanner {
+        display: none; background: #fff8e1; border: 2px dashed #ffca28; border-radius: 14px;
+        padding: 14px 18px; margin-bottom: 16px; font-size: 0.9rem; line-height: 1.6;
+    }
+
+    .item-card {
+        display: flex; align-items: center; gap: 12px; background: var(--card);
+        border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; margin-bottom: 10px;
+    }
+    .item-thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; background: #f0f0f0; flex-shrink: 0; }
+    .item-info { flex: 1; min-width: 0; }
+    .item-name { font-weight: 900; font-size: 1rem; }
+    .item-sub  { font-size: 0.8rem; color: var(--hint); }
+    .item-price { font-weight: 900; color: var(--danger); font-size: 1.05rem; white-space: nowrap; }
+    .item-actions { display: flex; gap: 6px; align-items: center; }
+    .icon-btn { width: 38px; height: 38px; border-radius: 10px; border: none; background: #f0f0f0; font-size: 1rem; cursor: pointer; flex-shrink: 0; }
+    .order-btns { display: flex; flex-direction: column; gap: 2px; }
+    .order-btns button { width: 28px; height: 20px; border: none; background: #eee; border-radius: 5px; font-size: 0.7rem; cursor: pointer; }
+    .item-card.sold-out { opacity: 0.55; background: #fafafa; border-color: #f0b0b0; }
+    .soldout-tag {
+        font-size: 0.7rem; font-weight: 900; color: #fff; background: var(--danger);
+        padding: 2px 8px; border-radius: 8px; margin-left: 6px; white-space: nowrap;
+    }
+    .toggle-soldout { width: 60px; height: 34px; border-radius: 17px; border: none; font-size: 0.72rem; font-weight: 900; cursor: pointer; flex-shrink: 0; }
+    .toggle-soldout.is-on  { background: var(--danger); color: #fff; }
+    .toggle-soldout.is-off { background: var(--success); color: #fff; }
+
+    .add-btn-row { text-align: center; margin: 16px 0 24px; }
+    .add-btn { width: 100%; padding: 16px; border-radius: 14px; border: 3px dashed var(--primary); background: #fff; color: var(--primary); font-weight: 900; font-size: 1rem; cursor: pointer; }
+
+    /* ── 列印設定面板 ── */
+    .print-config-panel {
+        background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-top: 16px;
+    }
+    .print-config-panel h3 { margin-top: 0; font-size: 1.1rem; color: #333; display: flex; align-items: center; justify-content: space-between; }
+    .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .checkbox-group { display: flex; flex-direction: column; gap: 8px; background: #f9f9f9; padding: 12px; border-radius: 10px; border: 1px solid var(--border); }
+    .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: bold; cursor: pointer; }
+
+    /* ── 編輯/新增表單 (Modal) ── */
+    #formModal {
+        display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+        z-index: 500; align-items: center; justify-content: center; padding: 16px;
+    }
+    #formCard {
+        background: #fff; border-radius: 18px; padding: 22px; width: 100%; max-width: 420px;
+        max-height: 90vh; overflow-y: auto;
+    }
+    #formCard h3 { margin-top: 0; }
+    .field-label { font-size: 0.85rem; font-weight: 900; color: #555; margin: 14px 0 6px; }
+    .field-input {
+        width: 100%; padding: 12px; border-radius: 10px; border: 2px solid var(--border);
+        font-size: 1rem; font-family: inherit;
+    }
+    .field-row { display: flex; gap: 10px; }
+    .field-row .field-input { flex: 1; }
+    #previewImg {
+        width: 100%; height: 140px; object-fit: contain; background: #f5f5f5;
+        border-radius: 10px; margin-top: 8px; border: 1px dashed var(--border);
+    }
+    .form-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .form-actions .btn { flex: 1; }
+    .hint-text { font-size: 0.78rem; color: var(--hint); margin-top: 4px; }
+
+    #toast {
+        position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+        background: #222; color: #fff; font-size: 0.9rem; padding: 10px 20px;
+        border-radius: 12px; opacity: 0; transition: opacity 0.25s; z-index: 9999; pointer-events: none;
+        max-width: 90vw; text-align: center; line-height: 1.5;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ── 測試列印樣式 ── */
+    @media print {
+        body * { visibility: hidden; }
+        #printArea, #printArea * { visibility: visible; }
+        #printArea { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
+<div id="pinGate">
+    <div style="font-size:2.5rem;">🍜</div>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.6.0</small></h2>
+    <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
+    <div id="pinError"></div>
+    <button id="pinBtn" onclick="checkPin()">進入</button>
+</div>
+
+<!-- ══════════════════ 主畫面 ══════════════════ -->
+<div id="app">
+    <div class="topbar">
+        <h1>🍜 Million 麵店 · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.6.0</span></h1>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
+            <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
+            <button class="btn btn-plain" onclick="logout()">🔒 登出</button>
+        </div>
+    </div>
+
+    <div id="seedBanner">
+        ⚠️ 目前雲端還沒有任何菜單資料。點下面的按鈕，會把「點餐機目前內建的預設菜單」一次性上傳到雲端，
+        之後就可以在這裡編輯、前台也會抓到這份資料。<br><br>
+        <button class="btn btn-success" onclick="seedDefaults()">📥 從點餐機預設值建立菜單</button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" data-cat="面" onclick="switchTab('面')">🍜 麵食類</button>
+        <button class="tab-btn" data-cat="湯" onclick="switchTab('湯')">🥣 湯品類</button>
+        <button class="tab-btn" data-cat="小食" onclick="switchTab('小食')">🍢 小食類</button>
+        <button class="tab-btn" data-cat="加料" onclick="switchTab('加料')">🧂 加料</button>
+        <button class="tab-btn" data-cat="不要什麼" onclick="switchTab('不要什麼')">🚫 不要什麼</button>
+        <button class="tab-btn" data-cat="特別要求" onclick="switchTab('特別要求')">📝 特別要求</button>
+        <button class="tab-btn" data-cat="列印設定" onclick="switchTab('列印設定')">🖨️ 列印設定</button>
+        <button class="tab-btn" data-cat="活動" onclick="switchTab('活動')">🎉 活動</button>
+    </div>
+
+    <div id="itemList"></div>
+
+    <div class="add-btn-row" id="addBtnContainer">
+        <button class="add-btn" id="addBtn" onclick="openForm(null)">＋ 新增麵食</button>
+    </div>
+
+    <!-- 🖨️ 列印設定專屬區塊 -->
+    <div id="printConfigSection" class="print-config-panel" style="display: none;">
+        <h3>
+            <span>🖨️ 收據/小票 列印參數設定 (ver2.6.0)</span>
+            <button class="btn btn-primary" onclick="savePrintConfig()">💾 儲存列印設定</button>
+        </h3>
+        <div style="background:#fff8e1; border:1px solid #ffe08a; border-radius:8px; padding:10px 14px; margin:12px 0 4px; font-size:0.85rem; color:#8a6d00; line-height:1.6;">
+            ⚠️ 這裡的設定只會套用在「雲端列印」（點餐機送出後交給<strong>廚房出單機</strong>列印的那張單）。
+            點餐機上「🖨️本機搜尋印表機並直接列印」（藍牙直印）是固定版面、不會讀取這裡的設定，
+            所以在這裡調整字級／欄位開關等，本機直接列印出來的收據不會跟著改變。
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+
+        <div class="config-grid">
+            <div>
+                <div class="field-label">店舖名稱</div>
+                <input id="p-shopName" class="field-input" placeholder="例如：Million 麵店">
+            </div>
+            <div>
+                <div class="field-label">列印紙張大小</div>
+                <select id="p-paperSize" class="field-select">
+                    <option value="58mm">58mm 熱感應小票紙</option>
+                    <option value="80mm">80mm 熱感應小票紙</option>
+                    <option value="A4">A4 紙張</option>
+                </select>
+            </div>
+            <div>
+                <div class="field-label">頁尾感謝語/提示</div>
+                <input id="p-footerText" class="field-input" placeholder="例如：謝謝惠顧，歡迎再次光臨！">
+            </div>
+        </div>
+
+        <div class="config-grid">
+            <div>
+                <div class="field-label">店名/標題字級 (px)</div>
+                <input id="p-titleSize" type="number" class="field-input" value="18">
+            </div>
+            <div>
+                <div class="field-label">主要餐點字級 (px)</div>
+                <input id="p-bodySize" type="number" class="field-input" value="13">
+            </div>
+            <div>
+                <div class="field-label">備註/特別要求字級 (px)</div>
+                <input id="p-noteSize" type="number" class="field-input" value="11">
+            </div>
+            <div>
+                <div class="field-label">行高/字和字間距 (Line Height)</div>
+                <input id="p-lineHeight" type="number" step="0.1" class="field-input" value="1.3">
+            </div>
+            <div>
+                <div class="field-label">品項內行距（C）px</div>
+                <input id="p-gapWithinItem" type="number" min="0" step="1" class="field-input" value="8">
+            </div>
+            <div>
+                <div class="field-label">品項間距（A）px</div>
+                <input id="p-gapBetweenItems" type="number" min="0" step="1" class="field-input" value="8">
+            </div>
+            <div>
+                <div class="field-label">堂食標籤前間距（B）px</div>
+                <input id="p-gapBeforeTag" type="number" min="0" step="1" class="field-input" value="20">
+            </div>
+            <div>
+                <div class="field-label">品項分隔線（A）</div>
+                <input id="p-itemDivider" maxlength="80" class="field-input" value="--------------------------------------------------------------" placeholder="例如：----- 或 =====">
+            </div>
+            <div>
+                <div class="field-label">堂食／外賣標籤字級（B）px</div>
+                <input id="p-tagSize" type="number" min="12" step="1" class="field-input" value="29">
+            </div>
+        </div>
+
+        <div class="field-label">選擇需列印的欄位 (勾選顯示 / 取消隱藏)</div>
+        <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" id="p-showShopName" checked> 顯示店鋪名稱</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showOrderNo" checked> 顯示單號 / 訂單編號</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showTime" checked> 顯示列印/下單時間</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showTableNo" checked> 顯示桌號 / 取餐號</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showPrice" checked> 顯示價錢與總計</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showNotes" checked> 顯示客製化備註與特別要求</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showFooter" checked> 顯示頁尾感謝語</label>
+            <label class="checkbox-item"><input type="checkbox" id="p-showTicketId"> 顯示廚房單ID（Firebase識別碼，預設不顯示）</label>
+        </div>
+
+        <div style="margin-top: 20px; display:flex; gap:10px;">
+            <button class="btn btn-success" onclick="testPrint()">🖨️ 測試列印樣式</button>
+        </div>
+    </div>
+
+    <!-- 🎉 活動優惠專屬區塊 -->
+    <div id="promoSection" class="print-config-panel" style="display: none;">
+        <h3>
+            <span>🎉 活動優惠設定</span>
+            <button class="btn btn-primary" onclick="savePromotion()">💾 儲存活動設定</button>
+        </h3>
+        <div style="background:#fff8e1; border:1px solid #ffe08a; border-radius:8px; padding:10px 14px; margin:12px 0 4px; font-size:0.85rem; color:#8a6d00; line-height:1.6;">
+            ⚠️ 活動要「啟用」勾選、而且目前時間落在開始～結束範圍內才會生效。
+            顧客點餐頁面、收銀機結帳時都會自動依照這裡的設定套用折扣，兩邊算出來的優惠價一定一致。
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+
+        <label class="checkbox-item" style="margin-bottom:16px;">
+            <input type="checkbox" id="promo-enabled"> 啟用這個活動
+        </label>
+
+        <div class="config-grid">
+            <div>
+                <div class="field-label">開始時間</div>
+                <input id="promo-start" type="datetime-local" class="field-input">
+            </div>
+            <div>
+                <div class="field-label">結束時間</div>
+                <input id="promo-end" type="datetime-local" class="field-input">
+            </div>
+        </div>
+
+        <div class="field-label" style="margin-top:20px;">買滿多少份減多少錢（自己新增/刪除檔位，方便日後改成不同優惠）</div>
+        <div style="font-size:0.8rem; color:#888; margin:-4px 0 10px;">例如：買滿2份減$2、買滿3份減$3——結帳時系統會自動找「符合的份數中，檔位最高」的那一檔套用，不會疊加</div>
+        <div id="promo-tiers-list" style="margin-bottom:10px;"></div>
+        <button class="btn" style="background:#eee; color:#444;" onclick="addPromoTier()">➕ 新增檔位</button>
+
+        <div class="field-label" style="margin-top:24px;">例外餐單（勾選的品項不計入活動、也不會被打折）</div>
+        <div style="font-size:0.8rem; color:#888; margin:-6px 0 10px;">下面是目前系統內的全部餐單，預設全部都適用活動，勾選代表要把這項排除在活動之外</div>
+        <div id="promo-item-checklist" class="checkbox-group" style="max-height:320px; overflow-y:auto;"></div>
+    </div>
+</div>
+
+<!-- ══════════════════ 新增/編輯 表單 ══════════════════ -->
+<div id="formModal">
+    <div id="formCard">
+        <h3 id="formTitle">新增餐點</h3>
+
+        <div class="field-label">中文名稱 *</div>
+        <input id="f-zh" class="field-input" placeholder="例如：魚圓面">
+
+        <div class="field-label">英文名稱</div>
+        <input id="f-en" class="field-input" placeholder="例如：Fishball Noodle">
+
+        <div class="field-row" id="f-price-row">
+            <div id="f-price-wrap" style="flex:1;">
+                <div class="field-label">價錢 ($) *</div>
+                <input id="f-price" class="field-input" type="number" step="0.1" placeholder="0.0">
+            </div>
+            <div id="f-ratio-wrap" style="flex:1; display:none;">
+                <div class="field-label">每份數量</div>
+                <input id="f-ratio" class="field-input" type="number" step="1" placeholder="1">
+            </div>
+        </div>
+
+        <div id="f-unit-wrap" style="display:none;">
+            <div class="field-label">單位（中/英）</div>
+            <div class="field-row">
+                <input id="f-unit-zh" class="field-input" placeholder="例如：粒">
+                <input id="f-unit-en" class="field-input" placeholder="例如：pcs">
+            </div>
+        </div>
+
+        <div id="f-img-section">
+            <div class="field-label">圖片網址</div>
+            <input id="f-img" class="field-input" placeholder="https://..." oninput="updatePreview()">
+            <div class="hint-text">推薦用 https://ibb.co 上傳圖片後貼連結；留空則前台顯示跑馬燈文字</div>
+            <img id="previewImg" style="display:none;">
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-plain" onclick="closeForm()">取消</button>
+            <button class="btn btn-primary" onclick="saveItem()">💾 儲存</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- 列印測試區 (隱藏) -->
+<div id="printArea"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   設定區
+   ═══════════════════════════════════════════════════ */
+const ADMIN_PIN = "8238";  // ⚠️ 這只是簡單防呆用的密碼，不是真正的安全機制
+                            // （網頁原始碼本身看得到這個值，不能防止懂技術的人繞過）
+                            // 如果要真正的帳號權限控管，需要後端搭配 Firebase Authentication
+
+const MENU_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/menu.json";
+const PRINT_CONFIG_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/printConfig.json";
+const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
+
+/* 種子資料：跟目前點餐機內建的預設菜單完全一致，供「從預設值建立」按鈕使用 */
+const SEED_DEFAULTS = {
+    prices: { '魚圓面':4, '香菇肉碎面':5.5, '招牌面':6.5, '餐餐面':6, '肉圓面':4, '蝦魚面':5, '西刀魚面':4.5, '香菇面':5, '魚餃面':4, '(純)肉碎面':4, '小魚香面':4.5, '兒童餐':3.5, '魚圓湯':5, '肉圓湯':5, '魚餃湯':5, '三寶湯':6, '魚圓肉圓湯':5, '魚圓魚餃湯':5, '鴛鴦紫菜湯':6 },
+    foodImgs: { '魚圓面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '香菇肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczPRrBESQHr4MjJaDdiXYFda03b72aUrxqrO--coLUrariBXksy0KTPNNaXhzOmmrVhkbChOGKQFqiR8zRRcPZWSd7Hk-inOhSXStOXgC8d0a85lycU=w2400?source=screenshot.guru', '招牌面': 'https://lh3.googleusercontent.com/pw/AP1GczOVfyFF0BVjs49utoC4oxktdqpCblSROVp-z7A0aH5pjECVNDmcaKulF2YA7DBUEDZxzEij53427j1LqfZYPzUSFGdUM2_Zt-aYxIYJY40qAfH5wq8=w2400?source=screenshot.guru', '餐餐面': 'https://lh3.googleusercontent.com/pw/AP1GczPI477AgneL3f4pcuLKg25GQlwB9XCNdxRaABOxwTvciSuYeGzbEu1cez6OIb25ZSS6RMchPIuuTEFHKttxXRnvYboZ5PQh-0HJH1MtI49AWBL1GDA=w2400?source=screenshot.guru', '肉圓面': 'https://lh3.googleusercontent.com/pw/AP1GczO2J-xP5sDqsYL-5nFYQgmYldq26dabn-ezwb-vCUGDZ-S5nq_i7dsnWNmsswG5ippV0aBSwxf3zx6lfCHrhVOehydel1JSOBnr0aXMXmInJ1_9gnM=w2400?source=screenshot.guru', '蝦魚面': 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru', '西刀魚面': 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', '香菇面': 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru', '魚餃面': 'https://i.ibb.co/nNLMt8jp/Fish-Dumpling-noodle.png', '(純)肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '小魚香面': 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru', '兒童餐': 'https://i.ibb.co/6bHNPjP/kids-meal-placeholder.png' },
+    soupImgs: { '魚圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '三寶湯': 'https://lh3.googleusercontent.com/pw/AP1GczOGkSr6douVYw5ED49ONXDbTqp9tX92Syg3QnRHG43a8zZebTgtjWEUXgLieeqYOw-7CQdLF9Tm_1aVhak1HCxrCdPKf6lwtrrL9GopjkdCwX9FUtM=w2400?source=screenshot.guru', '魚圓肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '魚圓魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '鴛鴦紫菜湯': 'https://i.ibb.co/placeholder/yuanyang-seaweed-soup.png' },
+    items: {
+        '魚圓面':{zh:'魚圓面', en:'Fishball Noodle'}, '香菇肉碎面':{zh:'香菇肉碎面', en:'Mushroom Minced Noodle'}, '招牌面':{zh:'招牌面', en:'Signature Noodle'}, '餐餐面':{zh:'餐餐面', en:'Can Can Noodle'}, '肉圓面':{zh:'肉圓面', en:'Meatball Noodle'}, '蝦魚面':{zh:'蝦魚面', en:'Prawn Fish Noodle'}, '西刀魚面':{zh:'西刀魚面', en:'Saito Fish Noodle'}, '香菇面':{zh:'香菇面', en:'Mushroom Noodle'}, '魚餃面':{zh:'魚餃面', en:'Fish Dumpling Noodle'}, '(純)肉碎面':{zh:'(純)肉碎面', en:'Pure Minced Noodle'}, '小魚香面':{zh:'小魚香面', en:'Small Fish Noodle'}, '兒童餐':{zh:'兒童餐', en:'Kids Meal'},
+        '魚圓湯':{zh:'魚圓湯', en:'Fishball Soup'}, '肉圓湯':{zh:'肉圓湯', en:'Meatball Soup'}, '魚餃湯':{zh:'魚餃湯', en:'Fish Dumpling Soup'}, '三寶湯':{zh:'三寶湯', en:'Triple Treasure Soup'}, '魚圓肉圓湯':{zh:'魚圓肉圓湯', en:'FB+MB Soup'}, '魚圓魚餃湯':{zh:'魚圓魚餃湯', en:'FB+FD Soup'}, '鴛鴦紫菜湯':{zh:'鴛鴦紫菜湯', en:'Yuan-Yang Seaweed Soup'},
+        '魚圓':{zh:'魚圓', en:'Fishball'}, '肉圓':{zh:'肉圓', en:'Meatball'}, '魚餃':{zh:'魚餃', en:'Fish Dumpling'}, '蝦':{zh:'蝦', en:'Prawn'}, '西刀魚餅':{zh:'西刀魚餅', en:'Saito Cake'}, '小魚香':{zh:'小魚香', en:'Small Fish'}, '香菇加':{zh:'香菇', en:'Mushroom'}, '肉碎加':{zh:'肉碎', en:'Minced Meat'}, '香腸(雞)':{zh:'香腸(雞)', en:'Chicken Sausage'}, '紫菜':{zh:'紫菜', en:'Seaweed'}, '魚餅(圓)':{zh:'魚餅(圓)', en:'Fish Cake (Round)'}
+    },
+    additions: {
+        '魚圓':      { price: 1,   img: 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', ratio:2, unit:{zh:'粒',en:'pcs'} },
+        '肉圓':      { price: 1,   img: 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', ratio:2, unit:{zh:'粒',en:'pcs'} },
+        '魚餃':      { price: 1,   img: 'https://i.ibb.co/tPmTQssR/Gemini-Generated-Image-agfp9vagfp9vagfp-removebg-preview.png', ratio:2, unit:{zh:'粒',en:'pcs'} },
+        '蝦':        { price: 1,   img: 'https://i.ibb.co/VcY8g4b8/shrimp.png', ratio:1, unit:{zh:'隻',en:'pcs'} },
+        '西刀魚餅':  { price: 1.8, img: 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', ratio:1, unit:{zh:'條',en:'pcs'} },
+        '小魚香':    { price: 1.2, img: 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru', ratio:2, unit:{zh:'條',en:'pcs'} },
+        '香菇加':    { price: 1,   img: 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru', ratio:1, unit:{zh:'份',en:'serv'} },
+        '肉碎加':    { price: 1,   img: 'https://i.ibb.co/TMFvjFRN/Minced.png', ratio:1, unit:{zh:'份',en:'serv'} },
+        '香腸(雞)':  { price: 0.8, img: 'https://i.ibb.co/placeholder/chicken-sausage.png', ratio:1, unit:{zh:'條',en:'pcs'} },
+        '紫菜':      { price: 1,   img: 'https://i.ibb.co/placeholder/seaweed.png', ratio:1, unit:{zh:'片',en:'sheet'} },
+        '魚餅(圓)':  { price: 1.8, img: 'https://i.ibb.co/placeholder/round-fishcake.png', ratio:1, unit:{zh:'個',en:'pcs'} }
+    },
+    /* ✅ 不要什麼：跟前台目前內建的「不要什麼」清單一致（前台 config.noExtraImgs） */
+    noWant: {
+        '肉碎':        { en: 'Minced Meat',  order: 10 },
+        '香菇':        { en: 'Mushroom',     order: 20 },
+        '蔥':          { en: 'Spring Onion', order: 30 },
+        '油':          { en: 'Oil',          order: 40 },
+        '黑醬油(不要)': { en: 'Black Soy',    order: 50 }
+    },
+    /* ✅ 特別要求：跟前台目前內建的「特別要求」清單一致（前台 config.specials） */
+    specialRequest: {
+        '剪麵':      { en: 'Cut Noodle',          order: 10 },
+        '面煮軟':    { en: 'Soft Noodle',          order: 20 },
+        '要煮硬':    { en: 'Hard Noodle',          order: 30 },
+        '豬油渣':    { en: '',                     order: 40 },
+        '肉圓換魚圓': { en: 'Meatball→Fishball',    order: 50 },
+        '少份量':    { en: 'Less Portion',         order: 60 }
+    }
+};
+
+/* ═══════════════════════════════════════════════════
+   分類設定：定義每個分類頁籤的行為
+   - type: 'food'  → 面/湯：有價錢、圖片，排序存在 meta 裡
+   - type: 'addon' → 小食/加料：有價錢、圖片、每份數量/單位，排序存在自己的資料表裡
+   - type: 'simple'→ 不要什麼/特別要求：純文字選項，沒有價錢/圖片
+   ═══════════════════════════════════════════════════ */
+const CATS = {
+    '面':      { type: 'food',   addName: '麵食',       imgField: 'foodImgs' },
+    '湯':      { type: 'food',   addName: '湯品',       imgField: 'soupImgs' },
+    '小食':    { type: 'addon',  addName: '小食',       dataKey: 'additions', icon: '🍢' },
+    '加料':    { type: 'addon',  addName: '加料',       dataKey: 'additions', icon: '🧂' },  // ✅ 跟小食類共用同一份清單：前台點餐時第6步「加料區」跟「小食類」本來就是同一份資料，這裡改一邊、兩邊會一起同步
+    '不要什麼': { type: 'simple', addName: '不要什麼選項', dataKey: 'noWant',        icon: '🚫' },
+    '特別要求': { type: 'simple', addName: '特別要求選項', dataKey: 'specialRequest', icon: '📝' },
+    '列印設定': { type: 'print' },
+    '活動': { type: 'promo' }
+};
+
+/* ═══════════════════════════════════════════════════
+   全域狀態
+   ═══════════════════════════════════════════════════ */
+let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
+let printConfig = {
+    shopName: "Million 麵店",
+    paperSize: "58mm",
+    footerText: "謝謝惠顧，歡迎再次光臨！",
+    titleSize: 18,
+    bodySize: 13,
+    noteSize: 11,
+    lineHeight: 1.3,
+    gapWithinItem: 8,
+    gapBetweenItems: 8,
+    gapBeforeTag: 20,
+    itemDivider: '--------------------------------------------------------------',
+    tagSize: 29,
+    showShopName: true,
+    showOrderNo: true,
+    showTime: true,
+    showTableNo: true,
+    showPrice: true,
+    showNotes: true,
+    showFooter: true,
+    showTicketId: false
+};
+let currentTab = '面';
+let editingKey = null;   // null = 新增模式；否則是正在編輯的品項 key
+let promotionConfig = {
+    enabled: false,
+    startDateTime: '',
+    endDateTime: '',
+    tiers: [],           // [{ qty: 2, discount: 2 }, ...]
+    excludedItems: []    // 品項 key 陣列，這些品項不計入活動、不打折
+};
+
+/* ═══════════════════════════════════════════════════
+   PIN 登入
+   ═══════════════════════════════════════════════════ */
+function checkPin() {
+    const val = document.getElementById('pinInput').value;
+    if (val === ADMIN_PIN) {
+        document.getElementById('pinGate').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        sessionStorage.setItem('admin_authed', '1');
+        loadMenu();
+        loadPrintConfig();
+        loadPromotion();
+    } else {
+        document.getElementById('pinError').innerText = '密碼錯誤';
+        document.getElementById('pinInput').value = '';
+    }
+}
+function logout() {
+    sessionStorage.removeItem('admin_authed');
+    location.reload();
+}
+/* 同一個瀏覽器分頁內，重新整理不用再輸入一次密碼（session 有效） */
+if (sessionStorage.getItem('admin_authed') === '1') {
+    document.getElementById('pinGate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+}
+
+/* ═══════════════════════════════════════════════════
+   Toast
+   ═══════════════════════════════════════════════════ */
+function toast(msg) {
+    const el = document.getElementById('toast');
+    el.innerText = msg;
+    el.classList.add('show');
+    const duration = Math.min(Math.max(2200, msg.length * 80), 8000); // 訊息越長顯示越久，最多 8 秒
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+/* ═══════════════════════════════════════════════════
+   讀取與儲存列印設定 (ver2.6.0)
+   ✅ 這裡存的設定，會被「廚房接單機」「收銀機/點餐機」等前台裝置讀取套用，
+   所以這裡按下「儲存列印設定」之後，前台印出來的單據才會真的跟著改變。
+   ═══════════════════════════════════════════════════ */
+async function loadPrintConfig() {
+    try {
+        const res = await fetch(PRINT_CONFIG_URL + '?t=' + Date.now());
+        const data = await res.json();
+        if (!res.ok) {
+            console.log(`讀取列印設定失敗（伺服器回應 ${res.status}），使用預設值`, data);
+        } else if (data && !data.error) {
+            printConfig = { ...printConfig, ...data };
+        }
+        applyPrintConfigToForm();
+    } catch (e) {
+        console.log("使用預設列印設定");
+        applyPrintConfigToForm();
+    }
+}
+
+function applyPrintConfigToForm() {
+    document.getElementById('p-shopName').value = printConfig.shopName;
+    document.getElementById('p-paperSize').value = printConfig.paperSize;
+    document.getElementById('p-footerText').value = printConfig.footerText;
+    document.getElementById('p-titleSize').value = printConfig.titleSize;
+    document.getElementById('p-bodySize').value = printConfig.bodySize;
+    document.getElementById('p-noteSize').value = printConfig.noteSize;
+    document.getElementById('p-lineHeight').value = printConfig.lineHeight;
+    document.getElementById('p-gapWithinItem').value = printConfig.gapWithinItem ?? 8;
+    document.getElementById('p-gapBetweenItems').value = printConfig.gapBetweenItems ?? 8;
+    document.getElementById('p-gapBeforeTag').value = printConfig.gapBeforeTag ?? 20;
+    document.getElementById('p-itemDivider').value = printConfig.itemDivider ?? '--------------------------------------------------------------';
+    document.getElementById('p-tagSize').value = printConfig.tagSize ?? 29;
+
+    document.getElementById('p-showShopName').checked = printConfig.showShopName;
+    document.getElementById('p-showOrderNo').checked = printConfig.showOrderNo;
+    document.getElementById('p-showTime').checked = printConfig.showTime;
+    document.getElementById('p-showTableNo').checked = printConfig.showTableNo;
+    document.getElementById('p-showPrice').checked = printConfig.showPrice;
+    document.getElementById('p-showNotes').checked = printConfig.showNotes;
+    document.getElementById('p-showFooter').checked = printConfig.showFooter;
+    document.getElementById('p-showTicketId').checked = printConfig.showTicketId;
+}
+
+async function savePrintConfig() {
+    printConfig = {
+        shopName: document.getElementById('p-shopName').value.trim() || 'Million 麵店',
+        paperSize: document.getElementById('p-paperSize').value,
+        footerText: document.getElementById('p-footerText').value.trim(),
+        titleSize: parseInt(document.getElementById('p-titleSize').value) || 18,
+        bodySize: parseInt(document.getElementById('p-bodySize').value) || 13,
+        noteSize: parseInt(document.getElementById('p-noteSize').value) || 11,
+        lineHeight: parseFloat(document.getElementById('p-lineHeight').value) || 1.3,
+        gapWithinItem: Math.max(0, parseInt(document.getElementById('p-gapWithinItem').value) || 0),
+        gapBetweenItems: Math.max(0, parseInt(document.getElementById('p-gapBetweenItems').value) || 0),
+        gapBeforeTag: Math.max(0, parseInt(document.getElementById('p-gapBeforeTag').value) || 0),
+        itemDivider: document.getElementById('p-itemDivider').value.trim(),
+        tagSize: Math.max(12, parseInt(document.getElementById('p-tagSize').value) || 29),
+
+        showShopName: document.getElementById('p-showShopName').checked,
+        showOrderNo: document.getElementById('p-showOrderNo').checked,
+        showTime: document.getElementById('p-showTime').checked,
+        showTableNo: document.getElementById('p-showTableNo').checked,
+        showPrice: document.getElementById('p-showPrice').checked,
+        showNotes: document.getElementById('p-showNotes').checked,
+        showFooter: document.getElementById('p-showFooter').checked,
+        showTicketId: document.getElementById('p-showTicketId').checked,
+    };
+
+    try {
+        const res = await fetch(PRINT_CONFIG_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(printConfig)
+        });
+        if (!res.ok) {
+            // 把伺服器實際回應的狀態碼/錯誤內容顯示出來，方便判斷是否為 Firebase 資料庫規則權限問題
+            let detail = '';
+            try {
+                const errBody = await res.json();
+                if (errBody && errBody.error) detail = `：${errBody.error}`;
+            } catch (_) { /* 沒有可解析的錯誤內容就略過 */ }
+            const hint = res.status === 401 || res.status === 403
+                ? '（很可能是 Firebase 資料庫規則尚未開放 /printConfig 節點的寫入權限，請到 Firebase 主控台的 Realtime Database → Rules 檢查，是否只設定了 /menu 可寫入，補上與 /menu 相同的規則給 /printConfig 即可）'
+                : '';
+            throw new Error(`伺服器回應 ${res.status}${detail}${hint}`);
+        }
+        toast("✓ 列印設定已成功儲存至雲端！");
+        await loadPrintConfig(); // 儲存成功後立即從雲端重新讀回，畫面同步更新（與其他分頁的即時更新行為一致）
+    } catch (err) {
+        toast("儲存失敗：" + err.message);
+    }
+}
+
+function testPrint() {
+    const area = document.getElementById('printArea');
+    const widthCss = printConfig.paperSize === '58mm' ? '200px' : (printConfig.paperSize === '80mm' ? '280px' : '100%');
+    const dividerText = String(printConfig.itemDivider || '').trim();
+    const dividerPreview = dividerText.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+
+    area.innerHTML = `
+        <div style="width: ${widthCss}; font-family: monospace; line-height: ${printConfig.lineHeight}; margin: 0 auto; padding: 10px; border: 1px dashed #ccc;">
+            ${printConfig.showShopName ? `<div style="font-size:${printConfig.titleSize}px; font-weight:bold; text-align:center;">${printConfig.shopName}</div>` : ''}
+            <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+            ${printConfig.showOrderNo ? `<div style="font-size:${printConfig.bodySize}px;">單號: #001</div>` : ''}
+            ${printConfig.showTime ? `<div style="font-size:${printConfig.noteSize}px;">時間: ${new Date().toLocaleString()}</div>` : ''}
+            ${printConfig.showTableNo ? `<div style="font-size:${printConfig.bodySize}px; font-weight:bold;">桌號: A05</div>` : ''}
+            <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+
+            <div style="font-size:${printConfig.bodySize}px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between;"><span>1x 招牌面</span> ${printConfig.showPrice ? '<span>$6.50</span>' : ''}</div>
+                    ${printConfig.showNotes ? `<div style="font-size:${printConfig.noteSize}px; padding-left:10px; margin-top:${printConfig.gapWithinItem ?? 8}px;">- 少辣 / 面煮軟</div>` : ''}
+                </div>
+                ${dividerText ? `<div style="color:#000; font-weight:bold; text-align:center; overflow:hidden; white-space:nowrap; margin:${printConfig.gapBetweenItems ?? 8}px 0 16px;">${dividerPreview}</div>` : ''}
+                <div style="display:flex; justify-content:space-between;"><span>1x 魚圓湯</span> ${printConfig.showPrice ? '<span>$5.00</span>' : ''}</div>
+            </div>
+
+            <div style="border-bottom: 1px dashed #000; margin: 6px 0;"></div>
+            ${printConfig.showPrice ? `<div style="font-size:${printConfig.titleSize}px; font-weight:bold; text-align:right;">總計: $11.50</div>` : ''}
+            <div style="font-size:${printConfig.tagSize ?? 29}px; font-weight:bold; text-align:center; margin-top:${printConfig.gapBeforeTag ?? 20}px;">堂食</div>
+            ${printConfig.showFooter ? `<div style="font-size:${printConfig.noteSize}px; text-align:center; margin-top:10px;">${printConfig.footerText}</div>` : ''}
+        </div>
+    `;
+    window.print();
+}
+
+/* ═══════════════════════════════════════════════════
+   活動優惠設定 (新增於 ver2.6.0)
+   ✅ 顧客點餐頁面、收銀機都會讀取這裡存的設定，在結帳時自動套用折扣，
+   確保兩邊算出來的優惠價一致。
+   ═══════════════════════════════════════════════════ */
+async function loadPromotion() {
+    try {
+        const res = await fetch(PROMOTION_URL + '?t=' + Date.now());
+        const data = await res.json();
+        if (res.ok && data && !data.error) {
+            promotionConfig = { ...promotionConfig, ...data, tiers: data.tiers || [], excludedItems: data.excludedItems || [] };
+        }
+    } catch (err) {
+        console.log('讀取活動設定失敗，使用預設值：', err.message);
+    }
+    document.getElementById('promo-enabled').checked = !!promotionConfig.enabled;
+    document.getElementById('promo-start').value = promotionConfig.startDateTime || '';
+    document.getElementById('promo-end').value = promotionConfig.endDateTime || '';
+}
+
+function getAllMenuItemKeys() {
+    return [
+        ...Object.keys(menuData.foodImgs || {}),
+        ...Object.keys(menuData.soupImgs || {}),
+        ...Object.keys(menuData.additions || {})
+    ];
+}
+
+function renderPromoItemChecklist() {
+    const container = document.getElementById('promo-item-checklist');
+    const keys = getAllMenuItemKeys();
+    if (keys.length === 0) {
+        container.innerHTML = '<div style="color:#999; font-size:0.85rem;">目前沒有讀到任何餐單品項，請先確認菜單分頁已經有品項</div>';
+        return;
+    }
+    container.innerHTML = keys.map(key => {
+        const nm = menuData.items[key] || {};
+        const label = nm.zh || key;
+        const checked = promotionConfig.excludedItems.includes(key) ? 'checked' : '';
+        return `<label class="checkbox-item"><input type="checkbox" ${checked} onchange="togglePromoExclude('${key}', this.checked)"> ${label}</label>`;
+    }).join('');
+}
+function togglePromoExclude(key, isExcluded) {
+    const idx = promotionConfig.excludedItems.indexOf(key);
+    if (isExcluded && idx === -1) promotionConfig.excludedItems.push(key);
+    if (!isExcluded && idx !== -1) promotionConfig.excludedItems.splice(idx, 1);
+}
+
+function renderPromoTiers() {
+    const list = document.getElementById('promo-tiers-list');
+    list.innerHTML = promotionConfig.tiers.length === 0
+        ? '<div style="color:#999; font-size:0.85rem; margin-bottom:8px;">還沒有設定任何檔位，按下面「新增檔位」開始設定</div>'
+        : promotionConfig.tiers.map((t, i) => `
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
+                <span>買滿</span>
+                <input type="number" min="1" class="field-input" style="width:80px;" value="${t.qty}" onchange="updatePromoTier(${i}, 'qty', this.value)">
+                <span>份，減 $</span>
+                <input type="number" min="0" step="0.1" class="field-input" style="width:80px;" value="${t.discount}" onchange="updatePromoTier(${i}, 'discount', this.value)">
+                <button onclick="removePromoTier(${i})" style="background:#ffebee; color:#e53935; border:none; border-radius:8px; padding:8px 12px; font-weight:bold;">✕</button>
+            </div>`).join('');
+}
+function addPromoTier() {
+    promotionConfig.tiers.push({ qty: 2, discount: 2 });
+    renderPromoTiers();
+}
+function removePromoTier(i) {
+    promotionConfig.tiers.splice(i, 1);
+    renderPromoTiers();
+}
+function updatePromoTier(i, field, value) {
+    promotionConfig.tiers[i][field] = field === 'qty' ? (parseInt(value) || 1) : (parseFloat(value) || 0);
+}
+
+async function savePromotion() {
+    promotionConfig.enabled = document.getElementById('promo-enabled').checked;
+    promotionConfig.startDateTime = document.getElementById('promo-start').value;
+    promotionConfig.endDateTime = document.getElementById('promo-end').value;
+    // tiers 跟 excludedItems 已經在使用者操作當下即時同步進 promotionConfig 物件了，這裡不用再抓一次
+
+    if (promotionConfig.enabled && promotionConfig.startDateTime && promotionConfig.endDateTime
+        && promotionConfig.startDateTime >= promotionConfig.endDateTime) {
+        toast("儲存失敗：結束時間必須晚於開始時間");
+        return;
+    }
+
+    try {
+        const res = await fetch(PROMOTION_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(promotionConfig)
+        });
+        if (!res.ok) {
+            let detail = '';
+            try { const errBody = await res.json(); if (errBody && errBody.error) detail = `：${errBody.error}`; } catch (_) {}
+            const hint = (res.status === 401 || res.status === 403)
+                ? '（很可能是 Firebase 資料庫規則尚未開放 /promotion 節點的寫入權限，請到 Firebase 主控台 Realtime Database → Rules 補上跟 /menu 一樣的讀寫權限）'
+                : '';
+            throw new Error(`伺服器回應 ${res.status}${detail}${hint}`);
+        }
+        toast("✓ 活動設定已成功儲存！顧客點餐、收銀機會自動套用。");
+        await loadPromotion();
+    } catch (err) {
+        toast("儲存失敗：" + err.message);
+    }
+}
+
+/* ═══════════════════════════════════════════════════
+   讀取雲端菜單
+   ═══════════════════════════════════════════════════ */
+async function loadMenu() {
+    try {
+        const res = await fetch(MENU_URL + '?t=' + Date.now(), { cache: 'no-store' });
+        const cloud = await res.json();
+        if (!cloud) {
+            menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
+            document.getElementById('seedBanner').style.display = 'block';
+        } else {
+            /* ✅ 自動補齊：如果雲端「完全沒有」某個分類（例如從沒建立過 noWant／specialRequest），
+               不用等使用者手動按「補齊預設資料」，直接把該分類的預設值背景寫進雲端，
+               並同時補進這次要顯示的資料裡，讓畫面立刻就看得到，跟麵食類/湯品類的體驗一致。
+               只有「完全沒有這個分類」才會自動補（不會動到使用者已經自己建立、哪怕只有一筆的分類），
+               所以不會有覆蓋既有資料的風險。 */
+            const missingCats = Object.keys(SEED_DEFAULTS).filter(k => !cloud[k] || Object.keys(cloud[k]).length === 0);
+            if (missingCats.length > 0) {
+                const autoUpdates = {};
+                missingCats.forEach(k => {
+                    cloud[k] = {};
+                    Object.keys(SEED_DEFAULTS[k]).forEach(itemKey => {
+                        autoUpdates[`${k}/${itemKey}`] = SEED_DEFAULTS[k][itemKey];
+                        cloud[k][itemKey] = SEED_DEFAULTS[k][itemKey];
+                    });
+                });
+                try {
+                    const patchRes = await fetch(MENU_URL.replace('.json', '') + '.json', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(autoUpdates)
+                    });
+                    if (!patchRes.ok) throw new Error(`伺服器回應 ${patchRes.status}`);
+                } catch (seedErr) {
+                    toast('自動補齊預設資料失敗：' + seedErr.message + '（畫面暫時仍會顯示，但雲端還沒存到）');
+                }
+            }
+
+            menuData = {
+                prices: cloud.prices || {}, foodImgs: cloud.foodImgs || {},
+                soupImgs: cloud.soupImgs || {}, additions: cloud.additions || {},   // ✅ 小食／加料共用同一份 additions
+                items: cloud.items || {}, meta: cloud.meta || {},   // ✅ meta：面/湯品項各自的排序(order)與缺貨(soldOut)狀態
+                noWant: cloud.noWant || {},               // ✅ 不要什麼：純文字選項清單
+                specialRequest: cloud.specialRequest || {} // ✅ 特別要求：純文字選項清單
+            };
+            document.getElementById('seedBanner').style.display = 'none';
+        }
+        renderList();
+    } catch (err) {
+        toast('讀取失敗：' + err.message);
+    }
+}
+async function reloadMenu() { await loadMenu(); toast('已重新整理'); }
+
+/* 一鍵把預設菜單上傳到雲端，作為第一次使用時的起始資料。
+   ✅ 會先讀取雲端目前的資料，逐一比對「這個品項是不是已經存在」，只把真正缺少的品項送出去，
+   已經存在的品項（不管是不是你自己改過的）完全不會被動到，可以放心重複點擊。 */
+async function seedDefaults() {
+    if (!confirm('確定要把預設菜單補進雲端嗎？只會逐筆補上目前雲端還沒有的品項，已經存在的品項不會被覆蓋或更動。')) return;
+    try {
+        const res0 = await fetch(MENU_URL + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!res0.ok) throw new Error(`讀取雲端現況失敗（伺服器回應 ${res0.status}）`);
+        const cloud = (await res0.json()) || {};
+
+        const updates = {};
+        for (const topKey of Object.keys(SEED_DEFAULTS)) {
+            const existingGroup = cloud[topKey] || {};
+            const group = SEED_DEFAULTS[topKey];
+            for (const itemKey of Object.keys(group)) {
+                if (!(itemKey in existingGroup)) {
+                    updates[`${topKey}/${itemKey}`] = group[itemKey];
+                }
+            }
+        }
+
+        if (Object.keys(updates).length === 0) {
+            toast('雲端已經有完整的預設資料了，沒有缺少的品項');
+            await loadMenu();
+            return;
+        }
+
+        const res = await fetch(MENU_URL.replace('.json', '') + '.json', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates)
+        });
+        if (!res.ok) throw new Error(`寫入失敗（伺服器回應 ${res.status}）`);
+        toast(`✓ 已補上 ${Object.keys(updates).length} 筆缺少的品項`);
+        await loadMenu();
+    } catch (err) {
+        toast('建立失敗：' + err.message);
+    }
+}
+
+/* ═══════════════════════════════════════════════════
+   分類切換 + 清單渲染
+   ═══════════════════════════════════════════════════ */
+function switchTab(cat) {
+    currentTab = cat;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.cat === cat));
+
+    document.getElementById('itemList').style.display = 'none';
+    document.getElementById('addBtnContainer').style.display = 'none';
+    document.getElementById('printConfigSection').style.display = 'none';
+    document.getElementById('promoSection').style.display = 'none';
+
+    if (cat === '列印設定') {
+        document.getElementById('printConfigSection').style.display = 'block';
+        return;
+    }
+    if (cat === '活動') {
+        document.getElementById('promoSection').style.display = 'block';
+        renderPromoItemChecklist();
+        renderPromoTiers();
+        return;
+    }
+
+    document.getElementById('itemList').style.display = 'block';
+    document.getElementById('addBtnContainer').style.display = 'block';
+    document.getElementById('addBtn').innerText = `＋ 新增${CATS[cat].addName}`;
+    renderList();
+}
+
+function getImgMap(cat) {
+    const c = CATS[cat];
+    return c.imgField ? menuData[c.imgField] : null; // 小食/加料用自己資料裡的 img 欄位
+}
+
+/* 取得目前分類的所有品項 key */
+function getKeysForTab() {
+    const cat = CATS[currentTab];
+    if (!cat || cat.type === 'print' || cat.type === 'promo') return [];
+    if (cat.type === 'food') return Object.keys(menuData[cat.imgField]);
+    return Object.keys(menuData[cat.dataKey]);
+}
+
+/* 取得某個品項的排序值：面/湯存在 meta[key].order 裡；其他分類存在自己資料表的 order 裡。
+   沒有設定過 order 的品項給一個很大的預設值，排到清單最後面 */
+function getOrder(key) {
+    const cat = CATS[currentTab];
+    if (cat.type === 'food') return (menuData.meta[key] && menuData.meta[key].order) ?? 9999;
+    return (menuData[cat.dataKey][key] && menuData[cat.dataKey][key].order) ?? 9999;
+}
+function isSoldOut(key) {
+    const cat = CATS[currentTab];
+    if (cat.type === 'simple') return false;   // 純文字選項沒有缺貨的概念
+    if (cat.type === 'food') return !!(menuData.meta[key] && menuData.meta[key].soldOut);
+    return !!(menuData[cat.dataKey][key] && menuData[cat.dataKey][key].soldOut);
+}
+
+function renderList() {
+    if (currentTab === '列印設定' || currentTab === '活動') return;
+    const cont = document.getElementById('itemList');
+    const cat = CATS[currentTab];
+    let keys = getKeysForTab();
+
+    /* ✅ 依照「排放位置」(order) 由小到大排序，這個順序就是前台實際顯示的順序 */
+    keys.sort((a, b) => getOrder(a) - getOrder(b));
+
+    if (keys.length === 0) {
+        cont.innerHTML = `<div style="text-align:center; color:#999; padding:40px;">這個分類目前沒有項目，點下面「＋ 新增${cat.addName}」加入第一筆</div>`;
+        return;
+    }
+
+    cont.innerHTML = keys.map((key, idx) => {
+        const orderBtns = `<div class="order-btns">
+                <button ${idx===0 ? 'disabled style="opacity:0.3;"' : ''} onclick="moveItem('${key}', -1)">▲</button>
+                <button ${idx===keys.length-1 ? 'disabled style="opacity:0.3;"' : ''} onclick="moveItem('${key}', 1)">▼</button>
+            </div>`;
+        const actionBtns = `<button class="icon-btn" onclick="openForm('${key}')">✏️</button>
+                <button class="icon-btn" onclick="deleteItem('${key}')">🗑️</button>`;
+
+        /* 「不要什麼」「特別要求」：純文字選項，沒有價錢/圖片/缺貨狀態 */
+        if (cat.type === 'simple') {
+            const rec = menuData[cat.dataKey][key] || {};
+            return `<div class="item-card">
+                ${orderBtns}
+                <div class="item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.4rem;">${cat.icon}</div>
+                <div class="item-info">
+                    <div class="item-name">${key}</div>
+                    <div class="item-sub">${rec.en || ''}</div>
+                </div>
+                <div class="item-actions">${actionBtns}</div>
+            </div>`;
+        }
+
+        let img, price, zh, en, subText;
+        if (cat.type === 'addon') {
+            const a = menuData[cat.dataKey][key] || {};
+            img = a.img; price = a.price;
+            const nm = menuData.items[key] || {};
+            zh = nm.zh || key; en = nm.en || '';
+            subText = `${en}${a.ratio ? ` · 每份${a.ratio}${(a.unit&&a.unit.zh)||''}` : ''}`;
+        } else {
+            img = getImgMap(currentTab)[key];
+            price = menuData.prices[key];
+            const nm = menuData.items[key] || {};
+            zh = nm.zh || key; en = nm.en || '';
+            subText = en;
+        }
+        const thumb = img ? `<img class="item-thumb" src="${img}">` : `<div class="item-thumb" style="display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#aaa;">無圖</div>`;
+        const soldOut = isSoldOut(key);
+        const soldOutTag = soldOut ? `<span class="soldout-tag">缺貨中</span>` : '';
+
+        return `<div class="item-card ${soldOut ? 'sold-out' : ''}">
+            ${orderBtns}
+            ${thumb}
+            <div class="item-info">
+                <div class="item-name">${zh}${soldOutTag}</div>
+                <div class="item-sub">${subText}</div>
+            </div>
+            <div class="item-price">$${(price ?? 0).toFixed ? price.toFixed(2) : price}</div>
+            <div class="item-actions">
+                <button class="toggle-soldout ${soldOut ? 'is-on' : 'is-off'}" onclick="toggleSoldOut('${key}')">${soldOut ? '缺貨中\n點擊上架' : '販售中\n點擊暫停'}</button>
+                ${actionBtns}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/* ✅ 排序：跟相鄰品項互換 order 值並存回雲端，讓「排放位置」立即生效 */
+async function moveItem(key, dir) {
+    const cat = CATS[currentTab];
+    let keys = getKeysForTab();
+    keys.sort((a, b) => getOrder(a) - getOrder(b));
+
+    /* 先確保清單裡每個品項都有明確的 order 數值（原本用預設值9999排序的，這裡一次補上實際序號），
+       避免多筆同時是 9999 時，交換排序出現「看起來沒反應」的情形 */
+    const orderedPairs = keys.map((k, i) => [k, (i + 1) * 10]);
+
+    const curIdx = keys.indexOf(key);
+    const swapIdx = curIdx + dir;
+    if (swapIdx < 0 || swapIdx >= keys.length) return;
+
+    const tmp = orderedPairs[curIdx][1];
+    orderedPairs[curIdx][1] = orderedPairs[swapIdx][1];
+    orderedPairs[swapIdx][1] = tmp;
+
+    try {
+        for (const [k, ord] of orderedPairs) {
+            if (cat.type === 'food') {
+                await patchPath(`/menu/meta/${encodeURIComponent(k)}`, { order: ord });
+            } else {
+                await patchPath(`/menu/${cat.dataKey}/${encodeURIComponent(k)}`, { order: ord });
+            }
+        }
+        await loadMenu();
+    } catch (err) {
+        toast('排序失敗：' + err.message);
+    }
+}
+
+/* ✅ 缺貨切換：翻轉 soldOut 狀態並立即存回雲端（只有 food/addon 分類才有這個按鈕） */
+async function toggleSoldOut(key) {
+    const cat = CATS[currentTab];
+    const newVal = !isSoldOut(key);
+    try {
+        if (cat.type === 'food') {
+            await patchPath(`/menu/meta/${encodeURIComponent(key)}`, { soldOut: newVal });
+        } else {
+            await patchPath(`/menu/${cat.dataKey}/${encodeURIComponent(key)}`, { soldOut: newVal });
+        }
+        toast(newVal ? '已標記為缺貨' : '已重新上架');
+        await loadMenu();
+    } catch (err) {
+        toast('操作失敗：' + err.message);
+    }
+}
+
+/* ═══════════════════════════════════════════════════
+   新增 / 編輯 表單
+   ═══════════════════════════════════════════════════ */
+function openForm(key) {
+    editingKey = key;
+    const cat = CATS[currentTab];
+    document.getElementById('formTitle').innerText = `${key ? '編輯' : '新增'}${cat.addName}`;
+
+    const isAddon = cat.type === 'addon';
+    const isSimple = cat.type === 'simple';
+    document.getElementById('f-ratio-wrap').style.display = isAddon ? 'block' : 'none';
+    document.getElementById('f-unit-wrap').style.display = isAddon ? 'block' : 'none';
+    document.getElementById('f-price-row').style.display = isSimple ? 'none' : 'flex';
+    document.getElementById('f-img-section').style.display = isSimple ? 'none' : 'block';
+
+    if (key) {
+        if (isSimple) {
+            const rec = menuData[cat.dataKey][key] || {};
+            document.getElementById('f-zh').value = key;
+            document.getElementById('f-en').value = rec.en || '';
+        } else {
+            const nm = menuData.items[key] || {};
+            document.getElementById('f-zh').value = nm.zh || key;
+            document.getElementById('f-en').value = nm.en || '';
+            if (isAddon) {
+                const a = menuData[cat.dataKey][key] || {};
+                document.getElementById('f-price').value = a.price ?? '';
+                document.getElementById('f-img').value = a.img || '';
+                document.getElementById('f-ratio').value = (a.ratio ?? 1);
+                document.getElementById('f-unit-zh').value = (a.unit && a.unit.zh) || '';
+                document.getElementById('f-unit-en').value = (a.unit && a.unit.en) || '';
+            } else {
+                document.getElementById('f-price').value = menuData.prices[key] ?? '';
+                document.getElementById('f-img').value = getImgMap(currentTab)[key] || '';
+            }
+        }
+        document.getElementById('f-zh').disabled = true;   // 中文名是 key，編輯模式不可改，避免資料對不上
+    } else {
+        document.getElementById('f-zh').value = '';
+        document.getElementById('f-en').value = '';
+        document.getElementById('f-price').value = '';
+        document.getElementById('f-img').value = '';
+        document.getElementById('f-ratio').value = 1;
+        document.getElementById('f-unit-zh').value = '';
+        document.getElementById('f-unit-en').value = '';
+        document.getElementById('f-zh').disabled = false;
+    }
+    updatePreview();
+    document.getElementById('formModal').style.display = 'flex';
+}
+
+function closeForm() { document.getElementById('formModal').style.display = 'none'; }
+
+function updatePreview() {
+    const url = document.getElementById('f-img').value.trim();
+    const img = document.getElementById('previewImg');
+    if (url) { img.src = url; img.style.display = 'block'; } else { img.style.display = 'none'; }
+}
+
+async function saveItem() {
+    const cat = CATS[currentTab];
+    const zh = document.getElementById('f-zh').value.trim();
+    const en = document.getElementById('f-en').value.trim();
+    if (!zh) return toast('請輸入中文名稱');
+
+    let price, img;
+    if (cat.type !== 'simple') {
+        price = parseFloat(document.getElementById('f-price').value);
+        img = document.getElementById('f-img').value.trim();
+        if (isNaN(price)) return toast('請輸入正確的價錢');
+    }
+
+    const key = editingKey || zh;   // 新增時，中文名稱本身當作這個品項的 key
+    const isNewItem = !editingKey;
+
+    /* ✅ 新增的品項給一個明確的排序值（目前清單最大值+10），確保排在最後面，
+       不依賴預設的 9999 fallback，避免多筆新品項排序時序不明確 */
+    let newOrder = 10;
+    if (isNewItem) {
+        const existingKeys = getKeysForTab();
+        const maxOrder = existingKeys.length ? Math.max(...existingKeys.map(getOrder).map(o => o >= 9999 ? 0 : o)) : 0;
+        newOrder = maxOrder + 10;
+    }
+
+    try {
+        if (cat.type === 'simple') {
+            /* 「不要什麼」「特別要求」：純文字選項，直接存中/英文與排序，不需要價錢/圖片 */
+            const payload = { en };
+            if (isNewItem) payload.order = newOrder;
+            await patchPath(`/menu/${cat.dataKey}/${encodeURIComponent(key)}`, payload);
+        } else if (cat.type === 'addon') {
+            /* 「小食」「加料」共用同一種結構：價錢、圖片、每份數量、單位 */
+            const ratio = parseInt(document.getElementById('f-ratio').value) || 1;
+            const unitZh = document.getElementById('f-unit-zh').value.trim() || '份';
+            const unitEn = document.getElementById('f-unit-en').value.trim() || 'serv';
+            const payload = { price, img, ratio, unit: { zh: unitZh, en: unitEn } };
+            if (isNewItem) payload.order = newOrder;
+            await patchPath(`/menu/${cat.dataKey}/${encodeURIComponent(key)}`, payload);
+            await patchPath(`/menu/items/${encodeURIComponent(key)}`, { zh, en });
+        } else {
+            const imgField = cat.imgField;
+            await patchPath(`/menu/prices/${encodeURIComponent(key)}`, price, true);
+            await patchPath(`/menu/${imgField}/${encodeURIComponent(key)}`, img, true);
+            await patchPath(`/menu/items/${encodeURIComponent(key)}`, { zh, en });
+            if (isNewItem) await patchPath(`/menu/meta/${encodeURIComponent(key)}`, { order: newOrder });
+        }
+        toast('✓ 已儲存');
+        closeForm();
+        await loadMenu();
+    } catch (err) {
+        toast('儲存失敗：' + err.message);
+    }
+}
+
+/* Firebase 單一路徑寫入：rawValue=true 代表直接 PUT 一個純值（數字/字串），
+   否則用 PATCH 寫入一個物件（只更新提供的欄位，不影響同層其他資料）*/
+async function patchPath(path, value, rawValue = false) {
+    const url = `https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app${path}.json`;
+    const res = await fetch(url, {
+        method: rawValue ? 'PUT' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(value)
+    });
+    if (!res.ok) throw new Error(`寫入失敗（伺服器回應 ${res.status}）`);
+    return res;
+}
+
+async function deleteItem(key) {
+    if (!confirm(`確定要刪除「${key}」嗎？`)) return;
+    const cat = CATS[currentTab];
+    try {
+        if (cat.type === 'simple') {
+            await deletePath(`/menu/${cat.dataKey}/${encodeURIComponent(key)}`);
+        } else if (cat.type === 'addon') {
+            await deletePath(`/menu/${cat.dataKey}/${encodeURIComponent(key)}`);
+            await deletePath(`/menu/items/${encodeURIComponent(key)}`);
+        } else {
+            const imgField = cat.imgField;
+            await deletePath(`/menu/prices/${encodeURIComponent(key)}`);
+            await deletePath(`/menu/${imgField}/${encodeURIComponent(key)}`);
+            await deletePath(`/menu/meta/${encodeURIComponent(key)}`);
+            await deletePath(`/menu/items/${encodeURIComponent(key)}`);
+        }
+        toast('✓ 已刪除');
+        await loadMenu();
+    } catch (err) {
+        toast('刪除失敗：' + err.message);
+    }
+}
+async function deletePath(path) {
+    const url = `https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app${path}.json`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`刪除失敗（伺服器回應 ${res.status}）`);
+    return res;
+}
+
+/* 按 Enter 直接送出 PIN */
+document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkPin(); });
+</script>
+</body>
+</html>
