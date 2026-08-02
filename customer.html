@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.1</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.0</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -224,7 +224,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.1</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.0</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -790,11 +790,7 @@
         if (SOUP_IMPLIES_NOODLES.includes(v)) tempItem.sauceKeys = ['湯'];
         renderCustomizePanel();
     }
-    /* ✅ 這幾個是「只能二選一/三選一...」的互斥醬料——選了其中一個，同組其他已選的會自動取消
-       （包含預設先選好的「辣椒」）。之前只有辣椒/少辣/多辣三個在同一組，現在新增茄汁、黑醬油、
-       白醬青，讓它們也有「選了會取消掉預設辣椒」的同樣效果。日後想再加新的互斥醬料，直接把
-       醬料的 key 加進這個陣列就好。 */
-    const SPICE_LEVELS = ['辣椒', '少辣', '多辣', '茄汁', '黑醬油', '白醬青'];
+    const SPICE_LEVELS = ['辣椒', '少辣', '多辣'];
     function toggleTempSauce(k) {
         const wasSelected = tempItem.sauceKeys.includes(k);
         if (k === '湯') {
