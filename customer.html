@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.1.2</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.1</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -224,7 +224,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.1.2</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.1</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -243,7 +243,7 @@
     </div>
 
     <div id="bottombar">
-        <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span></button>
+        <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span> <span id="cart-discount-badge" style="display:none; color:#ff6d00; font-weight:900;"></span></button>
         <button class="bb-btn" id="submitBtn" style="background:var(--primary);" onclick="openSubmitModal()">🚀 確定送出</button>
     </div>
 </div>
@@ -273,6 +273,7 @@
         <input id="sm-name-input" class="sm-field-input" placeholder="例如：陳先生">
 
         <div class="sm-total">$<span id="sm-total-amount">0.00</span></div>
+        <div id="sm-discount-line" style="display:none; text-align:center; color:#ff6d00; font-weight:bold; font-size:0.9rem; margin:-8px 0 12px;"></div>
 
         <button class="sm-btn sm-btn-go" onclick="proceedToPayment()" id="sm-go-btn">🚀 確定送出</button>
         <button class="sm-btn sm-btn-cancel" onclick="closeSubmitModal()" id="sm-cancel-btn">返回修改</button>
@@ -338,6 +339,49 @@
        真的入帳，需要店員在收銀機那邊核對後手動「放行」，才會真的送進 /orders 給廚房列印。
        這樣可以避免有人亂按「已付款」但其實沒付錢，讓廚房白做一份沒人要的餐點。 */
     const PENDING_ORDERS_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/pendingOrders.json";
+    const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
+
+    /* ═══════════════ 活動優惠：讀取後台 /promotion 設定，計算折扣
+       ✅ 這裡的計算邏輯故意寫成獨立、單純的函式，收銀機那邊也是用「完全一樣」的邏輯，
+       確保客人在手機上看到的優惠價、跟收銀機算出來的優惠價一定一致 ═══════════════ */
+    let promotionConfig = null;
+    async function loadPromotion() {
+        try {
+            const res = await fetch(PROMOTION_URL + '?t=' + Date.now());
+            const data = await res.json();
+            if (res.ok && data && !data.error) promotionConfig = data;
+        } catch (err) {
+            console.log('讀取活動設定失敗，暫時視為沒有活動：', err.message);
+        }
+        updateBottomBar();
+    }
+    function isPromotionActive(promo) {
+        if (!promo || !promo.enabled) return false;
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const nowStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        if (promo.startDateTime && nowStr < promo.startDateTime) return false;
+        if (promo.endDateTime && nowStr > promo.endDateTime) return false;
+        return true;
+    }
+    /* 找出「符合的份數門檻中，門檻最高」的那一檔折扣（不會疊加多檔） */
+    function calcTierDiscount(promo, eligibleQty) {
+        let best = null;
+        (promo.tiers || []).forEach(t => {
+            if (eligibleQty >= t.qty && (!best || t.qty > best.qty)) best = t;
+        });
+        return best ? best.discount : 0;
+    }
+    /* 傳入購物車陣列，回傳 { active, eligibleQty, discount, excludedNote } */
+    function calcPromotionForCart(cartItems) {
+        if (!isPromotionActive(promotionConfig)) return { active:false, eligibleQty:0, discount:0 };
+        const excluded = new Set(promotionConfig.excludedItems || []);
+        let eligibleQty = 0;
+        cartItems.forEach(item => { if (!excluded.has(item.mainKey)) eligibleQty += item.qty; });
+        const discount = calcTierDiscount(promotionConfig, eligibleQty);
+        return { active: true, eligibleQty, discount };
+    }
+
     const MENU_URL  = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/menu.json";
 
     /* ═══════════════ PayNow QR Code 產生（SGQR / EMVCo 標準）═══════════════
@@ -746,7 +790,11 @@
         if (SOUP_IMPLIES_NOODLES.includes(v)) tempItem.sauceKeys = ['湯'];
         renderCustomizePanel();
     }
-    const SPICE_LEVELS = ['辣椒', '少辣', '多辣'];
+    /* ✅ 這幾個是「只能二選一/三選一...」的互斥醬料——選了其中一個，同組其他已選的會自動取消
+       （包含預設先選好的「辣椒」）。之前只有辣椒/少辣/多辣三個在同一組，現在新增茄汁、黑醬油、
+       白醬青，讓它們也有「選了會取消掉預設辣椒」的同樣效果。日後想再加新的互斥醬料，直接把
+       醬料的 key 加進這個陣列就好。 */
+    const SPICE_LEVELS = ['辣椒', '少辣', '多辣', '茄汁', '黑醬油', '白醬青'];
     function toggleTempSauce(k) {
         const wasSelected = tempItem.sauceKeys.includes(k);
         if (k === '湯') {
@@ -893,11 +941,24 @@
         renderCustomizePanel();
     }
 
+    /* 統一在這裡算「原價／折扣／折扣後應付」，所有需要總額的地方都呼叫這個，
+       避免各處各自算一次、數字兜不起來 */
+    function getCartTotals() {
+        let original = 0;
+        cart.forEach(item => { original += item.price * item.qty + (item.isTakeaway ? 0.30 * item.qty : 0); });
+        const promo = calcPromotionForCart(cart);
+        const discount = promo.discount || 0;
+        const final = Math.max(0, original - discount);
+        return { original, discount, final, eligibleQty: promo.eligibleQty || 0 };
+    }
+
     function updateBottomBar() {
-        let total = 0;
-        cart.forEach(item => { total += item.price * item.qty + (item.isTakeaway ? 0.30 * item.qty : 0); });
-        document.getElementById('cart-total-sum').innerText = total.toFixed(2);
+        const { original, discount, final } = getCartTotals();
+        document.getElementById('cart-total-sum').innerText = final.toFixed(2);
         document.getElementById('cart-count').innerText = cart.length;
+        const badge = document.getElementById('cart-discount-badge');
+        if (discount > 0) { badge.style.display = 'inline'; badge.innerText = `🎉-$${discount.toFixed(2)}`; }
+        else { badge.style.display = 'none'; }
     }
 
     /* ═══════════════ 推薦分類（簡化版：只顯示店家固定推薦組合，點擊＝加入購物車）═══════════════ */
@@ -954,7 +1015,17 @@
     /* ═══════════════ 送出訂單流程 ═══════════════ */
     function openSubmitModal() {
         if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的，請先點餐' : 'Cart is empty, please add items first'); return; }
-        document.getElementById('sm-total-amount').innerText = document.getElementById('cart-total-sum').innerText;
+        const { original, discount, final } = getCartTotals();
+        document.getElementById('sm-total-amount').innerText = final.toFixed(2);
+        const discountLine = document.getElementById('sm-discount-line');
+        if (discount > 0) {
+            discountLine.style.display = 'block';
+            discountLine.innerText = userLang==='zh'
+                ? `🎉 原價 $${original.toFixed(2)}，活動折扣 -$${discount.toFixed(2)}`
+                : `🎉 Original $${original.toFixed(2)}, promo discount -$${discount.toFixed(2)}`;
+        } else {
+            discountLine.style.display = 'none';
+        }
         document.getElementById('submit-modal').style.display = 'flex';
     }
     function closeSubmitModal() { document.getElementById('submit-modal').style.display = 'none'; }
@@ -1049,7 +1120,8 @@
             const tableNo = document.getElementById('sm-table-input').value.trim();
             const custName = document.getElementById('sm-name-input').value.trim();
 
-            const totalPrice = document.getElementById('cart-total-sum').innerText;
+            const { original: originalTotal, discount: promoDiscount } = getCartTotals();
+            const totalPrice = document.getElementById('cart-total-sum').innerText;   // 已經是折扣後金額
             const _now = new Date();
             const _pad = n => String(n).padStart(2, '0');
             const dateKey = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
@@ -1061,6 +1133,9 @@
                 tableNo:    tableNo || null,
                 custName:   custName || null,
                 totalPrice: totalPrice,
+                /* ✅ 活動優惠：原價、折扣金額都送過去，廚房單才能印出「原價／優惠折扣／應付金額」三行 */
+                originalPrice: originalTotal.toFixed(2),
+                promoDiscount: promoDiscount.toFixed(2),
                 dateKey:    dateKey,
                 time:       `${_pad(_now.getDate())}/${_pad(_now.getMonth()+1)}/${_now.getFullYear()} ${_pad(_now.getHours())}:${_pad(_now.getMinutes())}:${_pad(_now.getSeconds())}`,
                 isTakeaway:  isTakeaway,
@@ -1157,6 +1232,8 @@
         await loadCloudMenu();
         selectCategory('推薦');
         updateBottomBar();
+        loadPromotion();                    // 開機先讀一次活動設定
+        setInterval(loadPromotion, 60000);  // 之後每60秒重新讀取一次，活動開始/結束時間到了會自動反映在畫面上
     });
 </script>
 </body>
