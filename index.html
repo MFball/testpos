@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.0 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.1 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -220,7 +220,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.0</span>
+        <span id="version-tag">v5.9.1</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -351,7 +351,8 @@
         showTableNo: true,
         showPrice: true,
         showNotes: true,
-        showFooter: true
+        showFooter: true,
+        showTicketId: false
     };
     async function loadPrintConfig() {
         try {
@@ -1148,7 +1149,7 @@
        畫面最上面本來就有一個中文／English 的語言切換鈕（userLang），使用者切成中文，
        整個點餐畫面就會變成中文；切成 English，畫面就會變成英文。收據語言理應直接跟著
        這個已經選好的介面語言走，不需要在「確認送出」的當下再多問一次、多一層操作。
-       所以拿掉 v5.9.0 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
+       所以拿掉 v5.9.1 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
        （列印方式——本機列印 or 雲端／廚房出單機——第一次仍會詢問一次，之後自動沿用，
        這部分維持不變，跟語言選擇是兩件事。） */
     function confirmSubmitPrompt() {
@@ -1321,8 +1322,12 @@
         y += notePx + 12;
         cmds.push({ text: `No. ${orderNo}`, font: 'bold 44px sans-serif', y });
         y += 44 + 20;
-        cmds.push({ text: `ID: ${orderKey || '--'}`, font: `${notePx}px sans-serif`, color: '#555', y });
-        y += notePx + 20;
+        /* ✅ 修正問題2：ID這行改成跟後台「顯示廚房單ID」設定一致（預設不顯示），
+           不再不管設定是什麼都無條件印出來 */
+        if (cfg.showTicketId) {
+            cmds.push({ text: `ID: ${orderKey || '--'}`, font: `${notePx}px sans-serif`, color: '#555', y });
+            y += notePx + 20;
+        }
         cmds.push({ text: dividerText, font: 'bold 20px sans-serif', y });
         y += 20 + 17;
 
@@ -1353,7 +1358,12 @@
                 y += 18 + gapWithin;
             }
             y += 8;
-            cmds.push({ text: dividerText, font: 'bold 20px sans-serif', color: '#999', y });
+            /* ══ 【本機列印】品項與品項之間的分隔線顏色設定在這裡 ══
+               ✅ 修正：這裡原本是 '#999'（淺灰色），熱感應印表機是用「亮度」判斷要不要印黑點，
+               太淺的顏色會被判定成白色、整條線印不出來——這就是圖一A位置分隔線消失的原因。
+               改成 'black' 才能確保熱感應紙真的印得出來。
+               👉 日後想調整這條分隔線的顏色/粗細，就是改下面這一行的 color 和 font 值。*/
+            cmds.push({ text: dividerText, font: 'bold 20px sans-serif', color: 'black', y });
             y += 20 + gapBetween;
         });
 
@@ -1478,10 +1488,12 @@
             cmds.push({ type:'text', text:`No. ${orderNo}`, font:'bold 44px sans-serif', x:centerX, y, align:'center' });
             y += 24 + 21;
         }
-        /* ✅ 客號下方印出 Firebase「新增子節點」保證全域唯一的原始 key（orderClaims 裡的識別碼），
-           這行不受設定控制、一律顯示，方便日後追查來源 */
-        cmds.push({ type:'text', text:`ID: ${orderKey || '--'}`, font:`${notePx}px sans-serif`, color:'#555', x:centerX, y, align:'center' });
-        y += notePx + 20;
+        /* ✅ 修正問題2：ID這行改成跟後台「顯示廚房單ID」設定一致（預設不顯示），
+           不再「不受設定控制、一律顯示」 */
+        if (cfg.showTicketId) {
+            cmds.push({ type:'text', text:`ID: ${orderKey || '--'}`, font:`${notePx}px sans-serif`, color:'#555', x:centerX, y, align:'center' });
+            y += notePx + 20;
+        }
         cmds.push({ type:'text', text:'--------------------------------------------------------------', font:'bold 20px sans-serif', x:centerX, y, align:'center' });
         y += 20 + 20;
 
@@ -1778,13 +1790,29 @@
         document.getElementById('cart-total-sum').innerText = quickTotals.final.toFixed(2);
 
         const orderInfo = await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
-        const orderData = getOrderData();
-        orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: quickTotals.final.toFixed(2), original: quickTotals.original.toFixed(2), discount: quickTotals.discount.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
-        recordSale([item]);
-        await saveOrderData(orderData);
 
+        /* ✅ 修正問題3：這裡原本不管使用者選了「本機列印」還是「雲端」，都一律只送去 Firebase，
+           靠廚房出單機自動列印——如果使用者其實選的是本機列印，卡片下單就會完全不出紙本，
+           只會跳出「廚房出單機將自動列印」這句誤導的訊息。現在改成先檢查存好的列印方式，
+           本機模式就真的透過藍牙印出來（並且用 noPrint 標記避免廚房那邊重複印一次）。*/
+        const savedMethod = localStorage.getItem(PRINT_METHOD_KEY);
+        const savedLang = localStorage.getItem(PRINT_LANG_KEY) || 'zh';
         try {
-            await handleFinalizeAndPrint(userLang, orderInfo, true, userLang==='zh' ? '✅ 已下單！廚房出單機將自動列印。' : '✅ Order placed! The kitchen printer will print it automatically.');
+            const orderData = getOrderData();
+            if (savedMethod === 'direct') {
+                const printer = await getDirectPrinter();
+                drawDirectReceiptCanvas(orderInfo.no, savedLang, orderInfo.key);
+                await writeDirectReceipt(printer);
+                orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: quickTotals.final.toFixed(2), original: quickTotals.original.toFixed(2), discount: quickTotals.discount.toFixed(2), items: [JSON.parse(JSON.stringify(item))], noPrint: true, printLang: savedLang });
+                recordSale([item]);
+                await saveOrderData(orderData);
+                alert(userLang==='zh' ? '✅ 已本機列印！' : '✅ Printed locally!');
+            } else {
+                orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: quickTotals.final.toFixed(2), original: quickTotals.original.toFixed(2), discount: quickTotals.discount.toFixed(2), items: [JSON.parse(JSON.stringify(item))], printLang: savedLang });
+                recordSale([item]);
+                await saveOrderData(orderData);
+                alert(userLang==='zh' ? '✅ 已下單！廚房出單機將自動列印。' : '✅ Order placed! The kitchen printer will print it automatically.');
+            }
         } catch (e) {
             alert("下單失敗: " + e.message);
         } finally {
@@ -2034,8 +2062,10 @@
     }
     /* 醬料互斥狀態機：
        (A) 「湯」與任何其他醬料互斥 —— 按下湯，其他全部清空；按下任何其他醬料，湯自動取消
-       (B) 「辣椒／少辣／多辣」三個是單選(Radio) —— 選其中一個，另外兩個自動回復未選 */
-    const SPICE_LEVELS = ['辣椒', '少辣', '多辣'];
+       (B) 「辣椒／少辣／多辣／茄汁／黑醬油／白醬青」是單選(Radio) —— 選其中一個，
+           同組其他已選的（包含預設的辣椒）自動回復未選。
+           日後想再加新的互斥醬料，直接把 key 加進下面這個陣列就好，跟顧客點餐頁面用同一份邏輯。 */
+    const SPICE_LEVELS = ['辣椒', '少辣', '多辣', '茄汁', '黑醬油', '白醬青'];
     function toggleTempSauce(k) {
         const wasSelected = tempItem.sauceKeys.includes(k);
         if (k === '湯') {
@@ -2302,13 +2332,26 @@
         document.getElementById('cart-total-sum').innerText = comboTotals.final.toFixed(2);
 
         const orderInfo = await getNextOrderNo();   // ✅ 改用雲端共用流水號，同時取得 Firebase key
-        const orderData = getOrderData();
-        orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: comboTotals.final.toFixed(2), original: comboTotals.original.toFixed(2), discount: comboTotals.discount.toFixed(2), items: [JSON.parse(JSON.stringify(item))] });
-        recordSale([item]);
-        await saveOrderData(orderData);
 
+        /* ✅ 修正問題3：同 quickSuggestOrder，改成依照已存的列印方式決定行為 */
+        const savedMethod = localStorage.getItem(PRINT_METHOD_KEY);
+        const savedLang = localStorage.getItem(PRINT_LANG_KEY) || 'zh';
         try {
-            await handleFinalizeAndPrint(userLang, orderInfo, true, userLang==='zh' ? '✅ 已下單！廚房出單機將自動列印。' : '✅ Order placed! The kitchen printer will print it automatically.');
+            const orderData = getOrderData();
+            if (savedMethod === 'direct') {
+                const printer = await getDirectPrinter();
+                drawDirectReceiptCanvas(orderInfo.no, savedLang, orderInfo.key);
+                await writeDirectReceipt(printer);
+                orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: comboTotals.final.toFixed(2), original: comboTotals.original.toFixed(2), discount: comboTotals.discount.toFixed(2), items: [JSON.parse(JSON.stringify(item))], noPrint: true, printLang: savedLang });
+                recordSale([item]);
+                await saveOrderData(orderData);
+                alert(userLang==='zh' ? '✅ 已本機列印！' : '✅ Printed locally!');
+            } else {
+                orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: comboTotals.final.toFixed(2), original: comboTotals.original.toFixed(2), discount: comboTotals.discount.toFixed(2), items: [JSON.parse(JSON.stringify(item))], printLang: savedLang });
+                recordSale([item]);
+                await saveOrderData(orderData);
+                alert(userLang==='zh' ? '✅ 已下單！廚房出單機將自動列印。' : '✅ Order placed! The kitchen printer will print it automatically.');
+            }
         } catch (e) {
             alert("一鍵下單失敗: " + e.message);
         } finally {
