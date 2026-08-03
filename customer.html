@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.0</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.2</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -224,7 +224,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.0</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.2</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -790,16 +790,34 @@
         if (SOUP_IMPLIES_NOODLES.includes(v)) tempItem.sauceKeys = ['湯'];
         renderCustomizePanel();
     }
-    const SPICE_LEVELS = ['辣椒', '少辣', '多辣'];
+    /* ✅ 這幾個是「只能二選一/三選一...」的互斥醬料——選了其中一個，同組其他已選的會自動取消
+       （包含預設先選好的「辣椒」）。之前只有辣椒/少辣/多辣三個在同一組，現在新增茄汁、黑醬油、
+       白醬青，讓它們也有「選了會取消掉預設辣椒」的同樣效果。日後想再加新的互斥醬料，直接把
+       醬料的 key 加進這個陣列就好。 */
+    /* ✅ 醬料選擇邏輯（依照你的說明重新設計）：
+       1. 「湯」「分湯」完全互斥——選了其中一個，其他醬料全部清空；這兩個被選中的時候，
+          點其他醬料會先把「湯/分湯」拿掉，再照一般規則處理。
+       2. 除了湯/分湯以外的醬料（辣椒/少辣/多辣/茄汁/黑醬油/白醬青...）都是自由多選，
+          可以同時選好幾個（例如「辣椒+茄汁」）。
+       3. 唯一的例外：一開始「還沒被動過的預設辣椒」（sauceKeys剛好只有['辣椒']，
+          代表使用者根本還沒手動點過任何醬料按鈕），這時候點選別的醬料會直接取代掉
+          這個預設值，而不是變成「辣椒+新選的」——因為預設辣椒只是系統幫忙先勾好、
+          不是使用者自己選的，不應該一開始就跟使用者的第一個真實選擇疊在一起。
+          只要動過一次（不管是加是減），之後全部都是自由多選、想加想減都可以。
+       日後想再新增互斥醬料，把 key 加進 EXCLUSIVE_SAUCES；想再新增自由多選醬料，
+       不用改這裡的邏輯，直接在畫面上加一顆按鈕呼叫 toggleTempSauce(key) 就會自動適用。 */
+    const EXCLUSIVE_SAUCES = ['湯', '分湯'];
     function toggleTempSauce(k) {
         const wasSelected = tempItem.sauceKeys.includes(k);
-        if (k === '湯') {
-            tempItem.sauceKeys = wasSelected ? [] : ['湯'];
+        if (EXCLUSIVE_SAUCES.includes(k)) {
+            tempItem.sauceKeys = wasSelected ? [] : [k];
         } else {
-            tempItem.sauceKeys = tempItem.sauceKeys.filter(x => x !== '湯');
-            if (SPICE_LEVELS.includes(k)) {
-                tempItem.sauceKeys = tempItem.sauceKeys.filter(x => !SPICE_LEVELS.includes(x));
-                if (!wasSelected) tempItem.sauceKeys.push(k);
+            const wasExclusiveActive = tempItem.sauceKeys.some(x => EXCLUSIVE_SAUCES.includes(x));
+            if (wasExclusiveActive) tempItem.sauceKeys = [];
+
+            const isUntouchedDefault = !wasExclusiveActive && tempItem.sauceKeys.length === 1 && tempItem.sauceKeys[0] === '辣椒' && k !== '辣椒';
+            if (isUntouchedDefault) {
+                tempItem.sauceKeys = [k];   // 取代掉還沒被動過的預設辣椒
             } else {
                 const idx = tempItem.sauceKeys.indexOf(k);
                 if (idx >= 0) tempItem.sauceKeys.splice(idx, 1); else tempItem.sauceKeys.push(k);
