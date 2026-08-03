@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.2</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.3</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -224,7 +224,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.2</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.3</span></div>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
@@ -1096,24 +1096,23 @@
         try {
             const orderInfo = pendingOrderInfo;
 
-            /* ✅ 摘要文字格式：品項附加說明用 \n 分隔，品項與品項之間用 " | "，
-               廚房那邊解析時先用 " | " 拆成每個品項、再用 \n 拆出附加說明 */
-            /* ✅ 依照新版廚房單版面需求調整格式：
-               第1行只放「品名[大小] x數量」，第2行改放「麵種/醬料」（原本兩者擠在同一行）；
-               子行順序也改成 特別要求 → 不要什麼 → 加料（原本是 特別要求 → 加料 → 不要什麼）*/
-            /* ✅ 外觀細節對齊本機列印(A)的風格，但保留你要求保留的結構：
-               分行(品名/麵種醬料分開)、子項順序(特別要求→不要什麼→加料)、ID預設隱藏都不變，
-               只調整：數量改「(N份)」、[大小]移到第二行跟麵種醬料放一起、
-               多個項目之間的分隔符號改用「、」、「不要什麼」改用全形冒號「：」*/
+            /* ✅ ver2.2.3：摘要格式對齊員工版本機列印 A～L 結構
+               E 品名(份數) → F [大小] 麵種 醬料 → G 特別要求/不要/加料 → H 外賣附加費
+               品項之間用 " | "，行內用 \n，廚房出單機可直接依同一套 printConfig 字級/行距排版 */
             const summaryParts = cart.map(item => {
                 const name = getItemName(item.mainKey, 'zh');
-                const size = getItemName(item.sizeKey, 'zh');
+                const size = item.sizeKey ? getItemName(item.sizeKey, 'zh') : '';
                 const noodle = item.noodleKey && item.noodleKey !== '湯品' ? getItemName(item.noodleKey, 'zh') : '';
                 const sauces = (item.sauceKeys||[]).map(k=>getItemName(k,'zh'));
-                const nameLine = `${name} (${item.qty}份)`;
-                const noodleSauceLine = [`[${size}]`, noodle, ...sauces].filter(Boolean).join(' ');
+                const unit = item.category === '湯' ? '碗' : (item.category === '小食' ? getItemUnit(item.mainKey, 'zh') : '份');
+                const displayQty = item.category === '小食' ? (item.qty * getItemRatio(item.mainKey)) : item.qty;
+                // E · 品項主名稱
+                const nameLine = `${name} (${displayQty}${unit})`;
+                // F · 選項行（大小 + 麵種 + 醬料）
+                const optionsLine = [`${size ? '['+size+']' : ''}`, noodle, ...sauces].filter(Boolean).join(' ');
 
                 const subLines = [];
+                // G · 特別要求 / 不要什麼 / 加料
                 if (item.specialKeys && item.specialKeys.length) {
                     subLines.push(`★${item.specialKeys.map(k=>getItemName(k,'zh')).join('、')}`);
                 }
@@ -1124,8 +1123,12 @@
                     .filter(([k,v]) => v > 0)
                     .map(([k,v]) => `${getItemName(k,'zh')}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
                 if (adds.length) subLines.push(`+${adds.join('、')}`);
+                // H · 外賣附加費（與本機列印同一行文案）
+                if (item.isTakeaway) {
+                    subLines.push(`(外賣附加: +$${(0.30 * item.qty).toFixed(2)})`);
+                }
 
-                return [nameLine, noodleSauceLine, ...subLines].join('\n');
+                return [nameLine, optionsLine, ...subLines].filter(Boolean).join('\n');
             });
             const summaryText = summaryParts.join(' | ');
             const isTakeaway = Boolean(cart.length > 0 && cart.every(item => item.isTakeaway === true));
@@ -1140,14 +1143,30 @@
             const _pad = n => String(n).padStart(2, '0');
             const dateKey = `${_now.getFullYear()}-${_pad(_now.getMonth()+1)}-${_pad(_now.getDate())}`;
 
+            /* 結構化品項：給廚房出單機直接套用 printConfig A～L 字級/行距，不只能靠 summary 字串 */
+            const structuredItems = cart.map(item => ({
+                mainKey: item.mainKey,
+                sizeKey: item.sizeKey || '',
+                noodleKey: item.noodleKey || '',
+                sauceKeys: [...(item.sauceKeys || [])],
+                specialKeys: [...(item.specialKeys || [])],
+                noExtraKeys: [...(item.noExtraKeys || [])],
+                additionKeys: {...(item.additionKeys || {})},
+                qty: item.qty,
+                price: item.price,
+                category: item.category,
+                isTakeaway: !!item.isTakeaway
+            }));
+
             const payload = {
                 orderNo:    String(orderInfo.no),
                 claimKey:   orderInfo.key || null,
                 summary:    finalSummary,
+                items:      structuredItems,   // ✅ ver2.2.3 與員工版同一結構，廚房可依 A～L 排版
                 tableNo:    tableNo || null,
                 custName:   custName || null,
                 totalPrice: totalPrice,
-                /* ✅ 活動優惠：原價、折扣金額都送過去，廚房單才能印出「原價／優惠折扣／應付金額」三行 */
+                /* I 原價 / J 活動折扣 / K TOTAL：廚房單依 printConfig 字級印出 */
                 originalPrice: originalTotal.toFixed(2),
                 promoDiscount: promoDiscount.toFixed(2),
                 dateKey:    dateKey,
@@ -1155,7 +1174,7 @@
                 isTakeaway:  isTakeaway,
                 diningOption: isTakeaway ? "打包" : "堂食",
                 source: "customer",
-                awaitingConfirmation: true   // ✅ 標記「等待店員核對PayNow付款」，收銀機看到這個標記才會顯示在待確認清單
+                awaitingConfirmation: true
             };
 
             const res = await fetch(PENDING_ORDERS_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
