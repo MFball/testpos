@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.2 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.3 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -22,7 +22,7 @@
     /* ✅ overscroll-behavior: contain → 防止手指往上/往左右滑過頭時，
        瀏覽器把這個手勢當成「下拉刷新」或「側滑上一頁」而觸發整頁重新整理
        （這樣會把還沒送出的購物車內容整個清空，要重新點一次）*/
-    body { font-family: -apple-system, "Helvetica Neue", "PingFang TC", sans-serif; background: var(--secondary); usaer-select: none; }
+    body { font-family: -apple-system, "Helvetica Neue", "PingFang TC", sans-serif; background: var(--secondary); user-select: none; }
     button { font-family: inherit; cursor: pointer; }
 
     /* iOS Safari 的 100vh 常常算錯（會被網址列/工具列擠壓），改用JS量測的 --app-height，並保留 100vh 作為備援 */
@@ -220,7 +220,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.2</span>
+        <span id="version-tag">v5.9.3</span>
         <div id="lang-toggle">
             <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
             <button data-lang="en" onclick="setLang('en')">EN</button>
@@ -341,10 +341,34 @@
         shopName: "Million FishBall Noodle",
         paperSize: "80mm",
         footerText: "",
-        titleSize: 18,
-        bodySize: 13,
-        noteSize: 11,
+        /* A～L 對應實際收據標註 */
+        topMargin: 20,              // A
+        titleSize: 18,              // B
+        timeSize: 11,               // C
+        orderNoSize: 44,            // D
+        bodySize: 13,               // E
+        optionsSize: 13,            // F
+        noteSize: 11,               // G
+        takeawayFeeSize: 18,        // H
+        promoOriginalSize: 11,      // I
+        promoDiscountSize: 11,      // J
+        totalSize: 42,              // K
+        tagSize: 29,                // L
         lineHeight: 1.3,
+        gapBetweenItems: 8,
+        gapBeforeTag: 20,
+        gapWithinItem: 8,
+        gapAfterTitle: 15,
+        gapAfterTime: 12,
+        gapAfterOrderNo: 20,
+        dividerSize: 20,
+        gapAfterTopDivider: 17,
+        gapAfterTag: 20,
+        bottomMargin: 40,
+        gapAfterItemContent: 8,
+        gapAfterId: 20,
+        itemDivider: '--------------------------------------------------------------',
+        preferredPrintMethod: '',
         showShopName: true,
         showOrderNo: true,
         showTime: true,
@@ -360,6 +384,10 @@
             const data = await res.json();
             if (res.ok && data && !data.error) {
                 printConfig = { ...printConfig, ...data };
+                /* 若本機尚未選過列印方式，且後台有指定 preferredPrintMethod，則自動套用 */
+                if (!localStorage.getItem(PRINT_METHOD_KEY) && (data.preferredPrintMethod === 'direct' || data.preferredPrintMethod === 'cloud')) {
+                    localStorage.setItem(PRINT_METHOD_KEY, data.preferredPrintMethod);
+                }
             }
         } catch (err) {
             console.log('讀取列印設定失敗，暫時沿用目前設定：', err.message);
@@ -1149,7 +1177,7 @@
        畫面最上面本來就有一個中文／English 的語言切換鈕（userLang），使用者切成中文，
        整個點餐畫面就會變成中文；切成 English，畫面就會變成英文。收據語言理應直接跟著
        這個已經選好的介面語言走，不需要在「確認送出」的當下再多問一次、多一層操作。
-       所以拿掉 v5.9.2 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
+       所以拿掉 v5.9.3 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
        （列印方式——本機列印 or 雲端／廚房出單機——第一次仍會詢問一次，之後自動沿用，
        這部分維持不變，跟語言選擇是兩件事。） */
     function confirmSubmitPrompt() {
@@ -1301,35 +1329,50 @@
            ✅ 同時把「A：品項內行距」「B/C：分隔線後留白、堂食標籤前留白、標籤字級」
            都改成讀取主理員後台「列印設定」裡本來就有的 gapWithinItem／gapBetweenItems／
            gapBeforeTag／tagSize 這幾個欄位，之後要調整，去後台改數字存檔就好，不用再找我改程式。 */
-        const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE));
-        const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE));
-        const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE));
-        const tagPx   = Math.max(20, Math.round((cfg.tagSize   || 29) * CANVAS_SCALE));
-        const gapWithin    = cfg.gapWithinItem   ?? 8;   // A：品項內每一行之間的間距
-        const gapBetween   = cfg.gapBetweenItems ?? 8;   // 品項跟品項之間分隔線後的留白
-        const gapBeforeTag = cfg.gapBeforeTag    ?? 20;  // B：金額跟堂食/外賣標籤之間的留白
+        const titlePx = Math.max(16, Math.round((cfg.titleSize || 18) * CANVAS_SCALE)); // B
+        const timePx  = Math.max(14, Math.round((cfg.timeSize  || cfg.noteSize || 11) * CANVAS_SCALE)); // C
+        const bodyPx  = Math.max(16, Math.round((cfg.bodySize  || 13) * CANVAS_SCALE)); // E
+        const optionsPx = Math.max(14, Math.round((cfg.optionsSize || cfg.bodySize || 13) * CANVAS_SCALE)); // F
+        const notePx  = Math.max(14, Math.round((cfg.noteSize  || 11) * CANVAS_SCALE)); // G
+        const feePx     = Math.max(12, Math.round((cfg.takeawayFeeSize || 18))); // H
+        const promoOrigPx = Math.max(14, Math.round((cfg.promoOriginalSize || cfg.noteSize || 11) * CANVAS_SCALE)); // I
+        const promoDiscPx = Math.max(14, Math.round((cfg.promoDiscountSize || cfg.noteSize || 11) * CANVAS_SCALE)); // J
+        const totalPx   = Math.max(24, Math.round((cfg.totalSize || 42))); // K
+        const tagPx   = Math.max(20, Math.round((cfg.tagSize   || 29) * CANVAS_SCALE)); // L
+        const orderNoPx = Math.max(24, Math.round((cfg.orderNoSize || 44))); // D
+        const dividerPx = Math.max(12, Math.round((cfg.dividerSize || 20)));
+        const gapWithin    = cfg.gapWithinItem   ?? 8;   // C
+        const gapBetween   = cfg.gapBetweenItems ?? 8;   // A
+        const gapBeforeTag = cfg.gapBeforeTag    ?? 20;  // B
+        const gapAfterTitle = cfg.gapAfterTitle ?? 15;   // D
+        const gapAfterTime  = cfg.gapAfterTime  ?? 12;   // E
+        const gapAfterOrderNo = cfg.gapAfterOrderNo ?? 20; // G
+        const gapAfterTopDivider = cfg.gapAfterTopDivider ?? 17; // I
+        const gapAfterTag = cfg.gapAfterTag ?? 20;       // K
+        const bottomMargin = cfg.bottomMargin ?? 40;     // L
+        const topMargin = cfg.topMargin ?? 20;
+        const gapAfterItemContent = cfg.gapAfterItemContent ?? 8;
+        const gapAfterId = cfg.gapAfterId ?? 20;
         const dividerText  = cfg.itemDivider || '--------------------------------------------------------------';
 
         const getName = key => (dictionary.items[key] && dictionary.items[key][printLang]) ? dictionary.items[key][printLang] : (key || '');
         const isAllTakeaway = cart.length > 0 && cart.every(item => item.isTakeaway === true);
 
         const cmds = [];
-        let y = 20;
+        let y = topMargin;
 
         cmds.push({ text: cfg.shopName || 'Million FishBall Noodle', font: `bold ${titlePx}px sans-serif`, y });
-        y += titlePx + 15;
-        cmds.push({ text: new Date().toLocaleString(), font: `${notePx}px sans-serif`, y });
-        y += notePx + 12;
-        cmds.push({ text: `No. ${orderNo}`, font: 'bold 44px sans-serif', y });
-        y += 44 + 20;
-        /* ✅ 修正問題2：ID這行改成跟後台「顯示廚房單ID」設定一致（預設不顯示），
-           不再不管設定是什麼都無條件印出來 */
+        y += titlePx + gapAfterTitle;
+        cmds.push({ text: new Date().toLocaleString(), font: `${timePx}px sans-serif`, y });
+        y += timePx + gapAfterTime;
+        cmds.push({ text: `No. ${orderNo}`, font: `bold ${orderNoPx}px sans-serif`, y });
+        y += orderNoPx + gapAfterOrderNo;
         if (cfg.showTicketId) {
             cmds.push({ text: `ID: ${orderKey || '--'}`, font: `${notePx}px sans-serif`, color: '#555', y });
-            y += notePx + 20;
+            y += notePx + gapAfterId;
         }
-        cmds.push({ text: dividerText, font: 'bold 20px sans-serif', y });
-        y += 20 + 17;
+        cmds.push({ text: dividerText, font: `bold ${dividerPx}px sans-serif`, y });
+        y += dividerPx + gapAfterTopDivider;
 
         cart.forEach(item => {
             const unit = item.category === '湯' ? (printLang === 'zh' ? '碗' : 'bowl') : (printLang === 'zh' ? '份' : 'qty');
@@ -1346,44 +1389,39 @@
             y += mainPx + gapWithin;
 
             if (options) {
-                cmds.push({ text: options, font: `bold ${bodyPx}px sans-serif`, y });
-                y += bodyPx + gapWithin;
+                cmds.push({ text: options, font: `bold ${optionsPx}px sans-serif`, y });
+                y += optionsPx + gapWithin;
             }
             notes.forEach(note => {
                 cmds.push({ text: note, font: `bold ${notePx}px sans-serif`, y });
                 y += notePx + gapWithin;
             });
             if (item.isTakeaway) {
-                cmds.push({ text: (printLang === 'zh' ? '(外賣附加: +$' : '(Takeaway fee: +$') + (0.30 * item.qty).toFixed(2) + ')', font: '18px sans-serif', color: '#555', y });
-                y += 18 + gapWithin;
+                cmds.push({ text: (printLang === 'zh' ? '(外賣附加: +$' : '(Takeaway fee: +$') + (0.30 * item.qty).toFixed(2) + ')', font: `${feePx}px sans-serif`, color: '#555', y });
+                y += feePx + gapWithin;
             }
-            y += 8;
-            /* ══ 【本機列印】品項與品項之間的分隔線顏色設定在這裡 ══
-               ✅ 修正：這裡原本是 '#999'（淺灰色），熱感應印表機是用「亮度」判斷要不要印黑點，
-               太淺的顏色會被判定成白色、整條線印不出來——這就是圖一A位置分隔線消失的原因。
-               改成 'black' 才能確保熱感應紙真的印得出來。
-               👉 日後想調整這條分隔線的顏色/粗細，就是改下面這一行的 color 和 font 值。*/
-            cmds.push({ text: dividerText, font: 'bold 20px sans-serif', color: 'black', y });
-            y += 20 + gapBetween;
+            y += gapAfterItemContent;
+            cmds.push({ text: dividerText, font: `bold ${dividerPx}px sans-serif`, color: 'black', y });
+            y += dividerPx + gapBetween;
         });
 
         const directTotals = getCartTotals(cart);
         if (directTotals.discount > 0) {
-            cmds.push({ text: (printLang === 'zh' ? '原價: $' : 'Subtotal: $') + directTotals.original.toFixed(2), font: `${notePx}px sans-serif`, color: '#777', y });
-            y += notePx + 8;
-            cmds.push({ text: (printLang === 'zh' ? '🎉活動折扣: -$' : '🎉Promo Discount: -$') + directTotals.discount.toFixed(2), font: `bold ${notePx}px sans-serif`, color: '#c62828', y });
-            y += notePx + 12;
+            cmds.push({ text: (printLang === 'zh' ? '原價: $' : 'Subtotal: $') + directTotals.original.toFixed(2), font: `${promoOrigPx}px sans-serif`, color: '#777', y });
+            y += promoOrigPx + 8;
+            cmds.push({ text: (printLang === 'zh' ? '🎉活動折扣: -$' : '🎉Promo Discount: -$') + directTotals.discount.toFixed(2), font: `bold ${promoDiscPx}px sans-serif`, color: '#c62828', y });
+            y += promoDiscPx + 12;
         }
-        cmds.push({ text: 'TOTAL: $' + directTotals.final.toFixed(2), font: 'bold 42px sans-serif', y });
-        y += 42 + gapBeforeTag;
+        cmds.push({ text: 'TOTAL: $' + directTotals.final.toFixed(2), font: `bold ${totalPx}px sans-serif`, y });
+        y += totalPx + gapBeforeTag;
 
         const tagText = isAllTakeaway
             ? (printLang === 'zh' ? '🥡 外賣 / 打包' : '🥡 TAKEAWAY')
             : (printLang === 'zh' ? '🍽 堂食' : '🍽 DINE-IN');
         cmds.push({ text: tagText, font: `bold ${tagPx}px sans-serif`, color: isAllTakeaway ? '#3949ab' : '#1b5e20', y });
-        y += tagPx + 20;
+        y += tagPx + gapAfterTag;
 
-        canvas.height = y + 40;
+        canvas.height = y + bottomMargin;
         ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 576, canvas.height);
         ctx.textBaseline = 'top'; ctx.textAlign = 'center';
         cmds.forEach(c => {
