@@ -1233,7 +1233,7 @@
         document.querySelectorAll('#lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
         document.querySelectorAll('.cat-tab').forEach(t => {
             const cat = t.dataset.cat;
-            t.innerText = cat==='湯' ? (l==='zh'?'🍜 湯品類':'🍜 Soup') : cat==='面' ? (l==='zh'?'🍝 麵食類':'🍝 Noodle') : cat==='小食' ? (l==='zh'?'🍡 小食':'🍡 Snacks') : (l==='zh'?'⭐ 推薦':'⭐ Recommended');
+            t.innerText = cat==='湯' ? (l==='zh'?'🍜 湯品類':'🍜 Soup') : cat==='面' ? (l==='zh'?'🍝 麵食類':'🍝 Noodle') : cat==='小食' ? (l==='zh'?'🍡 小食':'🍡 Side dish') : (l==='zh'?'⭐ 推薦':'⭐ Recommended');
         });
         document.getElementById('cart-modal-title-txt').innerText = l==='zh' ? '目前購物車' : 'Your Cart';
         document.getElementById('sm-title').innerText = l==='zh' ? '確認送出訂單' : 'Confirm Order';
