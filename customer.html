@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 2.2.3</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.0.0</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -37,8 +37,11 @@
     .cat-tab.active[data-cat="小食"] { background: var(--add); color: #fff; border-color: var(--add); }
     .cat-tab.active[data-cat="推薦"] { background: var(--hot); color: #fff; border-color: var(--hot); }
     #lang-toggle { display: flex; gap: 4px; }
-    #lang-toggle button { padding: 8px 10px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-weight: bold; font-size: 0.8rem; color: #666; }
-    #lang-toggle button.active { background: #111; color: #fff; border-color: #111; }
+    .lang-btn { padding: 8px 10px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-weight: bold; font-size: 0.8rem; color: #666; }
+    .lang-btn.active { background: #111; color: #fff; border-color: #111; }
+    /* ✅ ver3.0.0：入口彈窗（堂食/外賣）樣式 */
+    #entry-dining-modal { display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:5000; align-items:center; justify-content:center; padding:20px; }
+    .entry-dining-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:20px; border-radius:16px; border:none; font-weight:900; font-size:1.15rem; color:#fff; margin-bottom:12px; }
 
     /* ── 主區：左側清單 + 右側面板 ── */
     #main-row { flex: 1; display: flex; overflow: hidden; }
@@ -224,7 +227,11 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v2.2.3</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.0.0</span></div>
+        <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
+             這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
+             一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
+        <button id="dining-indicator-btn" style="display:none; flex:0 0 auto; padding:10px 14px; border-radius:12px; border:2.5px solid #eee; background:#fff; font-weight:900; font-size:0.9rem; color:#444; white-space:nowrap;" onclick="reopenDiningChoice()"></button>
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="推薦" onclick="selectCategory('推薦')">⭐ 推薦</button>
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
@@ -232,8 +239,8 @@
             <button class="cat-tab" data-cat="小食" onclick="selectCategory('小食')">🍡 小食</button>
         </div>
         <div id="lang-toggle">
-            <button data-lang="zh" class="active" onclick="setLang('zh')">中</button>
-            <button data-lang="en" onclick="setLang('en')">EN</button>
+            <button class="lang-btn active" data-lang="zh" onclick="setLang('zh')">中</button>
+            <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
         </div>
     </div>
 
@@ -243,8 +250,27 @@
     </div>
 
     <div id="bottombar">
+        <!-- ✅ ver3.0.0 新增：清空購物車按鈕，放在購物車小卡旁邊（原本圖一藍色星形標記的位置） -->
+        <button id="clear-cart-btn" style="flex:0 0 auto; padding:12px 14px; border-radius:12px; border:2px solid #eee; background:#fff; color:#999; font-weight:900; font-size:1.1rem;" onclick="clearCart()" title="清空購物車">🗑️</button>
         <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span> <span id="cart-discount-badge" style="display:none; color:#ff6d00; font-weight:900;"></span></button>
         <button class="bb-btn" id="submitBtn" style="background:var(--primary);" onclick="openSubmitModal()">🚀 確定送出</button>
+    </div>
+</div>
+
+<!-- ✅ ver3.0.0 新增：入口問詢彈窗——客人一進來，畫面上什麼都還沒能點，
+     必須先選「打包」或「堂食」才能開始點餐（跟結帳前的付款彈窗一樣，是擋住整個畫面的強制彈窗）。
+     語言切換另外放一份在這裡（用 .lang-btn 這個共用 class，setLang() 會一起更新兩邊），
+     因為原本頂部那個語言切換鈕會被這個全螢幕彈窗蓋住點不到。 -->
+<div id="entry-dining-modal">
+    <div class="sm-card" style="text-align:center;">
+        <div style="display:flex; gap:6px; justify-content:center; margin-bottom:14px;">
+            <button class="lang-btn active" data-lang="zh" onclick="setLang('zh')">中</button>
+            <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+        </div>
+        <div style="font-size:2.4rem; margin-bottom:8px;">🍜</div>
+        <div class="sm-title" id="entry-title">請問是要「打包」還是「堂食」？</div>
+        <button class="entry-dining-btn" style="background:var(--success);" onclick="chooseDiningOption(false)" id="entry-dinein-btn">🍽 堂食 Dine-in</button>
+        <button class="entry-dining-btn" style="background:var(--takeaway);" onclick="chooseDiningOption(true)" id="entry-takeaway-btn">🥡 打包 Takeaway</button>
     </div>
 </div>
 
@@ -450,6 +476,31 @@
     let editingIndex = -1;
     let panelCollapse = { special: true, noExtra: true, additions: true };
 
+    /* ═══════════════ ver3.0.0：入口問詢——打包 or 堂食 ═══════════════
+       整張訂單只問一次（不再每個品項各自選），選完存在這個全域變數，
+       之後每個新加入購物車的品項都直接套用這個值。若客人中途改變心意，
+       點頂部的指示標籤可以重新叫出彈窗，屆時也會一併更新購物車裡已存在的品項。 */
+    let globalIsTakeaway = null;
+    function chooseDiningOption(isTA) {
+        globalIsTakeaway = isTA;
+        document.getElementById('entry-dining-modal').style.display = 'none';
+        cart.forEach(item => { item.isTakeaway = isTA; });
+        if (tempItem) tempItem.isTakeaway = isTA;
+        updateDiningIndicator();
+        refreshCartViews();
+        if (tempItem) renderCustomizePanel();
+        else if (currentCategory === '推薦') renderRecommendPanel();
+    }
+    function reopenDiningChoice() {
+        document.getElementById('entry-dining-modal').style.display = 'flex';
+    }
+    function updateDiningIndicator() {
+        const btn = document.getElementById('dining-indicator-btn');
+        if (globalIsTakeaway === null) { btn.style.display = 'none'; return; }
+        btn.style.display = 'inline-flex';
+        btn.innerText = globalIsTakeaway ? `🥡 ${userLang==='zh'?'外賣':'Takeaway'}` : `🍽 ${userLang==='zh'?'堂食':'Dine-in'}`;
+    }
+
     /* ═══════════════ 菜單資料（跟點餐機 ver 5.3.6 完全一致，主理員改菜單這裡也會同步）═══════════════ */
     const dictionary = {
         items: {
@@ -464,7 +515,10 @@
         }
     };
     const config = {
-        prices: { '魚圓面':4, '香菇肉碎面':5.5, '招牌面':6.5, '餐餐面':6, '肉圓面':4, '蝦魚面':5, '西刀魚面':4.5, '香菇面':5, '魚餃面':4, '(純)肉碎面':4, '小魚香面':4.5, '兒童餐':3.5, '魚圓湯':5, '肉圓湯':5, '魚餃湯':5, '三寶湯':6, '魚圓肉圓湯':5, '魚圓魚餃湯':5, '鴛鴦紫菜湯':6, '香腸(雞)':0.8, '紫菜':1, '魚餅(圓)':1.8, '大的':1, '小的':0 },
+        /* ✅ ver3.0.0：拿掉「大」的加價（取消加價選項），大/小同價；
+           '大的' 這個 key 保留、故意設為0——大小的「程式邏輯」（sizeKey==='大的' 這個判斷、
+           出單/購物車上的大小標示）完全沒動，只是不再多收錢。 */
+        prices: { '魚圓面':4, '香菇肉碎面':5.5, '招牌面':6.5, '餐餐面':6, '肉圓面':4, '蝦魚面':5, '西刀魚面':4.5, '香菇面':5, '魚餃面':4, '(純)肉碎面':4, '小魚香面':4.5, '兒童餐':3.5, '魚圓湯':5, '肉圓湯':5, '魚餃湯':5, '三寶湯':6, '魚圓肉圓湯':5, '魚圓魚餃湯':5, '鴛鴦紫菜湯':6, '香腸(雞)':0.8, '紫菜':1, '魚餅(圓)':1.8, '大的':0, '小的':0 },
         foodImgs: { '魚圓面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '香菇肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczPRrBESQHr4MjJaDdiXYFda03b72aUrxqrO--coLUrariBXksy0KTPNNaXhzOmmrVhkbChOGKQFqiR8zRRcPZWSd7Hk-inOhSXStOXgC8d0a85lycU=w2400?source=screenshot.guru', '招牌面': 'https://lh3.googleusercontent.com/pw/AP1GczOVfyFF0BVjs49utoC4oxktdqpCblSROVp-z7A0aH5pjECVNDmcaKulF2YA7DBUEDZxzEij53427j1LqfZYPzUSFGdUM2_Zt-aYxIYJY40qAfH5wq8=w2400?source=screenshot.guru', '餐餐面': 'https://lh3.googleusercontent.com/pw/AP1GczPI477AgneL3f4pcuLKg25GQlwB9XCNdxRaABOxwTvciSuYeGzbEu1cez6OIb25ZSS6RMchPIuuTEFHKttxXRnvYboZ5PQh-0HJH1MtI49AWBL1GDA=w2400?source=screenshot.guru', '肉圓面': 'https://lh3.googleusercontent.com/pw/AP1GczO2J-xP5sDqsYL-5nFYQgmYldq26dabn-ezwb-vCUGDZ-S5nq_i7dsnWNmsswG5ippV0aBSwxf3zx6lfCHrhVOehydel1JSOBnr0aXMXmInJ1_9gnM=w2400?source=screenshot.guru', '蝦魚面': 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru', '西刀魚面': 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', '香菇面': 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru', '魚餃面': 'https://i.ibb.co/nNLMt8jp/Fish-Dumpling-noodle.png', '(純)肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '小魚香面': 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru', '兒童餐': 'https://i.ibb.co/6bHNPjP/kids-meal-placeholder.png' },
         soupImgs: { '魚圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '三寶湯': 'https://lh3.googleusercontent.com/pw/AP1GczOGkSr6douVYw5ED49ONXDbTqp9tX92Syg3QnRHG43a8zZebTgtjWEUXgLieeqYOw-7CQdLF9Tm_1aVhak1HCxrCdPKf6lwtrrL9GopjkdCwX9FUtM=w2400?source=screenshot.guru', '魚圓肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '魚圓魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '鴛鴦紫菜湯': 'https://i.ibb.co/placeholder/yuanyang-seaweed-soup.png' },
         noodleTypeImgs: { '面薄': 'https://lh3.googleusercontent.com/pw/AP1GczPTdYtkKQVVtu2xC4GqatBEs58tYr0xrU6-P08JGLPXNa9URyrd85OABGJvhRRywZqI_6ILtjozkyDCPJWyfo34-z3KP5EPG56bOb6S73_130W3J00=w2400?source=screenshot.guru', '幼面': 'https://lh3.googleusercontent.com/pw/AP1GczNzHJopdj33Emt-5K2nGrlY8AQRwcGxsmIGUyy2dzSKyFYLHxqH-tz7bIRoqlVFfxfetpW7bKNjWvenQuHQ1oPEWLa8r0Zv98IXzUaIhJlRpdNaMJU=w2400?source=screenshot.guru', '粿條': 'https://lh3.googleusercontent.com/pw/AP1GczPwzNH0_FdwO99aeaxK8kWR64JXsBGwj4s5HB13lSvp-sZwggbp8XT8yfDkbp7Cz_ZB-jynkrLK7FFpIQSTf_t4Umd8Eje8i_nWWxFshmGTKkrzCn4=w2400?source=screenshot.guru', '熟面': 'https://lh3.googleusercontent.com/pw/AP1GczO5hHYBkxDeOygQ1hWxWYtPlMOGUWWImLcvrXSe9dYeWIPukbqHY5O9qq6IrM9Q88jSG6EE8HmeIM9jOg081VP1KcW7uXlnaMCsWb56wt3dRd9WJJw=w2400?source=screenshot.guru', '米粉': 'https://lh3.googleusercontent.com/pw/AP1GczMCq_h1GaefE-Kpouj1xUx_GoEhsa6BHL7giIsCTbZqtOKJG_8AJIpYSsqpPEiR5Ao00oYTYixHE7KxdZjWSv2LTg-CQ_xWVBv8OfAB98J7Z1wPYG0=w2400?source=screenshot.guru', '米太目': 'https://lh3.googleusercontent.com/pw/AP1GczNPdhdHay7KR_IB303jyQY9PkJv14r8_ctsIwsnIGVdX5m0e4mAQjGoW6kMCuWfZEzoGn0PfIS4YbYsam7ncI1eDn9rYAbQ53qUsbpt4BHxE2Gur3k=w600-h315-p-k', '冬粉': 'https://lh3.googleusercontent.com/pw/AP1GczMjjBg1W6WSV-nXO1fI3_rZXHO1u53fhIyPuY8F5PfDsGsSNuMqbrcoNbcIYTISpCvg-YzHA3xOyUmD1SUOQQvXXoAsXW9wTiEt9IswwswNBTCsoCc=w2400?source=screenshot.guru', '粿條面': 'https://i.ibb.co/4Z3pjddg/Kuay-Teow-Noodle.png', '粿條米粉': 'https://i.ibb.co/Kc4dzrMJ/Kuay-Teow-Mee-Hoon.png', '米粉面': 'https://i.ibb.co/GvHqTPM4/Mee-Hoon-Noodle.png' },
@@ -690,12 +744,13 @@
     function selectItem(key) {
         editingIndex = -1;
         panelCollapse = { special: true, noExtra: true, additions: true };
+        /* ✅ ver3.0.0：isTakeaway 不再是每個品項各自選，直接套用入口彈窗選好的 globalIsTakeaway */
         if (currentCategory === '湯') {
-            tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '湯品', sauceKeys: ['湯'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '湯', isTakeaway: false };
+            tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '湯品', sauceKeys: ['湯'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '湯', isTakeaway: globalIsTakeaway };
         } else if (currentCategory === '小食') {
-            tempItem = { mainKey: key, sizeKey: '', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '小食', isTakeaway: false };
+            tempItem = { mainKey: key, sizeKey: '', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '小食', isTakeaway: globalIsTakeaway };
         } else {
-            tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: false };
+            tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: globalIsTakeaway };
         }
         renderSideList();
         renderCustomizePanel();
@@ -715,18 +770,18 @@
             </div>
         </div>`;
 
+        /* ✅ ver3.0.0 簡化大小選擇：拿掉原本「小 $0 / 大 +$1」兩顆按鈕，
+           改成一顆「大份」開關——不加價，只保留 sizeKey==='大的' 這個內部標記
+           （廚房出單、購物車顯示都還是照這個標記走，跟以前一樣）。
+           同時把原本這裡的「堂食/外賣」開關整個拿掉——現在改成一進系統就用
+           入口彈窗(#entry-dining-modal)問一次，整張訂單套用同一個選擇，
+           不用每個品項都選一次。 */
         if (t.category === '面' || t.category === '湯') {
             html += `<div class="section"><div class="section-label">📏 ${userLang==='zh'?'大小':'Size'}</div>
-                <div class="size-ta-row">
-                    <div class="chip-row" style="margin:0;">
-                        <button class="chip big ${t.sizeKey==='小的'?'selected':''}" onclick="setTempSize('小的')">${getItemName('小的')} $0</button>
-                        <button class="chip big ${t.sizeKey==='大的'?'selected':''}" onclick="setTempSize('大的')">${getItemName('大的')} +$${config.prices['大的']}</button>
-                    </div>
-                    <button class="ta-toggle-btn ${t.isTakeaway?'active':''}" onclick="setTempLocation(${!t.isTakeaway})">
-                        <span class="ta-toggle-track"><span class="ta-toggle-thumb"></span></span>
-                        <span class="ta-toggle-text">${t.isTakeaway ? `🥡 ${userLang==='zh'?'外賣':'Takeaway'} +$0.3` : `🍽 ${userLang==='zh'?'堂食':'Dine-in'}`}</span>
-                    </button>
-                </div>
+                <button class="ta-toggle-btn ${t.sizeKey==='大的'?'active':''}" onclick="setTempSize('${t.sizeKey==='大的'?'小的':'大的'}')">
+                    <span class="ta-toggle-track"><span class="ta-toggle-thumb"></span></span>
+                    <span class="ta-toggle-text">${t.sizeKey==='大的' ? getItemName('大的') : getItemName('小的')}</span>
+                </button>
             </div>`;
         }
 
@@ -829,7 +884,6 @@
     function toggleTempSpecial(k) { const i = tempItem.specialKeys.indexOf(k); if (i>=0) tempItem.specialKeys.splice(i,1); else tempItem.specialKeys.push(k); renderCustomizePanel(); }
     function toggleTempNoExtra(k) { const i = tempItem.noExtraKeys.indexOf(k); if (i>=0) tempItem.noExtraKeys.splice(i,1); else tempItem.noExtraKeys.push(k); renderCustomizePanel(); }
     function changeTempAddQty(k, d) { tempItem.additionKeys[k] = Math.max(0, (tempItem.additionKeys[k]||0) + d); renderCustomizePanel(); }
-    function setTempLocation(isTA) { tempItem.isTakeaway = isTA; renderCustomizePanel(); }
     function changeTempQty(d) { tempItem.qty = Math.max(1, tempItem.qty + d); renderCustomizePanel(); }
 
     function confirmAddToCart() {
@@ -881,6 +935,21 @@
     }
 
     function cancelEdit() { tempItem = null; editingIndex = -1; renderSideList(); renderPanelCartSummary(); }
+
+    /* ✅ ver3.0.0 新增：清空購物車——把已選的所有餐點整個取消歸零，
+       正在客製化中的品項(tempItem)、編輯狀態(editingIndex)也一併重置，
+       回到「還沒點任何東西」的畫面。有確認彈窗防止手滑誤觸。 */
+    function clearCart() {
+        if (cart.length === 0 && !tempItem) return;
+        if (!confirm(userLang==='zh' ? '確定要清空購物車，取消所有已選餐點嗎？' : 'Clear the cart and remove all selected items?')) return;
+        cart = [];
+        tempItem = null;
+        editingIndex = -1;
+        closeCartModal();
+        renderSideList();
+        if (currentCategory === '推薦') renderRecommendPanel(); else renderPanelCartSummary();
+        updateBottomBar();
+    }
 
     /* ═══════════════ 購物車 ═══════════════ */
     function buildCartRowsHtml() {
@@ -1007,7 +1076,7 @@
                         <div class="hot-rank">⭐ ${userLang==='zh'?'店家推薦':'Recommended'}</div>
                         <div class="hot-name">${getItemName(c.mainKey)} (${getItemName(c.sizeKey)})</div>
                         <div class="hot-desc">${noodleText} ${sauceText}</div>
-                        <div class="hot-loc" style="background:var(--success);">🍽${userLang==='zh'?'堂食':'Dine-in'}</div>
+                        <div class="hot-loc" style="background:${globalIsTakeaway ? 'var(--takeaway)' : 'var(--success)'};">${globalIsTakeaway ? `🥡${userLang==='zh'?'外賣':'Takeaway'}` : `🍽${userLang==='zh'?'堂食':'Dine-in'}`}</div>
                     </div>
                 </div>
                 <div class="hot-card-footer">
@@ -1020,7 +1089,7 @@
     function addRecommendToCart(i) {
         const c = getRecommendedCombos()[i];
         const price = computeBasePrice(c.mainKey, c.sizeKey, c.category);
-        const item = { ...c, additionKeys: {}, price, qty: 1, isTakeaway: false };
+        const item = { ...c, additionKeys: {}, price, qty: 1, isTakeaway: globalIsTakeaway };
         cart.push(item);
         updateBottomBar();
         showAddedToast();
@@ -1098,13 +1167,16 @@
 
             /* ✅ ver2.2.3：摘要格式對齊員工版本機列印 A～L 結構
                E 品名(份數) → F [大小] 麵種 醬料 → G 特別要求/不要/加料 → H 外賣附加費
-               品項之間用 " | "，行內用 \n，廚房出單機可直接依同一套 printConfig 字級/行距排版 */
+               品項之間用 " | "，行內用 \n，廚房出單機可直接依同一套 printConfig 字級/行距排版
+               ✅ ver3.0.0 修正：這裡原本每個 getItemName()/getItemUnit() 呼叫都寫死傳入 'zh'，
+               不管客人選的介面語言是什麼，送出的摘要永遠是中文。改成傳入 userLang，
+               這樣客人用英文介面點餐，摘要也會是英文。 */
             const summaryParts = cart.map(item => {
-                const name = getItemName(item.mainKey, 'zh');
-                const size = item.sizeKey ? getItemName(item.sizeKey, 'zh') : '';
-                const noodle = item.noodleKey && item.noodleKey !== '湯品' ? getItemName(item.noodleKey, 'zh') : '';
-                const sauces = (item.sauceKeys||[]).map(k=>getItemName(k,'zh'));
-                const unit = item.category === '湯' ? '碗' : (item.category === '小食' ? getItemUnit(item.mainKey, 'zh') : '份');
+                const name = getItemName(item.mainKey, userLang);
+                const size = item.sizeKey ? getItemName(item.sizeKey, userLang) : '';
+                const noodle = item.noodleKey && item.noodleKey !== '湯品' ? getItemName(item.noodleKey, userLang) : '';
+                const sauces = (item.sauceKeys||[]).map(k=>getItemName(k,userLang));
+                const unit = item.category === '湯' ? '碗' : (item.category === '小食' ? getItemUnit(item.mainKey, userLang) : '份');
                 const displayQty = item.category === '小食' ? (item.qty * getItemRatio(item.mainKey)) : item.qty;
                 // E · 品項主名稱
                 const nameLine = `${name} (${displayQty}${unit})`;
@@ -1114,14 +1186,14 @@
                 const subLines = [];
                 // G · 特別要求 / 不要什麼 / 加料
                 if (item.specialKeys && item.specialKeys.length) {
-                    subLines.push(`★${item.specialKeys.map(k=>getItemName(k,'zh')).join('、')}`);
+                    subLines.push(`★${item.specialKeys.map(k=>getItemName(k,userLang)).join('、')}`);
                 }
                 if (item.noExtraKeys && item.noExtraKeys.length) {
-                    subLines.push(`不要：${item.noExtraKeys.map(k=>getItemName(k,'zh')).join('、')}`);
+                    subLines.push(`不要：${item.noExtraKeys.map(k=>getItemName(k,userLang)).join('、')}`);
                 }
                 const adds = Object.entries(item.additionKeys||{})
                     .filter(([k,v]) => v > 0)
-                    .map(([k,v]) => `${getItemName(k,'zh')}(${v*getItemRatio(k)}${getItemUnit(k,'zh')})`);
+                    .map(([k,v]) => `${getItemName(k,userLang)}(${v*getItemRatio(k)}${getItemUnit(k,userLang)})`);
                 if (adds.length) subLines.push(`+${adds.join('、')}`);
                 // H · 外賣附加費（與本機列印同一行文案）
                 if (item.isTakeaway) {
@@ -1230,7 +1302,13 @@
     function setLang(l) {
         userLang = l;
         document.body.classList.toggle('lang-en', l === 'en');
-        document.querySelectorAll('#lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
+        /* ✅ ver3.0.0：.lang-btn 同時涵蓋頂部原本那組、跟入口彈窗新增的那組語言切換鈕，
+           兩邊會一起同步 active 狀態 */
+        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
+        document.getElementById('entry-title').innerText = l==='zh' ? '請問是要「打包」還是「堂食」？' : 'Dine-in or Takeaway?';
+        document.getElementById('entry-dinein-btn').innerText = l==='zh' ? '🍽 堂食 Dine-in' : '🍽 Dine-in';
+        document.getElementById('entry-takeaway-btn').innerText = l==='zh' ? '🥡 打包 Takeaway' : '🥡 Takeaway';
+        updateDiningIndicator();
         document.querySelectorAll('.cat-tab').forEach(t => {
             const cat = t.dataset.cat;
             t.innerText = cat==='湯' ? (l==='zh'?'🍜 湯品類':'🍜 Soup') : cat==='面' ? (l==='zh'?'🍝 麵食類':'🍝 Noodle') : cat==='小食' ? (l==='zh'?'🍡 小食':'🍡 Side dish') : (l==='zh'?'⭐ 推薦':'⭐ Recommended');
