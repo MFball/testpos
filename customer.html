@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 3.0.0</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.0.1</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -123,6 +123,11 @@
     .ta-toggle-btn.active .ta-toggle-thumb { left: 22px; }
     .ta-toggle-text { font-size: 0.95rem; font-weight: 900; color: var(--success); }
     .ta-toggle-btn.active .ta-toggle-text { color: var(--takeaway); }
+    /* ✅ ver3.0.1：大小切換鈕專用文字樣式——沒選（小份）灰色，選了（大份）才變色，
+       文字本身固定顯示「大 +$1」，不會因為開/關而換字（跟原本的 .ta-toggle-text 分開，
+       避免影響到其他還在用 .ta-toggle-text 的地方，例如已刪除但未來可能復用的堂食/外賣鈕）。 */
+    .size-toggle-text { font-size: 0.95rem; font-weight: 900; color: #999; }
+    .ta-toggle-btn.active .size-toggle-text { color: var(--takeaway); }
 
     .qty-line { display: flex; align-items: center; justify-content: space-between; padding: 8px 4px; border-bottom: 1px solid #f5f5f5; }
     .qty-line:last-child { border-bottom: none; }
@@ -227,7 +232,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.0.0</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.0.1</span></div>
         <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
              這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
              一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
@@ -515,10 +520,9 @@
         }
     };
     const config = {
-        /* ✅ ver3.0.0：拿掉「大」的加價（取消加價選項），大/小同價；
-           '大的' 這個 key 保留、故意設為0——大小的「程式邏輯」（sizeKey==='大的' 這個判斷、
-           出單/購物車上的大小標示）完全沒動，只是不再多收錢。 */
-        prices: { '魚圓面':4, '香菇肉碎面':5.5, '招牌面':6.5, '餐餐面':6, '肉圓面':4, '蝦魚面':5, '西刀魚面':4.5, '香菇面':5, '魚餃面':4, '(純)肉碎面':4, '小魚香面':4.5, '兒童餐':3.5, '魚圓湯':5, '肉圓湯':5, '魚餃湯':5, '三寶湯':6, '魚圓肉圓湯':5, '魚圓魚餃湯':5, '鴛鴦紫菜湯':6, '香腸(雞)':0.8, '紫菜':1, '魚餅(圓)':1.8, '大的':0, '小的':0 },
+        /* ✅ ver3.0.1：確認客人希望保留「大」的加價，恢復 +$1（之前 ver3.0.0 誤把它拿掉了，
+           已依需求改回來）；大小切換鈕本身也改成固定顯示「大 +$1」，沒選的時候是灰色。 */
+        prices: { '魚圓面':4, '香菇肉碎面':5.5, '招牌面':6.5, '餐餐面':6, '肉圓面':4, '蝦魚面':5, '西刀魚面':4.5, '香菇面':5, '魚餃面':4, '(純)肉碎面':4, '小魚香面':4.5, '兒童餐':3.5, '魚圓湯':5, '肉圓湯':5, '魚餃湯':5, '三寶湯':6, '魚圓肉圓湯':5, '魚圓魚餃湯':5, '鴛鴦紫菜湯':6, '香腸(雞)':0.8, '紫菜':1, '魚餅(圓)':1.8, '大的':1, '小的':0 },
         foodImgs: { '魚圓面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '香菇肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczPRrBESQHr4MjJaDdiXYFda03b72aUrxqrO--coLUrariBXksy0KTPNNaXhzOmmrVhkbChOGKQFqiR8zRRcPZWSd7Hk-inOhSXStOXgC8d0a85lycU=w2400?source=screenshot.guru', '招牌面': 'https://lh3.googleusercontent.com/pw/AP1GczOVfyFF0BVjs49utoC4oxktdqpCblSROVp-z7A0aH5pjECVNDmcaKulF2YA7DBUEDZxzEij53427j1LqfZYPzUSFGdUM2_Zt-aYxIYJY40qAfH5wq8=w2400?source=screenshot.guru', '餐餐面': 'https://lh3.googleusercontent.com/pw/AP1GczPI477AgneL3f4pcuLKg25GQlwB9XCNdxRaABOxwTvciSuYeGzbEu1cez6OIb25ZSS6RMchPIuuTEFHKttxXRnvYboZ5PQh-0HJH1MtI49AWBL1GDA=w2400?source=screenshot.guru', '肉圓面': 'https://lh3.googleusercontent.com/pw/AP1GczO2J-xP5sDqsYL-5nFYQgmYldq26dabn-ezwb-vCUGDZ-S5nq_i7dsnWNmsswG5ippV0aBSwxf3zx6lfCHrhVOehydel1JSOBnr0aXMXmInJ1_9gnM=w2400?source=screenshot.guru', '蝦魚面': 'https://lh3.googleusercontent.com/pw/AP1GczPzLY41C33tAb9NV8EUJrRpiZGqc1WqVhSNhr9K5H41JKgfnEG4CqFIDluEUqs4wRf67VHhOcvgN_9z1J6UrQAQWtj-SvpBk8V7RoiRxNjsTE-NfVE=w2400?source=screenshot.guru', '西刀魚面': 'https://lh3.googleusercontent.com/pw/AP1GczP8Id6j5IYXzYS9x0xyNmfZWXGzQHCdfQBNbC34EmSqOTaA8rw5DGfhdsijfjfb_EnoCdl4nbXlowqkys6NnbQok762CxfDYno4mODYOp4oEp4EqAM=w2400?source=screenshot.guru', '香菇面': 'https://lh3.googleusercontent.com/pw/AP1GczOMJvr-1snMcDEsJsBV_QX2oISkKXtVZQGiajhBRNCUkTEpzev8LTJzjQ4jzeziLq4inDVPgROLRQ9NXxT3tnZGxJAgPNtPg3lgC-Cs582xH1jRiho=w2400?source=screenshot.guru', '魚餃面': 'https://i.ibb.co/nNLMt8jp/Fish-Dumpling-noodle.png', '(純)肉碎面': 'https://lh3.googleusercontent.com/pw/AP1GczM1EgErnLz57PZ0ckyDapaXUx27rggwr5VvU49Yo1vpygNeiLiTCVK6nGMT7UewX9jWyWN7Q04y5g8QeGtKBFBtYod8YZd1L42sFsRuRCpY2EvidrI=w2400?source=screenshot.guru', '小魚香面': 'https://lh3.googleusercontent.com/pw/AP1GczMOea7U-V10ztFr3Yim6w3K_-waMrZWgn9f5VdLk6JeObgOJpJu47IZGZ_N2Ok0WW57U0oCvjQ8Cd1llJYnEiMKw5BSLetmhF5BBxFnnGQwFCqmUjE=w2400?source=screenshot.guru', '兒童餐': 'https://i.ibb.co/6bHNPjP/kids-meal-placeholder.png' },
         soupImgs: { '魚圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczO53IM8P6okuoqH4lpXGLStyLy4PSLp2LEAXBolANcUA0dm0WBHCGxJ965cGrMP9F72cF24Uln8JbdwG9pt910rs1pG-dnU-CrwKWKcOhZoPnNbR6Q=w2400?source=screenshot.guru', '魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '三寶湯': 'https://lh3.googleusercontent.com/pw/AP1GczOGkSr6douVYw5ED49ONXDbTqp9tX92Syg3QnRHG43a8zZebTgtjWEUXgLieeqYOw-7CQdLF9Tm_1aVhak1HCxrCdPKf6lwtrrL9GopjkdCwX9FUtM=w2400?source=screenshot.guru', '魚圓肉圓湯': 'https://lh3.googleusercontent.com/pw/AP1GczOoXizYOs7TlJVh_ikXpPT_8uSFOyH2mnDMFvu2CIFXpJVYqNssfvAbgkwksOqIi89J0NAktQdtJStc5KB6YPkxqk0ccWLkjKAGWKILKERYMt_PYsI=w2400?source=screenshot.guru', '魚圓魚餃湯': 'https://lh3.googleusercontent.com/pw/AP1GczN3UWnlef_F80kDzpyJtDbUke-trWR_2HA4zVAnHG8PlM1N9FoBkIAThTpdOffxXiIKGYn9gNQV9Defs8T8CC7ChbKQGKCLctVtW-G84qTu6qGcuvM=w2400?source=screenshot.guru', '鴛鴦紫菜湯': 'https://i.ibb.co/placeholder/yuanyang-seaweed-soup.png' },
         noodleTypeImgs: { '面薄': 'https://lh3.googleusercontent.com/pw/AP1GczPTdYtkKQVVtu2xC4GqatBEs58tYr0xrU6-P08JGLPXNa9URyrd85OABGJvhRRywZqI_6ILtjozkyDCPJWyfo34-z3KP5EPG56bOb6S73_130W3J00=w2400?source=screenshot.guru', '幼面': 'https://lh3.googleusercontent.com/pw/AP1GczNzHJopdj33Emt-5K2nGrlY8AQRwcGxsmIGUyy2dzSKyFYLHxqH-tz7bIRoqlVFfxfetpW7bKNjWvenQuHQ1oPEWLa8r0Zv98IXzUaIhJlRpdNaMJU=w2400?source=screenshot.guru', '粿條': 'https://lh3.googleusercontent.com/pw/AP1GczPwzNH0_FdwO99aeaxK8kWR64JXsBGwj4s5HB13lSvp-sZwggbp8XT8yfDkbp7Cz_ZB-jynkrLK7FFpIQSTf_t4Umd8Eje8i_nWWxFshmGTKkrzCn4=w2400?source=screenshot.guru', '熟面': 'https://lh3.googleusercontent.com/pw/AP1GczO5hHYBkxDeOygQ1hWxWYtPlMOGUWWImLcvrXSe9dYeWIPukbqHY5O9qq6IrM9Q88jSG6EE8HmeIM9jOg081VP1KcW7uXlnaMCsWb56wt3dRd9WJJw=w2400?source=screenshot.guru', '米粉': 'https://lh3.googleusercontent.com/pw/AP1GczMCq_h1GaefE-Kpouj1xUx_GoEhsa6BHL7giIsCTbZqtOKJG_8AJIpYSsqpPEiR5Ao00oYTYixHE7KxdZjWSv2LTg-CQ_xWVBv8OfAB98J7Z1wPYG0=w2400?source=screenshot.guru', '米太目': 'https://lh3.googleusercontent.com/pw/AP1GczNPdhdHay7KR_IB303jyQY9PkJv14r8_ctsIwsnIGVdX5m0e4mAQjGoW6kMCuWfZEzoGn0PfIS4YbYsam7ncI1eDn9rYAbQ53qUsbpt4BHxE2Gur3k=w600-h315-p-k', '冬粉': 'https://lh3.googleusercontent.com/pw/AP1GczMjjBg1W6WSV-nXO1fI3_rZXHO1u53fhIyPuY8F5PfDsGsSNuMqbrcoNbcIYTISpCvg-YzHA3xOyUmD1SUOQQvXXoAsXW9wTiEt9IswwswNBTCsoCc=w2400?source=screenshot.guru', '粿條面': 'https://i.ibb.co/4Z3pjddg/Kuay-Teow-Noodle.png', '粿條米粉': 'https://i.ibb.co/Kc4dzrMJ/Kuay-Teow-Mee-Hoon.png', '米粉面': 'https://i.ibb.co/GvHqTPM4/Mee-Hoon-Noodle.png' },
@@ -687,12 +691,16 @@
         return base;
     }
     function hasTieredPricing(key) { return key === '西刀魚餅'; }
+    /* ✅ ver3.0.1 修正：外賣 +$0.3 只該加在麵/湯這種主餐上，小食／加料類（category==='小食'）
+       不該被多收這筆錢——之前不管品項類別，只要整單是外賣就一律加$0.3，
+       導致小食單點（例如魚餅、香腸）外賣時也被多收了$0.3。 */
     function computeTempTotalPrice(t) {
         if (t.category === '小食' && hasTieredPricing(t.mainKey)) {
-            return tieredUnitTotal(t.mainKey, t.qty) + (t.isTakeaway ? 0.30 * t.qty : 0);
+            return tieredUnitTotal(t.mainKey, t.qty);
         }
         const unitPrice = computeTempUnitPrice(t);
-        return (unitPrice + (t.isTakeaway ? 0.30 : 0)) * t.qty;
+        const takeawayFee = (t.isTakeaway && t.category !== '小食') ? 0.30 : 0;
+        return (unitPrice + takeawayFee) * t.qty;
     }
     function buildSummaryText(t) {
         const parts = [getItemName(t.mainKey)];
@@ -770,17 +778,18 @@
             </div>
         </div>`;
 
-        /* ✅ ver3.0.0 簡化大小選擇：拿掉原本「小 $0 / 大 +$1」兩顆按鈕，
-           改成一顆「大份」開關——不加價，只保留 sizeKey==='大的' 這個內部標記
-           （廚房出單、購物車顯示都還是照這個標記走，跟以前一樣）。
+        /* ✅ ver3.0.0 簡化大小選擇：拿掉原本「小 $0 / 大 +$1」兩顆按鈕，改成一顆開關，
+           內部 sizeKey==='大的' 這個標記完全沒動（廚房出單、購物車顯示都還是照這個標記走）。
            同時把原本這裡的「堂食/外賣」開關整個拿掉——現在改成一進系統就用
            入口彈窗(#entry-dining-modal)問一次，整張訂單套用同一個選擇，
-           不用每個品項都選一次。 */
+           不用每個品項都選一次。
+           ✅ ver3.0.1：依需求把+$1加價恢復，按鈕文字固定顯示「大 +$1」/「BIG +$1」
+           （不會隨開關切換文字），沒選（小份）時是灰色，選了（大份）才變色。 */
         if (t.category === '面' || t.category === '湯') {
             html += `<div class="section"><div class="section-label">📏 ${userLang==='zh'?'大小':'Size'}</div>
                 <button class="ta-toggle-btn ${t.sizeKey==='大的'?'active':''}" onclick="setTempSize('${t.sizeKey==='大的'?'小的':'大的'}')">
                     <span class="ta-toggle-track"><span class="ta-toggle-thumb"></span></span>
-                    <span class="ta-toggle-text">${t.sizeKey==='大的' ? getItemName('大的') : getItemName('小的')}</span>
+                    <span class="size-toggle-text">${getItemName('大的')} +$${config.prices['大的']}</span>
                 </button>
             </div>`;
         }
@@ -957,10 +966,12 @@
             return `<div class="empty-hint">👈 ${userLang==='zh' ? '請從左側選擇餐點開始點餐' : 'Select an item on the left to start.'}</div>`;
         }
         return cart.map((item, idx) => {
-            const fee = item.isTakeaway ? 0.30 * item.qty : 0;
+            const fee = (item.isTakeaway && item.category !== '小食') ? 0.30 * item.qty : 0;
             const line = item.price * item.qty + fee;
             const adds = Object.entries(item.additionKeys||{}).filter(([k,v])=>v>0).map(([k,v])=>`${getItemName(k)}(${v*getItemRatio(k)}${getItemUnit(k)})`).join(', ');
-            const locTag = item.isTakeaway ? `<span class="loc-tag ta">🥡外賣 +$${fee.toFixed(2)}</span>` : `<span class="loc-tag di">🍽堂食</span>`;
+            const locTag = item.isTakeaway
+                ? `<span class="loc-tag ta">🥡外賣${fee > 0 ? ` +$${fee.toFixed(2)}` : ''}</span>`
+                : `<span class="loc-tag di">🍽堂食</span>`;
             return `<div class="cart-item"><div class="cart-row"><div class="cart-info">
                 <div style="font-weight:900; font-size:1.05rem;">${idx+1}. ${getItemName(item.mainKey)}${locTag}</div>
                 ${item.category==='面' ? `<div style="font-size:0.9rem; color:#333; font-weight:bold;">[${getItemName(item.sizeKey)}] ${getItemName(item.noodleKey)} ${item.sauceKeys.map(k=>getItemName(k)).join(', ')}</div>` : ''}
@@ -1028,7 +1039,7 @@
        避免各處各自算一次、數字兜不起來 */
     function getCartTotals() {
         let original = 0;
-        cart.forEach(item => { original += item.price * item.qty + (item.isTakeaway ? 0.30 * item.qty : 0); });
+        cart.forEach(item => { original += item.price * item.qty + ((item.isTakeaway && item.category !== '小食') ? 0.30 * item.qty : 0); });
         const promo = calcPromotionForCart(cart);
         const discount = promo.discount || 0;
         const final = Math.max(0, original - discount);
@@ -1195,8 +1206,8 @@
                     .filter(([k,v]) => v > 0)
                     .map(([k,v]) => `${getItemName(k,userLang)}(${v*getItemRatio(k)}${getItemUnit(k,userLang)})`);
                 if (adds.length) subLines.push(`+${adds.join('、')}`);
-                // H · 外賣附加費（與本機列印同一行文案）
-                if (item.isTakeaway) {
+                // H · 外賣附加費（與本機列印同一行文案）✅ ver3.0.1：小食／加料類不收這筆外賣附加費
+                if (item.isTakeaway && item.category !== '小食') {
                     subLines.push(`(外賣附加: +$${(0.30 * item.qty).toFixed(2)})`);
                 }
 
