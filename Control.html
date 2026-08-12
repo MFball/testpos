@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.8.1</title>
+<title>Million 麵店 · 主理員後台 ver2.9.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -129,7 +129,7 @@
 <!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
 <div id="pinGate">
     <div style="font-size:2.5rem;">🍜</div>
-    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.8.1</small></h2>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.9.0</small></h2>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
     <div id="pinError"></div>
     <button id="pinBtn" onclick="checkPin()">進入</button>
@@ -138,7 +138,7 @@
 <!-- ══════════════════ 主畫面 ══════════════════ -->
 <div id="app">
     <div class="topbar">
-        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.8.1</span></h1>
+        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.9.0</span></h1>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
             <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
@@ -161,6 +161,9 @@
         <button class="tab-btn" data-cat="特別要求" onclick="switchTab('特別要求')">📝 特別要求</button>
         <button class="tab-btn" data-cat="列印設定" onclick="switchTab('列印設定')">🖨️ 列印設定</button>
         <button class="tab-btn" data-cat="活動" onclick="switchTab('活動')">🎉 活動</button>
+        <!-- ✅ ver2.9.0 新增：卡片樣式（圖像化菜單格的顏色/字級）、推薦組合（推薦分類要配的餐點） -->
+        <button class="tab-btn" data-cat="卡片樣式" onclick="switchTab('卡片樣式')">🎨 卡片樣式</button>
+        <button class="tab-btn" data-cat="推薦組合" onclick="switchTab('推薦組合')">⭐ 推薦組合</button>
     </div>
 
     <div id="itemList"></div>
@@ -391,6 +394,73 @@
 
         <div id="promo-item-checklist" class="checkbox-group" style="max-height:360px; overflow-y:auto;"></div>
     </div>
+
+    <!-- 🎨 ver2.9.0 新增：圖像化菜單卡片樣式 -->
+    <div id="cardStyleSection" class="print-config-panel" style="display: none;">
+        <h3>
+            <span>🎨 顧客點餐 · 圖像化菜單卡片樣式</span>
+            <button class="btn btn-primary" onclick="saveCardStyle()">💾 儲存卡片樣式</button>
+        </h3>
+        <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; padding:10px 14px; margin:12px 0 4px; font-size:0.85rem; color:#1b5e20; line-height:1.6;">
+            套用在顧客點餐 App「湯品類／麵食類／小食」的圖像化菜單格上——每張卡片照片右下角的價錢標籤、跟照片下方的品名底色，可以自訂顏色跟文字大小。
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+
+        <div class="field-label">💰 價錢標籤</div>
+        <div class="config-grid">
+            <div>
+                <div class="field-label">A · 價錢底色</div>
+                <input id="cs-priceBg" type="color" class="field-input" style="height:44px; padding:4px;" oninput="updateCardStylePreview()">
+            </div>
+            <div>
+                <div class="field-label">B · 價錢文字顏色</div>
+                <input id="cs-priceColor" type="color" class="field-input" style="height:44px; padding:4px;" oninput="updateCardStylePreview()">
+            </div>
+            <div>
+                <div class="field-label">價錢文字大小 (px)</div>
+                <input id="cs-priceFontSize" type="number" min="8" step="1" class="field-input" oninput="updateCardStylePreview()">
+            </div>
+        </div>
+
+        <div class="field-label" style="margin-top:18px;">🏷️ 品名</div>
+        <div class="config-grid">
+            <div>
+                <div class="field-label">D · 名稱底色</div>
+                <input id="cs-nameBg" type="color" class="field-input" style="height:44px; padding:4px;" oninput="updateCardStylePreview()">
+            </div>
+            <div>
+                <div class="field-label">C · 名稱文字顏色</div>
+                <input id="cs-nameColor" type="color" class="field-input" style="height:44px; padding:4px;" oninput="updateCardStylePreview()">
+            </div>
+            <div>
+                <div class="field-label">名稱文字大小 (px)</div>
+                <input id="cs-nameFontSize" type="number" min="8" step="1" class="field-input" oninput="updateCardStylePreview()">
+            </div>
+        </div>
+
+        <div class="field-label" style="margin-top:20px;">預覽</div>
+        <div style="width:160px;">
+            <div style="position:relative; width:100%; aspect-ratio:1/1; border-radius:16px 16px 0 0; overflow:hidden; background:linear-gradient(135deg,#f2ebe0,#e8dcc4); display:flex; align-items:center; justify-content:center; font-weight:900; color:#a08f6f; font-size:0.8rem; text-align:center; padding:8px;">
+                範例圖片
+                <div id="cs-preview-price" style="position:absolute; right:8px; bottom:8px; font-weight:900; padding:3px 9px; border-radius:8px;"></div>
+            </div>
+            <div id="cs-preview-name" style="padding:10px 8px 12px; border-radius:0 0 16px 16px; font-weight:900; text-align:center;"></div>
+        </div>
+    </div>
+
+    <!-- ⭐ ver2.9.0 新增：推薦組合設定 -->
+    <div id="recommendSection" class="print-config-panel" style="display: none;">
+        <h3>
+            <span>⭐ 推薦組合設定</span>
+            <button class="btn btn-primary" onclick="saveRecommend()">💾 儲存推薦組合</button>
+        </h3>
+        <div style="background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; padding:10px 14px; margin:12px 0 4px; font-size:0.85rem; color:#1b5e20; line-height:1.6;">
+            設定顧客點餐 App「⭐ 推薦」分類要顯示的固定搭配（例如：魚圓面配粿條配湯底）。客人點推薦卡片就是直接照這裡的設定一鍵加入購物車，不用自己再選一次大小/麵種/醬料。
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+        <div id="recommend-list"></div>
+        <button class="btn" style="background:#eee; color:#444; margin-top:10px;" onclick="addRecommendCombo()">➕ 新增推薦組合</button>
+    </div>
 </div>
 
 <!-- ══════════════════ 新增/編輯 表單 ══════════════════ -->
@@ -450,6 +520,9 @@ const ADMIN_PIN = "8238";
 const MENU_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/menu.json";
 const PRINT_CONFIG_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/printConfig.json";
 const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
+/* ✅ ver2.9.0 新增：卡片樣式、推薦組合各自獨立的雲端節點，跟 printConfig/promotion 同一套模式 */
+const CARD_STYLE_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/cardStyle.json";
+const RECOMMEND_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/recommendCombos.json";
 
 /* 種子資料：跟目前點餐機內建的預設菜單完全一致，供「從預設值建立」按鈕使用 */
 const SEED_DEFAULTS = {
@@ -499,7 +572,9 @@ const CATS = {
     '不要什麼': { type: 'simple', addName: '不要什麼選項', dataKey: 'noWant',        icon: '🚫' },
     '特別要求': { type: 'simple', addName: '特別要求選項', dataKey: 'specialRequest', icon: '📝' },
     '列印設定': { type: 'print' },
-    '活動': { type: 'promo' }
+    '活動': { type: 'promo' },
+    '卡片樣式': { type: 'cardstyle' },
+    '推薦組合': { type: 'recommend' }
 };
 
 let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
@@ -553,6 +628,22 @@ let promotionConfig = {
     tiers: [],           
     excludedItems: []    
 };
+/* ✅ ver2.9.0 新增：卡片樣式預設值——跟顧客點餐 App 目前的圖像化菜單格外觀一致，
+   還沒儲存過的話，兩邊看起來完全一樣，不會一上線就跑版。 */
+let cardStyleConfig = {
+    priceBg: '#000000', priceColor: '#ffffff', priceFontSize: 13,
+    nameBg: '#3c3c3c', nameColor: '#ffffff', nameFontSize: 14
+};
+/* ✅ ver2.9.0 新增：推薦組合預設值——跟顧客點餐 App 原本寫死的 3 個推薦組合完全一致，
+   還沒在這裡改過的話，前台顯示不會變。麵種/醬料選項是全系統共用的固定清單
+   （不是這裡新增的資料，跟點餐機/顧客點餐用同一套，所以用下拉選單而不是自由輸入）。 */
+let recommendCombos = [
+    { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '面薄', sauceKey: '辣椒' },
+    { mainKey: '香菇肉碎面', sizeKey: '小的', noodleKey: '面薄', sauceKey: '辣椒' },
+    { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '粿條面', sauceKey: '湯' }
+];
+const NOODLE_TYPE_OPTIONS = ['面薄','幼面','粿條','熟面','米粉','米太目','冬粉','粿條面','粿條米粉','米粉面'];
+const SAUCE_OPTIONS = ['辣椒','少辣','多辣','茄汁','黑醬油','白醬青','醋','三味','分湯','湯'];
 
 /* ═══════════════════════════════════════════════════
    PIN 登入
@@ -566,6 +657,8 @@ function checkPin() {
         loadMenu();
         loadPrintConfig();
         loadPromotion();
+        loadCardStyle();
+        loadRecommend();
     } else {
         document.getElementById('pinError').innerText = '密碼錯誤';
         document.getElementById('pinInput').value = '';
@@ -927,6 +1020,148 @@ async function savePromotion() {
 }
 
 /* ═══════════════════════════════════════════════════
+   ✅ ver2.9.0 新增：卡片樣式設定
+   ═══════════════════════════════════════════════════ */
+async function loadCardStyle() {
+    try {
+        const res = await fetch(CARD_STYLE_URL + '?t=' + Date.now());
+        const data = await res.json();
+        if (res.ok && data && !data.error) cardStyleConfig = { ...cardStyleConfig, ...data };
+    } catch (e) {
+        console.log('讀取卡片樣式失敗，使用預設值');
+    }
+    applyCardStyleToForm();
+}
+function applyCardStyleToForm() {
+    document.getElementById('cs-priceBg').value = cardStyleConfig.priceBg;
+    document.getElementById('cs-priceColor').value = cardStyleConfig.priceColor;
+    document.getElementById('cs-priceFontSize').value = cardStyleConfig.priceFontSize;
+    document.getElementById('cs-nameBg').value = cardStyleConfig.nameBg;
+    document.getElementById('cs-nameColor').value = cardStyleConfig.nameColor;
+    document.getElementById('cs-nameFontSize').value = cardStyleConfig.nameFontSize;
+    updateCardStylePreview();
+}
+function updateCardStylePreview() {
+    const p = document.getElementById('cs-preview-price');
+    const n = document.getElementById('cs-preview-name');
+    if (!p || !n) return;
+    p.style.background = document.getElementById('cs-priceBg').value;
+    p.style.color = document.getElementById('cs-priceColor').value;
+    p.style.fontSize = (parseInt(document.getElementById('cs-priceFontSize').value) || 13) + 'px';
+    p.innerText = '$4 起';
+    n.style.background = document.getElementById('cs-nameBg').value;
+    n.style.color = document.getElementById('cs-nameColor').value;
+    n.style.fontSize = (parseInt(document.getElementById('cs-nameFontSize').value) || 14) + 'px';
+    n.innerText = '魚圓面';
+}
+async function saveCardStyle() {
+    cardStyleConfig = {
+        priceBg: document.getElementById('cs-priceBg').value,
+        priceColor: document.getElementById('cs-priceColor').value,
+        priceFontSize: parseInt(document.getElementById('cs-priceFontSize').value) || 13,
+        nameBg: document.getElementById('cs-nameBg').value,
+        nameColor: document.getElementById('cs-nameColor').value,
+        nameFontSize: parseInt(document.getElementById('cs-nameFontSize').value) || 14,
+    };
+    try {
+        const res = await fetch(CARD_STYLE_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cardStyleConfig)
+        });
+        if (!res.ok) {
+            const hint = (res.status === 401 || res.status === 403)
+                ? '（很可能是 Firebase 資料庫規則尚未開放 /cardStyle 節點的寫入權限）' : '';
+            throw new Error(`伺服器回應 ${res.status}${hint}`);
+        }
+        toast("✓ 卡片樣式已成功儲存！顧客點餐重新整理後會套用新樣式。");
+        await loadCardStyle();
+    } catch (err) {
+        toast("儲存失敗：" + err.message);
+    }
+}
+
+/* ═══════════════════════════════════════════════════
+   ✅ ver2.9.0 新增：推薦組合設定
+   ═══════════════════════════════════════════════════ */
+async function loadRecommend() {
+    try {
+        const res = await fetch(RECOMMEND_URL + '?t=' + Date.now());
+        const data = await res.json();
+        if (res.ok && Array.isArray(data) && data.length > 0) recommendCombos = data;
+    } catch (e) {
+        console.log('讀取推薦組合失敗，使用預設值');
+    }
+}
+function renderRecommendList() {
+    const list = document.getElementById('recommend-list');
+    const mainKeys = Object.keys(menuData.foodImgs || {});
+    if (mainKeys.length === 0) {
+        list.innerHTML = '<div style="color:#999; font-size:0.85rem;">請先到「麵食類」新增餐點，才能設定推薦組合</div>';
+        return;
+    }
+    if (recommendCombos.length === 0) {
+        list.innerHTML = '<div style="color:#999; font-size:0.85rem; margin-bottom:8px;">還沒有設定任何推薦組合，按下面「新增推薦組合」開始設定</div>';
+        return;
+    }
+    list.innerHTML = recommendCombos.map((c, i) => `
+        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; background:#f9f9f9; border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:10px;">
+            <div style="flex:1 1 140px; min-width:120px;">
+                <div class="field-label" style="margin:0 0 4px;">主餐</div>
+                <select class="field-input" onchange="updateRecommendCombo(${i}, 'mainKey', this.value)">
+                    ${mainKeys.map(k => `<option value="${k}" ${c.mainKey===k?'selected':''}>${(menuData.items[k]&&menuData.items[k].zh)||k}</option>`).join('')}
+                </select>
+            </div>
+            <div style="flex:1 1 90px; min-width:84px;">
+                <div class="field-label" style="margin:0 0 4px;">大小</div>
+                <select class="field-input" onchange="updateRecommendCombo(${i}, 'sizeKey', this.value)">
+                    <option value="小的" ${c.sizeKey==='小的'?'selected':''}>小</option>
+                    <option value="大的" ${c.sizeKey==='大的'?'selected':''}>大</option>
+                </select>
+            </div>
+            <div style="flex:1 1 110px; min-width:100px;">
+                <div class="field-label" style="margin:0 0 4px;">麵種</div>
+                <select class="field-input" onchange="updateRecommendCombo(${i}, 'noodleKey', this.value)">
+                    ${NOODLE_TYPE_OPTIONS.map(k => `<option value="${k}" ${c.noodleKey===k?'selected':''}>${k}</option>`).join('')}
+                </select>
+            </div>
+            <div style="flex:1 1 110px; min-width:100px;">
+                <div class="field-label" style="margin:0 0 4px;">醬料/湯底</div>
+                <select class="field-input" onchange="updateRecommendCombo(${i}, 'sauceKey', this.value)">
+                    ${SAUCE_OPTIONS.map(k => `<option value="${k}" ${c.sauceKey===k?'selected':''}>${k}</option>`).join('')}
+                </select>
+            </div>
+            <button onclick="removeRecommendCombo(${i})" style="background:#ffebee; color:#e53935; border:none; border-radius:8px; padding:10px 12px; font-weight:bold; flex-shrink:0;">✕</button>
+        </div>`).join('');
+}
+function addRecommendCombo() {
+    const mainKeys = Object.keys(menuData.foodImgs || {});
+    if (mainKeys.length === 0) { toast('請先新增麵食類餐點'); return; }
+    recommendCombos.push({ mainKey: mainKeys[0], sizeKey: '小的', noodleKey: NOODLE_TYPE_OPTIONS[0], sauceKey: SAUCE_OPTIONS[0] });
+    renderRecommendList();
+}
+function removeRecommendCombo(i) { recommendCombos.splice(i, 1); renderRecommendList(); }
+function updateRecommendCombo(i, field, value) { recommendCombos[i][field] = value; }
+async function saveRecommend() {
+    try {
+        const res = await fetch(RECOMMEND_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(recommendCombos)
+        });
+        if (!res.ok) {
+            const hint = (res.status === 401 || res.status === 403)
+                ? '（很可能是 Firebase 資料庫規則尚未開放 /recommendCombos 節點的寫入權限）' : '';
+            throw new Error(`伺服器回應 ${res.status}${hint}`);
+        }
+        toast("✓ 推薦組合已成功儲存！顧客點餐重新整理後會套用。");
+        await loadRecommend();
+    } catch (err) {
+        toast("儲存失敗：" + err.message);
+    }
+}
+
+/* ═══════════════════════════════════════════════════
    讀取雲端菜單
    ═══════════════════════════════════════════════════ */
 async function loadMenu() {
@@ -1023,6 +1258,8 @@ function switchTab(cat) {
     document.getElementById('addBtnContainer').style.display = 'none';
     document.getElementById('printConfigSection').style.display = 'none';
     document.getElementById('promoSection').style.display = 'none';
+    document.getElementById('cardStyleSection').style.display = 'none';
+    document.getElementById('recommendSection').style.display = 'none';
 
     if (cat === '列印設定') {
         document.getElementById('printConfigSection').style.display = 'block';
@@ -1032,6 +1269,15 @@ function switchTab(cat) {
         document.getElementById('promoSection').style.display = 'block';
         renderPromoItemChecklist();
         renderPromoTiers();
+        return;
+    }
+    if (cat === '卡片樣式') {
+        document.getElementById('cardStyleSection').style.display = 'block';
+        return;
+    }
+    if (cat === '推薦組合') {
+        document.getElementById('recommendSection').style.display = 'block';
+        renderRecommendList();
         return;
     }
 
@@ -1048,7 +1294,7 @@ function getImgMap(cat) {
 
 function getKeysForTab() {
     const cat = CATS[currentTab];
-    if (!cat || cat.type === 'print' || cat.type === 'promo') return [];
+    if (!cat || cat.type === 'print' || cat.type === 'promo' || cat.type === 'cardstyle' || cat.type === 'recommend') return [];
     if (cat.type === 'food') return Object.keys(menuData[cat.imgField]);
     return Object.keys(menuData[cat.dataKey]);
 }
