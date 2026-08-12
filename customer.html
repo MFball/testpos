@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 3.2.0</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.2.1</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -52,8 +52,12 @@
     .empty-hint { text-align: center; color: #999; padding: 60px 20px; font-size: 1.05rem; line-height: 1.8; }
 
     /* ── 自訂面板 ── */
-    .cz-header { position: sticky; top: 0; z-index: 20; background: #fff; margin: -16px -16px 14px -16px; padding: 14px 16px 10px 16px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #222; box-shadow: 0 4px 8px rgba(0,0,0,0.04); }
-    .cz-title { font-size: 1.3rem; font-weight: 900; }
+    .cz-header { position: sticky; top: 0; z-index: 20; background: #fff; margin: -16px -16px 14px -16px; padding: 14px 16px 10px 16px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #222; box-shadow: 0 4px 8px rgba(0,0,0,0.04); gap: 10px; }
+    /* ✅ ver3.2.1 新增：客製化面板頭部的圖片縮圖 + 名稱，取代原本只有純文字的標題區 */
+    .cz-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .cz-thumb { width: 54px; height: 54px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+    .cz-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cz-title { font-size: 1.3rem; font-weight: 900; min-width: 0; }
     .cz-title small { display: block; font-size: 0.75rem; color: #888; font-weight: bold; }
     .cz-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
     .confirm-btn-top { background: var(--success); color: #fff; border: none; padding: 12px 18px; border-radius: 14px; font-weight: 900; font-size: 1.05rem; white-space: nowrap; }
@@ -68,42 +72,16 @@
     .collapse-body.closed { display: none; }
     .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .chip { padding: 11px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fff; font-weight: 900; font-size: 0.92rem; color: #444; }
-    /* ✅ 整個「Sauce(multi)」列改成單一條可以左右拖曳捲動的區域：
-       中文的直書側邊按鈕(辣椒/湯)、中間的醬料選項，全部放在同一條橫向列裡，
-       選項太多、或英文字比較長塞不下時，手指左右滑就能看到全部，不會被擠壓變形 */
-    .sauce-layout {
-        display: flex; gap: 8px; align-items: stretch;
-        overflow-x: auto; -webkit-overflow-scrolling: touch;
-        padding-bottom: 10px;
-    }
-    .sauce-layout::-webkit-scrollbar { height: 6px; }
-    .sauce-layout::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.25); border-radius: 3px; }
-    .sauce-side-btn {
-        flex: 0 0 68px;
-        display: flex; align-items: center; justify-content: center;
-        writing-mode: vertical-rl; text-orientation: upright;
-        font-size: 1.25rem; font-weight: 900; letter-spacing: 2px;
-        border-radius: 14px; border: 3px solid #eee; background: #fff; color: #444;
-    }
-    .sauce-side-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
-    .sauce-side-btn.soup-side { border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.15); }
-    /* ✅ 英文模式下，「Chili」「Soup Base」這種英文單字如果照中文那樣直書，
-       會變成一個字母一行、又長又難讀。這裡改成正常橫排文字；
-       按鈕寬度改成依文字內容自動加寬(不再自己內部捲動)，捲動交給外層 .sauce-layout 統一處理 */
-    body.lang-en .sauce-side-btn {
-        flex: 0 0 auto;
-        writing-mode: horizontal-tb;
-        text-orientation: mixed;
-        letter-spacing: normal;
-        font-size: 0.9rem;
-        white-space: nowrap;
-        padding: 0 16px;
-    }
-    .sauce-mid-grid {
-        flex: 0 0 auto;
-        display: flex; gap: 8px;
-    }
-    .sauce-mid-grid .chip { flex: 0 0 auto; white-space: nowrap; padding: 10px 14px; font-size: 0.85rem; }
+    /* ✅ ver3.2.1：醬料區改成「干／湯」兩個分頁，取代原本橫向捲動的單一長條列。
+       干＝辣椒/少辣/多辣/茄汁/黑醬油/白醬青/醋/三味（2欄排列）；湯＝湯/分湯（互斥醬料）。
+       選了其中一組，另一組的分頁按鈕會變灰（純視覺提示「這組現在不適用」），
+       實際互斥邏輯本來就已經在 toggleTempSauce()／EXCLUSIVE_SAUCES 處理過了，這裡不用重複判斷。 */
+    .sauce-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+    .sauce-tab-btn { flex: 1; padding: 11px 8px; border-radius: 12px; border: 2.5px solid #eee; background: #fff; font-weight: 900; font-size: 0.95rem; color: #444; }
+    .sauce-tab-btn.tab-active { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
+    .sauce-tab-btn.tab-dim { opacity: 0.4; }
+    .sauce-tab-page { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sauce-tab-page .chip { width: 100%; }
     .chip.selected { border-color: var(--primary); background: #e8f0fe; color: var(--primary); }
     .chip.warn.selected { border-color: #e53935; background: #ffebee; color: #e53935; }
     .chip.big { padding: 14px 22px; font-size: 1rem; }
@@ -223,6 +201,7 @@
         .cat-tab { padding: 9px 8px; font-size: 0.78rem; border-radius: 9px; }
         #panel { padding: 12px 10px; }
         .cz-header { margin: -12px -10px 12px -10px; padding: 12px 10px 8px 10px; }
+        .cz-thumb { width: 42px; height: 42px; border-radius: 10px; font-size: 1.3rem; }
         .cz-title { font-size: 1.1rem; }
         .confirm-btn-top { padding: 10px 12px; font-size: 0.88rem; }
         .chip { padding: 9px 12px; font-size: 0.85rem; }
@@ -238,7 +217,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.2.0</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.2.1</span></div>
         <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
              這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
              一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
@@ -520,6 +499,10 @@
     let tempItem = null;
     let editingIndex = -1;
     let panelCollapse = { special: true, noExtra: true, additions: true };
+    /* ✅ ver3.2.1 新增：醬料區「干／湯」目前顯示哪一頁——單純的畫面狀態，跟實際選了
+       哪些醬料(tempItem.sauceKeys)是分開的兩件事，所以獨立成一個變數，選新品項/編輯
+       購物車項目時會重設（見 selectItem() / editCartLine()）。 */
+    let sauceTabView = '干';
 
     /* ═══════════════ ver3.0.0：入口問詢——打包 or 堂食 ═══════════════
        整張訂單只問一次（不再每個品項各自選），選完存在這個全域變數，
@@ -699,7 +682,13 @@
     function getItemRatio(key) { return (dictionary.items[key] && dictionary.items[key].ratio) ? dictionary.items[key].ratio : 1; }
     function getItemUnit(key, lang = userLang) { return (dictionary.items[key] && dictionary.items[key].unit) ? dictionary.items[key].unit[lang] : ''; }
     function getItemImage(key) {
-        const url = config.foodImgs[key] || config.soupImgs[key];
+        let url = config.foodImgs[key] || config.soupImgs[key];
+        /* ✅ ver3.2.1：小食類的圖片放在 config.additions[].img，之前這裡沒查到，
+           改成一併查，這樣客製化面板頭部縮圖(見 renderCustomizePanel)在小食類也能顯示 */
+        if (!url) {
+            const a = config.additions.find(x => x.key === key);
+            if (a) url = a.img;
+        }
         if (!url || url.includes('placeholder')) return null;
         return url;
     }
@@ -808,6 +797,7 @@
     function selectItem(key) {
         editingIndex = -1;
         panelCollapse = { special: true, noExtra: true, additions: true };
+        sauceTabView = '干'; // ✅ ver3.2.1：每次選新品項，醬料分頁重設回「干」（麵食類預設就是辣椒／干）
         /* ✅ ver3.0.0：isTakeaway 不再是每個品項各自選，直接套用入口彈窗選好的 globalIsTakeaway */
         if (currentCategory === '湯') {
             tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '湯品', sauceKeys: ['湯'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '湯', isTakeaway: globalIsTakeaway };
@@ -826,7 +816,11 @@
         const totalPrice = computeTempTotalPrice(t);
 
         let html = `<div class="cz-header">
-            <div class="cz-title">${getItemName(t.mainKey)}<small>${editingIndex >= 0 ? (userLang==='zh'?'修改購物車項目':'Editing cart item') : (userLang==='zh'?'請選擇您的偏好':'Customize your order')}</small></div>
+            <div class="cz-header-left">
+                <!-- ✅ ver3.2.1 新增：客製化面板頭部縮圖，跟菜單格的圖片是同一份資料 -->
+                <div class="cz-thumb">${getItemImage(t.mainKey) ? `<img src="${getItemImage(t.mainKey)}" alt="${getItemName(t.mainKey)}">` : `<span>🍜</span>`}</div>
+                <div class="cz-title">${getItemName(t.mainKey)}<small>${editingIndex >= 0 ? (userLang==='zh'?'修改購物車項目':'Editing cart item') : (userLang==='zh'?'請選擇您的偏好':'Customize your order')}</small></div>
+            </div>
             <div class="cz-header-actions">
                 <!-- ✅ ver3.1.0：改成圖像化菜單格之後，這裡加一顆「返回」鈕，
                      客人點了卡片進來客製化，但還沒加入購物車前想改逛別的餐點，
@@ -858,14 +852,20 @@
             </div></div>`;
 
             {
-                const midSauces = config.sauces.filter(k => k !== '辣椒' && k !== '湯');
+                /* ✅ ver3.2.1：改成「干／湯」兩個分頁，取代原本橫向捲動的單一長條列
+                   （見上方 .sauce-tabs CSS 的說明）。實際的互斥規則完全沒變，還是靠
+                   toggleTempSauce() 裡的 EXCLUSIVE_SAUCES 判斷，這裡只負責畫面呈現。 */
+                const DRY_SAUCES = config.sauces.filter(k => !EXCLUSIVE_SAUCES.includes(k));
+                const hasSoupSauce = t.sauceKeys.some(k => EXCLUSIVE_SAUCES.includes(k));
+                const hasDrySauce = t.sauceKeys.some(k => !EXCLUSIVE_SAUCES.includes(k));
+                const pageKeys = sauceTabView === '湯' ? EXCLUSIVE_SAUCES : DRY_SAUCES;
                 html += `<div class="section"><div class="section-label">🌶 ${userLang==='zh'?'醬料（可複選）':'Sauce (multi)'}</div>
-                <div class="sauce-layout">
-                    <button class="sauce-side-btn ${t.sauceKeys.includes('辣椒')?'selected':''}" onclick="toggleTempSauce('辣椒')">${getItemName('辣椒')}</button>
-                    <div class="sauce-mid-grid">
-                        ${midSauces.map(k => `<button class="chip ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
-                    </div>
-                    <button class="sauce-side-btn soup-side ${t.sauceKeys.includes('湯')?'selected':''}" onclick="toggleTempSauce('湯')">${getItemName('湯')}</button>
+                <div class="sauce-tabs">
+                    <button class="sauce-tab-btn ${sauceTabView==='干'?'tab-active':''} ${hasSoupSauce?'tab-dim':''}" onclick="setSauceTab('干')">🥢 ${userLang==='zh'?'干':'Dry'}</button>
+                    <button class="sauce-tab-btn ${sauceTabView==='湯'?'tab-active':''} ${hasDrySauce?'tab-dim':''}" onclick="setSauceTab('湯')">🍲 ${userLang==='zh'?'湯':'Soup'}</button>
+                </div>
+                <div class="sauce-tab-page">
+                    ${pageKeys.map(k => `<button class="chip ${t.sauceKeys.includes(k)?'selected':''}" onclick="toggleTempSauce('${k}')">${getItemName(k)}</button>`).join('')}
                 </div></div>`;
             }
 
@@ -947,6 +947,9 @@
         }
         renderCustomizePanel();
     }
+    /* ✅ ver3.2.1 新增：切換醬料區「干／湯」分頁——純粹改變畫面上顯示哪一頁，
+       不會動到已經選好的 sauceKeys（互斥規則已經在上面 toggleTempSauce() 處理過了）。 */
+    function setSauceTab(tab) { sauceTabView = tab; renderCustomizePanel(); }
     function toggleSection(name) { panelCollapse[name] = !panelCollapse[name]; renderCustomizePanel(); }
     function toggleTempSpecial(k) { const i = tempItem.specialKeys.indexOf(k); if (i>=0) tempItem.specialKeys.splice(i,1); else tempItem.specialKeys.push(k); renderCustomizePanel(); }
     function toggleTempNoExtra(k) { const i = tempItem.noExtraKeys.indexOf(k); if (i>=0) tempItem.noExtraKeys.splice(i,1); else tempItem.noExtraKeys.push(k); renderCustomizePanel(); }
@@ -1081,6 +1084,9 @@
         tempItem = JSON.parse(JSON.stringify(cart[idx]));
         editingIndex = idx;
         currentCategory = tempItem.category;
+        /* ✅ ver3.2.1：編輯購物車裡已有的品項時，醬料分頁要對應這個品項目前實際選的是
+           哪一組（湯/分湯 → 顯示「湯」頁；其他 → 顯示「干」頁），不要每次都固定跳回干頁 */
+        sauceTabView = (tempItem.sauceKeys || []).some(k => EXCLUSIVE_SAUCES.includes(k)) ? '湯' : '干';
         panelCollapse = {
             special: !(tempItem.specialKeys && tempItem.specialKeys.length),
             noExtra: !(tempItem.noExtraKeys && tempItem.noExtraKeys.length),
