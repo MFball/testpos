@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 3.0.1</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.0.2</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -232,7 +232,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.0.1</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.0.2</span></div>
         <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
              這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
              一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
@@ -257,7 +257,7 @@
     <div id="bottombar">
         <!-- ✅ ver3.0.0 新增：清空購物車按鈕，放在購物車小卡旁邊（原本圖一藍色星形標記的位置） -->
         <button id="clear-cart-btn" style="flex:0 0 auto; padding:12px 14px; border-radius:12px; border:2px solid #eee; background:#fff; color:#999; font-weight:900; font-size:1.1rem;" onclick="clearCart()" title="清空購物車">🗑️</button>
-        <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span>項 · $<span id="cart-total-sum">0.00</span> <span id="cart-discount-badge" style="display:none; color:#ff6d00; font-weight:900;"></span></button>
+        <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span><span id="cart-unit-label">項</span> · $<span id="cart-total-sum">0.00</span> <span id="cart-discount-badge" style="display:none; color:#ff6d00; font-weight:900;"></span></button>
         <button class="bb-btn" id="submitBtn" style="background:var(--primary);" onclick="openSubmitModal()">🚀 確定送出</button>
     </div>
 </div>
@@ -1050,6 +1050,9 @@
         const { original, discount, final } = getCartTotals();
         document.getElementById('cart-total-sum').innerText = final.toFixed(2);
         document.getElementById('cart-count').innerText = cart.length;
+        /* ✅ ver3.0.2：修正「項」這個量詞被寫死在 HTML 裡，切成英文時底部購物車小卡
+           還是會顯示中文的「項」字——改成跟著 userLang 動態更新 */
+        document.getElementById('cart-unit-label').innerText = userLang==='zh' ? '項' : ' items';
         const badge = document.getElementById('cart-discount-badge');
         if (discount > 0) { badge.style.display = 'inline'; badge.innerText = `🎉-$${discount.toFixed(2)}`; }
         else { badge.style.display = 'none'; }
@@ -1331,6 +1334,14 @@
         document.getElementById('sm-cancel-btn').innerText = l==='zh' ? '返回修改' : 'Back to edit';
         document.getElementById('paynow-title').innerText = l==='zh' ? '📱 PayNow 掃碼付款' : '📱 Pay with PayNow';
         document.getElementById('paynow-subtitle').innerText = l==='zh' ? '請使用您的銀行App掃描下方QR Code付款' : 'Scan the QR code below with your banking app';
+        /* ✅ ver3.0.2：paynow-ref-line 外圍那段文字（「訂單編號：」、「此編號已放入付款備註...」）
+           之前是寫死在 HTML 裡，切到英文也不會變——順手一併修掉。訂單編號本身（span#paynow-ref
+           裡的值）先存起來再放回去，這樣就算彈窗開著的時候切語言，號碼也不會不見。 */
+        const paynowRefEl = document.getElementById('paynow-ref-line');
+        const currentRefNo = document.getElementById('paynow-ref') ? document.getElementById('paynow-ref').innerText : '';
+        paynowRefEl.innerHTML = l==='zh'
+            ? `訂單編號：<span id="paynow-ref">${currentRefNo}</span>（此編號已放入付款備註，方便店家核對）`
+            : `Order No: <span id="paynow-ref">${currentRefNo}</span> (included in the payment note for staff to verify)`;
         document.getElementById('paynow-done-btn').innerText = l==='zh' ? '✅ 我已完成付款' : '✅ I have paid';
         document.getElementById('paynow-cancel-btn').innerText = l==='zh' ? '返回修改訂單' : 'Back to edit order';
         document.getElementById('review-title').innerText = l==='zh' ? '喜歡我們的餐點嗎？' : 'Enjoyed your meal?';
@@ -1342,6 +1353,9 @@
             ? '請記住這個號碼<br>店家核對付款後即會開始準備<br>完成後會依號碼叫您取餐／送餐'
             : 'Please remember this number<br>Staff will start preparing after confirming payment<br>Your number will be called when ready';
         document.getElementById('done-btn').innerText = l==='zh' ? '➕ 再點一份' : '➕ Order more';
+        /* ✅ ver3.0.2：底部固定操作列的「確定送出」按鈕(submitBtn)之前沒有被 setLang() 更新到，
+           切到英文後這顆按鈕仍然顯示中文——補上。（送出彈窗裡另一顆同名按鈕 sm-go-btn 原本就有更新，沒問題） */
+        document.getElementById('submitBtn').innerText = l==='zh' ? '🚀 確定送出' : '🚀 Confirm & Submit';
         renderSideList();
         if (tempItem) renderCustomizePanel();
         else if (currentCategory === '推薦') renderRecommendPanel();
