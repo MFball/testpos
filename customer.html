@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 3.0.2</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.1.1</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -43,15 +43,8 @@
     #entry-dining-modal { display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:5000; align-items:center; justify-content:center; padding:20px; }
     .entry-dining-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:20px; border-radius:16px; border:none; font-weight:900; font-size:1.15rem; color:#fff; margin-bottom:12px; }
 
-    /* ── 主區：左側清單 + 右側面板 ── */
+    /* ── 主區：右側面板（ver3.1.0：拿掉原本左側文字清單，改用圖像化菜單格） ── */
     #main-row { flex: 1; display: flex; overflow: hidden; }
-    #side-list { width: 26%; min-width: 108px; max-width: 200px; overflow-y: auto; -webkit-overflow-scrolling: touch; border-right: 2px solid #eee; background: #fafafa; flex-shrink: 0; padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
-    .side-loop-divider { text-align: center; font-size: 0.62rem; color: #999; padding: 10px 4px; background: #eee; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc; line-height: 1.3; }
-    .side-item { display: block; width: 100%; text-align: left; padding: 14px 10px; border: none; border-bottom: 1px solid #eee; background: #fff; }
-    .side-item-soldout { opacity: 0.5; background: #f7f7f7; }
-    .side-item .nm { font-weight: 900; font-size: 0.92rem; display: block; color: #222; line-height: 1.3; }
-    .side-item .pr { color: var(--price-tag); font-weight: bold; font-size: 0.78rem; }
-    .side-item.active { background: #ffe4d9; border-left: 5px solid var(--price-tag); }
 
     #panel { flex: 1; overflow-y: auto; padding: 16px 16px 20px 16px; background: #fff; position: relative; }
     #panel::after { content: ''; display: block; height: 110px; }
@@ -166,6 +159,23 @@
     .hot-price { font-weight: 900; color: var(--price-tag); font-size: 1.05rem; }
     .hot-order-btn { background: var(--hot); color: #fff; border: none; padding: 9px 16px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
 
+    /* ── ver3.1.0 新增：圖像化菜單格（取代原本左側文字清單）──
+       客人反映純文字操作不好用，改成像圖片參考那樣：大照片在上、
+       名稱價錢在下，兩個一排，往下捲動看更多。點卡片＝跟以前點左側清單
+       同一個效果，會打開下面的客製化面板（大小/麵種/醬料等）。 */
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .menu-card { background: #fff; border: none; border-radius: 16px; padding: 0; text-align: left; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .menu-card-soldout { opacity: 0.55; }
+    .menu-card-img-wrap { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #f2ebe0; overflow: hidden; }
+    .menu-card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .menu-card-noimg { width: 100%; height: 100%; overflow: hidden; white-space: nowrap; display: flex; align-items: center; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); }
+    .menu-card-noimg span { display: inline-block; padding-left: 100%; font-weight: 900; font-size: 0.95rem; color: #a08f6f; animation: hotMarquee 6s linear infinite; }
+    .menu-card-price { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,0.68); color: #fff; font-weight: 900; font-size: 0.82rem; padding: 3px 9px; border-radius: 8px; }
+    .menu-card-soldout-badge { position: absolute; top: 8px; left: 8px; background: var(--price-tag); color: #fff; font-weight: 900; font-size: 0.66rem; padding: 3px 8px; border-radius: 8px; }
+    .menu-card-name { padding: 10px 8px 12px; background: #3c3c3c; color: #fff; font-weight: 900; font-size: 0.9rem; line-height: 1.3; text-align: center; }
+    .menu-cat-title { font-weight: 900; font-size: 1.15rem; margin-bottom: 12px; }
+    .cz-back-btn { background: #eee; color: #555; border: none; padding: 9px 14px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
+
     /* ── 底部固定操作列 ── */
     #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
     #cart-summary-mini { font-weight: 900; font-size: 1rem; white-space: nowrap; background: #fff3e0; border: 2px solid var(--hot); border-radius: 12px; padding: 12px 14px; color: #222; }
@@ -211,10 +221,6 @@
         #lang-toggle button { padding: 6px 8px; font-size: 0.72rem; }
         #cat-tabs { order: 3; flex-basis: 100%; width: 100%; gap: 5px; }
         .cat-tab { padding: 9px 8px; font-size: 0.78rem; border-radius: 9px; }
-        #side-list { min-width: 84px; }
-        .side-item { padding: 11px 6px; }
-        .side-item .nm { font-size: 0.8rem; }
-        .side-item .pr { font-size: 0.7rem; }
         #panel { padding: 12px 10px; }
         .cz-header { margin: -12px -10px 12px -10px; padding: 12px 10px 8px 10px; }
         .cz-title { font-size: 1.1rem; }
@@ -232,7 +238,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.0.2</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.1.1</span></div>
         <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
              這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
              一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
@@ -250,7 +256,6 @@
     </div>
 
     <div id="main-row">
-        <div id="side-list"></div>
         <div id="panel"></div>
     </div>
 
@@ -720,33 +725,49 @@
         currentCategory = cat;
         tempItem = null; editingIndex = -1;
         document.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === cat));
-        renderSideList();
         if (cat === '推薦') renderRecommendPanel();
-        else renderPanelCartSummary();
+        else renderMenuGrid();
     }
 
-    function renderSideList() {
-        const cont = document.getElementById('side-list');
-        if (currentCategory === '推薦') { cont.innerHTML = ''; cont.style.display = 'none'; return; }
-        cont.style.display = 'block';
-        let keys, priceOf;
-        if (currentCategory === '湯') { keys = Object.keys(config.soupImgs); priceOf = k => config.prices[k]; }
-        else if (currentCategory === '面') { keys = Object.keys(config.foodImgs); priceOf = k => config.prices[k]; }
-        else { keys = config.additions.map(a => a.key); priceOf = k => getAdditionPrice(k); }
+    /* ✅ ver3.1.0：原本的文字清單 renderSideList() 整個換成圖像化菜單格。
+       圖片直接沿用 config.foodImgs / config.soupImgs / config.additions[].img
+       （這些原本就存在、跟廚房點餐機共用同一套雲端菜單設定，不用另外找圖）。
+       ✅ ver3.1.1：已對照過點餐機ver5.9.4的圖片連結，兩邊完全一致，不用額外補連結。
+       缺圖(還是 placeholder 網址)的品項，改成跑馬燈文字捲動顯示品名（跟推薦卡片
+       原本缺圖時的效果一致），不會顯示破圖——之後老闆會透過主理員後台上傳真正的
+       照片，到時候雲端資料一同步，這裡就會自動換成真實照片，不用再改程式碼。 */
+    function renderMenuGrid() {
+        const panel = document.getElementById('panel');
+        let keys, priceOf, imgOf;
+        if (currentCategory === '湯') {
+            keys = Object.keys(config.soupImgs); priceOf = k => config.prices[k]; imgOf = k => config.soupImgs[k];
+        } else if (currentCategory === '面') {
+            keys = Object.keys(config.foodImgs); priceOf = k => config.prices[k]; imgOf = k => config.foodImgs[k];
+        } else {
+            keys = config.additions.map(a => a.key); priceOf = k => getAdditionPrice(k);
+            imgOf = k => { const a = config.additions.find(x => x.key === k); return a ? a.img : null; };
+        }
         const suffix = currentCategory==='面' ? (userLang==='zh'?' 起':'+') : '';
-        const buildBtn = key => {
-            const active = (tempItem && tempItem.mainKey === key && editingIndex === -1);
+        const catLabel = currentCategory==='湯' ? (userLang==='zh'?'🍜 湯品類':'🍜 Soup')
+            : currentCategory==='面' ? (userLang==='zh'?'🍝 麵食類':'🍝 Noodle')
+            : (userLang==='zh'?'🍡 小食':'🍡 Side dish');
+        const buildCard = key => {
             const soldOut = isMenuItemSoldOut(key, currentCategory);
+            const img = imgOf(key);
+            const hasImg = img && !img.includes('placeholder');
+            const media = hasImg
+                ? `<img src="${img}" alt="${getItemName(key)}" loading="lazy">`
+                : `<div class="menu-card-noimg"><span>${getItemName(key)}${userLang==='zh'?'（圖片準備中）':' (photo coming soon)'}</span></div>`;
             const clickHandler = soldOut
                 ? `alert('${userLang==='zh' ? '目前缺貨中' : 'Currently sold out'}')`
                 : `selectItem('${key}')`;
-            const soldOutTag = soldOut ? `<span style="font-size:0.65rem; background:var(--price-tag,#d93025); color:#fff; font-weight:900; padding:1px 6px; border-radius:8px; margin-left:4px;">${userLang==='zh'?'缺貨':'Sold Out'}</span>` : '';
-            return `<button class="side-item ${active ? 'active' : ''} ${soldOut ? 'side-item-soldout' : ''}" onclick="${clickHandler}">
-                <span class="nm">${getItemName(key)}${soldOutTag}</span>
-                <span class="pr">$${priceOf(key)}${suffix}</span>
+            const soldOutBadge = soldOut ? `<div class="menu-card-soldout-badge">${userLang==='zh'?'缺貨':'Sold Out'}</div>` : '';
+            return `<button class="menu-card ${soldOut ? 'menu-card-soldout' : ''}" onclick="${clickHandler}">
+                <div class="menu-card-img-wrap">${media}<div class="menu-card-price">$${priceOf(key)}${suffix}</div>${soldOutBadge}</div>
+                <div class="menu-card-name">${getItemName(key)}</div>
             </button>`;
         };
-        cont.innerHTML = keys.map(buildBtn).join('');
+        panel.innerHTML = `<div class="menu-cat-title">${catLabel}</div><div class="menu-grid">${keys.map(buildCard).join('')}</div>`;
     }
 
     function selectItem(key) {
@@ -760,7 +781,6 @@
         } else {
             tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: globalIsTakeaway };
         }
-        renderSideList();
         renderCustomizePanel();
     }
 
@@ -773,7 +793,10 @@
         let html = `<div class="cz-header">
             <div class="cz-title">${getItemName(t.mainKey)}<small>${editingIndex >= 0 ? (userLang==='zh'?'修改購物車項目':'Editing cart item') : (userLang==='zh'?'請選擇您的偏好':'Customize your order')}</small></div>
             <div class="cz-header-actions">
-                ${editingIndex>=0 ? `<button class="mini-cancel" onclick="cancelEdit()">${userLang==='zh'?'✕ 取消':'✕ Cancel'}</button>` : ''}
+                <!-- ✅ ver3.1.0：改成圖像化菜單格之後，這裡加一顆「返回」鈕，
+                     客人點了卡片進來客製化，但還沒加入購物車前想改逛別的餐點，
+                     可以直接退回菜單格，不用真的送出或取消編輯。編輯中的舊「✕ 取消」邏輯不變。 -->
+                <button class="cz-back-btn" onclick="cancelEdit()">${editingIndex>=0 ? (userLang==='zh'?'✕ 取消':'✕ Cancel') : (userLang==='zh'?'← 返回':'← Back')}</button>
                 <button class="confirm-btn-top" onclick="confirmAddToCart()">✅ ${editingIndex>=0 ? (userLang==='zh'?'更新':'Update') : (userLang==='zh'?'加入購物車':'Add to Cart')} $${totalPrice.toFixed(2)}</button>
             </div>
         </div>`;
@@ -920,14 +943,13 @@
         const addedMainKey = tempItem.mainKey;
         if (wasEditing) { cart[editingIndex] = finalItem; editingIndex = -1; }
         else cart.push(finalItem);
-        renderSideList();
         updateBottomBar();
         const modal = document.getElementById('cart-view-modal');
         if (modal.style.display === 'flex') document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
 
         if (wasEditing) {
             tempItem = null;
-            renderPanelCartSummary();
+            renderMenuGrid();
         } else {
             showAddedToast();
             selectItem(addedMainKey);
@@ -943,7 +965,12 @@
         addedToastTimer = setTimeout(() => el.classList.remove('show'), 1200);
     }
 
-    function cancelEdit() { tempItem = null; editingIndex = -1; renderSideList(); renderPanelCartSummary(); }
+    /* ✅ ver3.1.0：取消編輯／從客製化面板返回，都統一回到圖像化菜單格
+       （推薦分類例外，回去看推薦卡片） */
+    function cancelEdit() {
+        tempItem = null; editingIndex = -1;
+        if (currentCategory === '推薦') renderRecommendPanel(); else renderMenuGrid();
+    }
 
     /* ✅ ver3.0.0 新增：清空購物車——把已選的所有餐點整個取消歸零，
        正在客製化中的品項(tempItem)、編輯狀態(editingIndex)也一併重置，
@@ -955,15 +982,14 @@
         tempItem = null;
         editingIndex = -1;
         closeCartModal();
-        renderSideList();
-        if (currentCategory === '推薦') renderRecommendPanel(); else renderPanelCartSummary();
+        if (currentCategory === '推薦') renderRecommendPanel(); else renderMenuGrid();
         updateBottomBar();
     }
 
     /* ═══════════════ 購物車 ═══════════════ */
     function buildCartRowsHtml() {
         if (cart.length === 0) {
-            return `<div class="empty-hint">👈 ${userLang==='zh' ? '請從左側選擇餐點開始點餐' : 'Select an item on the left to start.'}</div>`;
+            return `<div class="empty-hint">🍜 ${userLang==='zh' ? '請從上方分類選擇餐點開始點餐' : 'Pick a category above to start ordering.'}</div>`;
         }
         return cart.map((item, idx) => {
             const fee = (item.isTakeaway && item.category !== '小食') ? 0.30 * item.qty : 0;
@@ -986,24 +1012,19 @@
         }).join('');
     }
 
-    function renderPanelCartSummary() {
-        const panel = document.getElementById('panel');
-        if (cart.length === 0) {
-            panel.innerHTML = `<div class="empty-hint">👈 ${userLang==='zh' ? '請從左側選擇餐點開始點餐' : 'Select an item on the left to start.'}</div>`;
-            return;
-        }
-        panel.innerHTML = `<div style="font-weight:900; font-size:1.15rem; margin-bottom:10px;">🛒 ${userLang==='zh'?'購物車明細':'Cart Details'}</div>${buildCartRowsHtml()}`;
-    }
-
     function showCartModal() {
         document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
         document.getElementById('cart-view-modal').style.display = 'flex';
     }
     function closeCartModal() { document.getElementById('cart-view-modal').style.display = 'none'; }
 
+    /* ✅ ver3.1.0：renderPanelCartSummary() 拿掉了——以前沒選品項時，右側面板會顯示
+       「購物車明細」摘要；現在改成圖像化菜單格之後，沒選品項時面板本來就該顯示
+       菜單格（或推薦卡片），購物車內容改成只在購物車小卡/彈出視窗那邊看就好，
+       不用在主畫面重複顯示一次。 */
     function refreshCartViews() {
         updateBottomBar();
-        if (!tempItem) renderPanelCartSummary();
+        if (!tempItem) { if (currentCategory === '推薦') renderRecommendPanel(); else renderMenuGrid(); }
         const modal = document.getElementById('cart-view-modal');
         if (modal.style.display === 'flex') document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
     }
@@ -1031,7 +1052,6 @@
             additions: !Object.values(tempItem.additionKeys || {}).some(v => v > 0)
         };
         document.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === currentCategory));
-        renderSideList();
         renderCustomizePanel();
     }
 
@@ -1356,10 +1376,9 @@
         /* ✅ ver3.0.2：底部固定操作列的「確定送出」按鈕(submitBtn)之前沒有被 setLang() 更新到，
            切到英文後這顆按鈕仍然顯示中文——補上。（送出彈窗裡另一顆同名按鈕 sm-go-btn 原本就有更新，沒問題） */
         document.getElementById('submitBtn').innerText = l==='zh' ? '🚀 確定送出' : '🚀 Confirm & Submit';
-        renderSideList();
         if (tempItem) renderCustomizePanel();
         else if (currentCategory === '推薦') renderRecommendPanel();
-        else renderPanelCartSummary();
+        else renderMenuGrid();
         updateBottomBar();
     }
 
