@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 3.2.1</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.3.0</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -36,9 +36,9 @@
     .cat-tab.active[data-cat="面"] { background: var(--noodle); color: #fff; border-color: var(--noodle); }
     .cat-tab.active[data-cat="小食"] { background: var(--add); color: #fff; border-color: var(--add); }
     .cat-tab.active[data-cat="推薦"] { background: var(--hot); color: #fff; border-color: var(--hot); }
-    #lang-toggle { display: flex; gap: 4px; }
-    .lang-btn { padding: 8px 10px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-weight: bold; font-size: 0.8rem; color: #666; }
-    .lang-btn.active { background: #111; color: #fff; border-color: #111; }
+    /* ✅ ver3.3.0：語言切換從「一個個按鈕排出來」改成一顆下拉選單（拉下去選，
+       不佔版面），三個語言選項（繁體中文／简体中文／English）都在裡面 */
+    .lang-select { padding: 9px 10px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-weight: bold; font-size: 0.8rem; color: #444; }
     /* ✅ ver3.0.0：入口彈窗（堂食/外賣）樣式 */
     #entry-dining-modal { display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:5000; align-items:center; justify-content:center; padding:20px; }
     .entry-dining-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:20px; border-radius:16px; border:none; font-weight:900; font-size:1.15rem; color:#fff; margin-bottom:12px; }
@@ -118,24 +118,10 @@
     .loc-tag.di { background: var(--success); }
     .loc-tag.ta { background: var(--takeaway); }
 
-    /* ── 推薦卡片 ── */
-    .hot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .hot-card { text-align: left; background: #fff; border: 3px solid var(--hot); border-radius: 16px; padding: 0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-    .hot-card-soldout { opacity: 0.6; border-color: #ccc; }
-    .hot-card-top { display: flex; flex-direction: row; align-items: stretch; }
-    .hot-img { width: 84px; min-width: 84px; height: 84px; background: #fff3e0; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .hot-img img { width: 100%; height: 100%; object-fit: contain; }
-    .hot-img-marquee { overflow: hidden; white-space: nowrap; background: linear-gradient(135deg, #fff3e0, #ffe0b2); }
-    .hot-img-marquee span { display: inline-block; padding-left: 100%; font-weight: 900; color: var(--hot); font-size: 0.85rem; animation: hotMarquee 6s linear infinite; }
+    /* ✅ ver3.3.0：原本推薦卡片專用的 .hot-* 樣式已經不用了（推薦分頁改用下面
+       .menu-grid/.menu-card 那套跟湯品/麵食/小食統一的圖像化卡片樣式），
+       只留下 hotMarquee 這個動畫，因為 .menu-card-noimg 缺圖時的跑馬燈效果還在用它。 */
     @keyframes hotMarquee { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-    .hot-card-body { flex: 1; min-width: 0; padding: 8px 10px; }
-    .hot-rank { font-weight: 900; color: var(--hot); font-size: 0.72rem; margin-bottom: 2px; }
-    .hot-name { font-weight: 900; font-size: 0.98rem; color: #222; line-height: 1.25; }
-    .hot-desc { font-size: 0.76rem; color: #666; margin: 3px 0; }
-    .hot-loc { display: inline-block; font-size: 0.68rem; font-weight: 900; padding: 2px 7px; border-radius: 8px; color: #fff; }
-    .hot-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-top: 2px solid #f5f5f5; background: #fffaf3; }
-    .hot-price { font-weight: 900; color: var(--price-tag); font-size: 1.05rem; }
-    .hot-order-btn { background: var(--hot); color: #fff; border: none; padding: 9px 16px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
 
     /* ── ver3.1.0 新增：圖像化菜單格（取代原本左側文字清單）──
        客人反映純文字操作不好用，改成像圖片參考那樣：大照片在上、
@@ -151,6 +137,9 @@
     .menu-card-price { position: absolute; right: 8px; bottom: 8px; background: var(--card-price-bg, rgba(0,0,0,0.68)); color: var(--card-price-color, #fff); font-weight: 900; font-size: var(--card-price-fs, 0.82rem); padding: 3px 9px; border-radius: 8px; }
     .menu-card-soldout-badge { position: absolute; top: 8px; left: 8px; background: var(--price-tag); color: #fff; font-weight: 900; font-size: 0.66rem; padding: 3px 8px; border-radius: 8px; }
     .menu-card-name { padding: 10px 8px 12px; background: var(--card-name-bg, #3c3c3c); color: var(--card-name-color, #fff); font-weight: 900; font-size: var(--card-name-fs, 0.9rem); line-height: 1.3; text-align: center; }
+    /* ✅ ver3.3.0：推薦分頁的卡片需要多一行麵種/醬料的說明（例如「粿條面 湯」），
+       跟品名放在同一個底色區塊裡，但字比較小、比較淡，一般菜單格(renderMenuGrid)不會用到這個 class */
+    .menu-card-subtitle { font-size: 0.7rem; font-weight: normal; opacity: 0.82; margin-top: 3px; }
     .menu-cat-title { font-weight: 900; font-size: 1.15rem; margin-bottom: 12px; }
     .cz-back-btn { background: #eee; color: #555; border: none; padding: 9px 14px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
 
@@ -191,12 +180,11 @@
 
     @media (max-width: 480px) {
         .cat-tab { padding: 8px 10px; font-size: 0.82rem; }
-        .hot-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 430px) {
         #topbar { padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top)); gap: 6px; }
         #shop-name { display: none; }
-        #lang-toggle button { padding: 6px 8px; font-size: 0.72rem; }
+        #lang-select-top { padding: 6px 8px; font-size: 0.72rem; }
         #cat-tabs { order: 3; flex-basis: 100%; width: 100%; gap: 5px; }
         .cat-tab { padding: 9px 8px; font-size: 0.78rem; border-radius: 9px; }
         #panel { padding: 12px 10px; }
@@ -217,7 +205,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.2.1</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.3.0</span></div>
         <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
              這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
              一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
@@ -229,8 +217,11 @@
             <button class="cat-tab" data-cat="小食" onclick="selectCategory('小食')">🍡 小食</button>
         </div>
         <div id="lang-toggle">
-            <button class="lang-btn active" data-lang="zh" onclick="setLang('zh')">中</button>
-            <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+            <select id="lang-select-top" class="lang-select" onchange="setLang(this.value)">
+                <option value="zh">繁體中文</option>
+                <option value="cn">简体中文</option>
+                <option value="en">English</option>
+            </select>
         </div>
     </div>
 
@@ -248,13 +239,16 @@
 
 <!-- ✅ ver3.0.0 新增：入口問詢彈窗——客人一進來，畫面上什麼都還沒能點，
      必須先選「打包」或「堂食」才能開始點餐（跟結帳前的付款彈窗一樣，是擋住整個畫面的強制彈窗）。
-     語言切換另外放一份在這裡（用 .lang-btn 這個共用 class，setLang() 會一起更新兩邊），
+     語言切換另外放一份在這裡（用 .lang-select 這個共用 class，setLang() 會一起更新兩邊），
      因為原本頂部那個語言切換鈕會被這個全螢幕彈窗蓋住點不到。 -->
 <div id="entry-dining-modal">
     <div class="sm-card" style="text-align:center;">
-        <div style="display:flex; gap:6px; justify-content:center; margin-bottom:14px;">
-            <button class="lang-btn active" data-lang="zh" onclick="setLang('zh')">中</button>
-            <button class="lang-btn" data-lang="en" onclick="setLang('en')">EN</button>
+        <div style="display:flex; justify-content:center; margin-bottom:14px;">
+            <select id="lang-select-entry" class="lang-select" onchange="setLang(this.value)">
+                <option value="zh">繁體中文</option>
+                <option value="cn">简体中文</option>
+                <option value="en">English</option>
+            </select>
         </div>
         <div style="font-size:2.4rem; margin-bottom:8px;">🍜</div>
         <div class="sm-title" id="entry-title">請問是要「打包」還是「堂食」？</div>
@@ -494,6 +488,75 @@
     const CLAIMS_URL_BASE = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/orderClaims";
 
     let userLang = 'zh';
+    let userLangFull = 'zh'; // 'zh' | 'cn' | 'en' —— 下拉選單實際存的值，userLang 只是從這裡推導出來的二元分支
+    /* ═══════════════ ver3.3.0 新增：簡體中文支援 ═══════════════
+       不另外維護一整套簡體翻譯字典——繁體/簡體用詞幾乎相同，差別只在字形，
+       所以用「繁轉簡字元對照表」在畫面渲染完之後自動轉換，比每一句話都
+       多寫一次簡體版本更好維護，以後新增菜單品項或文字也不用另外補簡體翻譯。
+       這份對照表只涵蓋這個 App 目前實際會用到的字（用程式掃過整份原始碼產生，
+       比自己手打更準確），不是一份完整的繁簡字典。 */
+    const T2S_MAP = {
+        '並':'并','亂':'乱','來':'来','個':'个','們':'们','側':'侧','備':'备','傳':'传','價':'价','優':'优','儲':'储','兒':'儿','內':'内',
+        '兩':'两','別':'别','刪':'删','則':'则','剛':'刚','動':'动','務':'务','勢':'势','區':'区','參':'参','員':'员','問':'问','單':'单',
+        '嗎':'吗','嘗':'尝','圍':'围','圓':'圆','圖':'图','塊':'块','實':'实','寫':'写','寶':'宝','專':'专','尋':'寻','對':'对','導':'导',
+        '屆':'届','層':'层','帳':'帐','幣':'币','幫':'帮','幾':'几','庫':'库','廚':'厨','張':'张','強':'强','彈':'弹','後':'后','從':'从',
+        '復':'复','態':'态','應':'应','戶':'户','捲':'卷','掃':'扫','換':'换','搶':'抢','擇':'择','擊':'击','擋':'挡','敗':'败','數':'数',
+        '斷':'断','時':'时','暫':'暂','會':'会','東':'东','條':'条','構':'构','標':'标','樣':'样','機':'机','橫':'横','檔':'档','檢':'检',
+        '檻':'槛','欄':'栏','權':'权','歡':'欢','歸':'归','決':'决','沒':'没','減':'减','測':'测','湯':'汤','準':'准','瀏':'浏','為':'为',
+        '無':'无','燈':'灯','狀':'状','獨':'独','現':'现','產':'产','畫':'画','異':'异','當':'当','疊':'叠','發':'发','確':'确','碼':'码',
+        '種':'种','稱':'称','筆':'笔','節':'节','範':'范','簡':'简','籤':'签','紀':'纪','純':'纯','級':'级','細':'细','組':'组','結':'结',
+        '給':'给','統':'统','經':'经','維':'维','網':'网','線':'线','編':'编','縮':'缩','總':'总','繼':'继','續':'续','義':'义','腸':'肠',
+        '與':'与','舊':'旧','著':'着','蓋':'盖','蔥':'葱','薦':'荐','藍':'蓝','處':'处','號':'号','蝦':'虾','螢':'萤','補':'补','裝':'装',
+        '裡':'里','製':'制','複':'复','見':'见','規':'规','視':'视','覺':'觉','覽':'览','觀':'观','觸':'触','訂':'订','計':'计','記':'记',
+        '設':'设','評':'评','詞':'词','詢':'询','試':'试','話':'话','該':'该','認':'认','語':'语','誤':'误','說':'说','請':'请','謝':'谢',
+        '證':'证','識':'识','譯':'译','護':'护','讀':'读','變':'变','讓':'让','豬':'猪','負':'负','貨':'货','責':'责','費':'费','貼':'贴',
+        '資':'资','賣':'卖','購':'购','車':'车','軟':'软','較':'较','輯':'辑','轉':'转','辦':'办','這':'这','連':'连','進':'进','運':'运',
+        '過':'过','遠':'远','適':'适','選':'选','還':'还','邊':'边','邏':'逻','醬':'酱','鈕':'钮','銀':'银','錄':'录','錢':'钱','錯':'错',
+        '長':'长','門':'门','閃':'闪','閉':'闭','開':'开','閒':'闲','間':'间','闆':'板','關':'关','陣':'阵','陳':'陈','際':'际','隨':'随',
+        '隱':'隐','隻':'只','雞':'鸡','離':'离','雲':'云','靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预',
+        '頭':'头','顆':'颗','題':'题','額':'额','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','馬':'马','驗':'验','體':'体',
+        '魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点','齊':'齐',
+    };
+    function toSimplified(str) {
+        return String(str).replace(/[\u4e00-\u9fff]/g, ch => T2S_MAP[ch] || ch);
+    }
+    let chineseVariant = 'trad'; // 'trad' | 'simp' —— 只在 userLang==='zh' 時有意義
+
+    /* MutationObserver：只要 chineseVariant==='simp'，畫面上任何新增/更新的文字節點
+       都會自動被轉成簡體，不用去每一個 render 函式裡逐一補轉換呼叫。
+       語言切換鈕本身(.lang-select)刻意跳過，讓下拉選單裡「繁體中文／简体中文／English」
+       這幾個選項文字維持原樣，方便使用者辨識，不會被轉換影響。 */
+    let simplifiedObserver = null;
+    function convertNodeToSimplified(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (node.parentElement && node.parentElement.closest('.lang-select')) return;
+            const converted = toSimplified(node.textContent);
+            if (converted !== node.textContent) node.textContent = converted;
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+            acceptNode: n => (n.parentElement && n.parentElement.closest('.lang-select')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT
+        });
+        let n;
+        while (n = walker.nextNode()) {
+            const converted = toSimplified(n.textContent);
+            if (converted !== n.textContent) n.textContent = converted;
+        }
+    }
+    function enableSimplifiedObserver() {
+        if (simplifiedObserver) return;
+        simplifiedObserver = new MutationObserver(mutations => {
+            mutations.forEach(m => {
+                if (m.type === 'childList') m.addedNodes.forEach(convertNodeToSimplified);
+                else if (m.type === 'characterData') convertNodeToSimplified(m.target);
+            });
+        });
+        simplifiedObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+    function disableSimplifiedObserver() {
+        if (simplifiedObserver) { simplifiedObserver.disconnect(); simplifiedObserver = null; }
+    }
     let cart = [];
     let currentCategory = '推薦';
     let tempItem = null;
@@ -1129,38 +1192,30 @@
         }));
     }
     function renderRecommendPanel() {
+        /* ✅ ver3.3.0：推薦分頁改用跟湯品/麵食/小食同一套圖像化菜單格(.menu-grid/.menu-card)，
+           不再是原本左圖右字的 .hot-card 橫式卡片，四個分類視覺風格統一。
+           點卡片＝直接加入購物車（沿用原本 addRecommendToCart，沒有客製化面板這一步）。 */
         const panel = document.getElementById('panel');
         const combos = getRecommendedCombos();
-        panel.innerHTML = `<div style="font-weight:900; font-size:1.15rem; margin-bottom:12px;">⭐ ${userLang==='zh'?'店家推薦（點一下加入購物車）':'Recommended (tap to add to cart)'}</div>
-        <div class="hot-grid">${combos.map((c, i) => {
-            const base = computeBasePrice(c.mainKey, c.sizeKey, c.category);
-            const price = base;
-            const noodleText = getItemName(c.noodleKey);
-            const sauceText = c.sauceKeys.map(k=>getItemName(k)).join('/');
+        const catLabel = userLang==='zh' ? '⭐ 店家推薦（點一下加入購物車）' : '⭐ Recommended (tap to add to cart)';
+        const buildCard = (c, i) => {
+            const price = computeBasePrice(c.mainKey, c.sizeKey, c.category);
             const img = getItemImage(c.mainKey);
             const soldOut = isMenuItemSoldOut(c.mainKey, c.category);
-            const mediaHtml = img
-                ? `<div class="hot-img"><img src="${img}" alt="${getItemName(c.mainKey)}" loading="lazy"></div>`
-                : `<div class="hot-img hot-img-marquee"><span>${getItemName(c.mainKey)}</span></div>`;
-            const orderBtn = soldOut
-                ? `<button class="hot-order-btn" style="background:#bbb;" disabled>${userLang==='zh'?'缺貨中':'Sold Out'}</button>`
-                : `<button class="hot-order-btn" onclick="addRecommendToCart(${i})">➕ ${userLang==='zh'?'加入':'Add'}</button>`;
-            return `<div class="hot-card ${soldOut ? 'hot-card-soldout' : ''}">
-                <div class="hot-card-top">
-                    ${mediaHtml}
-                    <div class="hot-card-body">
-                        <div class="hot-rank">⭐ ${userLang==='zh'?'店家推薦':'Recommended'}</div>
-                        <div class="hot-name">${getItemName(c.mainKey)} (${getItemName(c.sizeKey)})</div>
-                        <div class="hot-desc">${noodleText} ${sauceText}</div>
-                        <div class="hot-loc" style="background:${globalIsTakeaway ? 'var(--takeaway)' : 'var(--success)'};">${globalIsTakeaway ? `🥡${userLang==='zh'?'外賣':'Takeaway'}` : `🍽${userLang==='zh'?'堂食':'Dine-in'}`}</div>
-                    </div>
-                </div>
-                <div class="hot-card-footer">
-                    <div class="hot-price">$${price.toFixed(2)}</div>
-                    ${orderBtn}
-                </div>
-            </div>`;
-        }).join('')}</div>`;
+            const media = img
+                ? `<img src="${img}" alt="${getItemName(c.mainKey)}" loading="lazy">`
+                : `<div class="menu-card-noimg"><span>${getItemName(c.mainKey)}${userLang==='zh'?'（圖片準備中）':' (photo coming soon)'}</span></div>`;
+            const clickHandler = soldOut
+                ? `alert('${userLang==='zh' ? '目前缺貨中' : 'Currently sold out'}')`
+                : `addRecommendToCart(${i})`;
+            const soldOutBadge = soldOut ? `<div class="menu-card-soldout-badge">${userLang==='zh'?'缺貨':'Sold Out'}</div>` : '';
+            const subtitle = `${getItemName(c.noodleKey)} ${c.sauceKeys.map(k=>getItemName(k)).join('/')}`;
+            return `<button class="menu-card ${soldOut ? 'menu-card-soldout' : ''}" onclick="${clickHandler}">
+                <div class="menu-card-img-wrap">${media}<div class="menu-card-price">$${price.toFixed(2)}</div>${soldOutBadge}</div>
+                <div class="menu-card-name">${getItemName(c.mainKey)}<div class="menu-card-subtitle">${subtitle}</div></div>
+            </button>`;
+        };
+        panel.innerHTML = `<div class="menu-cat-title">${catLabel}</div><div class="menu-grid">${combos.map(buildCard).join('')}</div>`;
     }
     function addRecommendToCart(i) {
         const c = getRecommendedCombos()[i];
@@ -1280,7 +1335,10 @@
             });
             const summaryText = summaryParts.join(' | ');
             const isTakeaway = Boolean(cart.length > 0 && cart.every(item => item.isTakeaway === true));
-            const finalSummary = isTakeaway ? `${summaryText} [打包]` : summaryText;
+            let finalSummary = isTakeaway ? `${summaryText} [打包]` : summaryText;
+            /* ✅ ver3.3.0：這段 summary 字串是直接送去 Firebase 給廚房/店員看的，不會經過畫面
+               渲染，所以簡體模式下自動轉換觀察器(MutationObserver)碰不到它，要在這裡手動轉一次。 */
+            if (chineseVariant === 'simp') finalSummary = toSimplified(finalSummary);
 
             const tableNo = document.getElementById('sm-table-input').value.trim();
             const custName = document.getElementById('sm-name-input').value.trim();
@@ -1375,12 +1433,17 @@
     }
 
     /* ═══════════════ 語言切換 ═══════════════ */
-    function setLang(l) {
-        userLang = l;
+    function setLang(fullLang) {
+        /* ✅ ver3.3.0：語言下拉選單現在有三個選項 zh(繁)/cn(簡)/en(英)。
+           userLang 內部繼續只當「繁體分支 vs 英文分支」的二元判斷用（跟原本所有
+           userLang==='zh'?A:B 的寫法完全相容，這裡完全不用逐一去改），簡體只是多一層
+           「渲染完之後把畫面上的繁體字轉成簡體字形」的後製效果，靠 chineseVariant 控制。 */
+        userLangFull = fullLang;
+        userLang = fullLang === 'en' ? 'en' : 'zh';
+        chineseVariant = fullLang === 'cn' ? 'simp' : 'trad';
+        const l = userLang;
         document.body.classList.toggle('lang-en', l === 'en');
-        /* ✅ ver3.0.0：.lang-btn 同時涵蓋頂部原本那組、跟入口彈窗新增的那組語言切換鈕，
-           兩邊會一起同步 active 狀態 */
-        document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
+        document.querySelectorAll('.lang-select').forEach(sel => { sel.value = fullLang; });
         document.getElementById('entry-title').innerText = l==='zh' ? '請問是要「打包」還是「堂食」？' : 'Dine-in or Takeaway?';
         document.getElementById('entry-dinein-btn').innerText = l==='zh' ? '🍽 堂食 Dine-in' : '🍽 Dine-in';
         document.getElementById('entry-takeaway-btn').innerText = l==='zh' ? '🥡 打包 Takeaway' : '🥡 Takeaway';
@@ -1422,6 +1485,16 @@
         else if (currentCategory === '推薦') renderRecommendPanel();
         else renderMenuGrid();
         updateBottomBar();
+        /* ✅ ver3.3.0：切到簡體時打開自動轉換觀察器，並且立刻把剛剛重新渲染出來的畫面
+           轉一次（觀察器只會抓「之後」的變動，所以這裡要手動補轉一次現在畫面上已經有的字）；
+           切回繁體/英文時關掉觀察器，之後的畫面本來就會是繁體（因為字典本來就是繁體），
+           不需要「復原」，直接讓上面那幾個 render 函式重新畫一次就自然是繁體了。 */
+        if (chineseVariant === 'simp') {
+            enableSimplifiedObserver();
+            convertNodeToSimplified(document.body);
+        } else {
+            disableSimplifiedObserver();
+        }
     }
 
     /* ═══════════════ 初始化 ═══════════════ */
