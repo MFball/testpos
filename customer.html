@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - 顧客點餐 Ver 3.3.0</title>
+<title>Million FishBall Noodle - 顧客點餐 Ver 3.4.0</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -52,15 +52,16 @@
     .empty-hint { text-align: center; color: #999; padding: 60px 20px; font-size: 1.05rem; line-height: 1.8; }
 
     /* ── 自訂面板 ── */
-    .cz-header { position: sticky; top: 0; z-index: 20; background: #fff; margin: -16px -16px 14px -16px; padding: 14px 16px 10px 16px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #222; box-shadow: 0 4px 8px rgba(0,0,0,0.04); gap: 10px; }
-    /* ✅ ver3.2.1 新增：客製化面板頭部的圖片縮圖 + 名稱，取代原本只有純文字的標題區 */
-    .cz-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-    .cz-thumb { width: 54px; height: 54px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
-    .cz-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* ✅ ver3.4.0 改版：原本頂部小縮圖(.cz-thumb 54x54)+返回鈕+加入購物車鈕全部在同一列，
+       改成參考圖片那樣「大照片在最上面、返回鈕浮在照片左上角」，加入購物車鈕整個
+       搬到畫面最底部固定的 #customize-bottombar（見下面），不再佔用頂部空間。 */
+    .cz-hero { position: relative; width: calc(100% + 32px); margin: -16px -16px 0 -16px; aspect-ratio: 4 / 3; max-height: 300px; overflow: hidden; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); }
+    .cz-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cz-hero-noimg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; font-size: 1.4rem; font-weight: 900; color: #a08f6f; }
+    .cz-hero-back { position: absolute; top: 14px; left: 14px; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255,255,255,0.92); color: #333; font-size: 1.25rem; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+    .cz-info-row { padding: 14px 0 12px; border-bottom: 3px solid #222; margin-bottom: 14px; }
     .cz-title { font-size: 1.3rem; font-weight: 900; min-width: 0; }
-    .cz-title small { display: block; font-size: 0.75rem; color: #888; font-weight: bold; }
-    .cz-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-    .confirm-btn-top { background: var(--success); color: #fff; border: none; padding: 12px 18px; border-radius: 14px; font-weight: 900; font-size: 1.05rem; white-space: nowrap; }
+    .cz-title small { display: block; font-size: 0.78rem; color: #888; font-weight: bold; margin-top: 2px; }
     .mini-cancel { background: #999; color: #fff; border: none; padding: 5px 12px; border-radius: 8px; font-weight: bold; font-size: 0.72rem; white-space: nowrap; }
 
     .section { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 2px dashed #eee; }
@@ -141,13 +142,17 @@
        跟品名放在同一個底色區塊裡，但字比較小、比較淡，一般菜單格(renderMenuGrid)不會用到這個 class */
     .menu-card-subtitle { font-size: 0.7rem; font-weight: normal; opacity: 0.82; margin-top: 3px; }
     .menu-cat-title { font-weight: 900; font-size: 1.15rem; margin-bottom: 12px; }
-    .cz-back-btn { background: #eee; color: #555; border: none; padding: 9px 14px; border-radius: 10px; font-weight: 900; font-size: 0.85rem; white-space: nowrap; }
 
     /* ── 底部固定操作列 ── */
     #bottombar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 8px; z-index: 500; }
     #cart-summary-mini { font-weight: 900; font-size: 1rem; white-space: nowrap; background: #fff3e0; border: 2px solid var(--hot); border-radius: 12px; padding: 12px 14px; color: #222; }
     #cart-summary-mini span#cart-total-sum { color: var(--price-tag); font-size: 1.2rem; }
     .bb-btn { flex: 1; padding: 16px 6px; border-radius: 12px; border: none; font-weight: 900; color: #fff; font-size: 0.95rem; white-space: nowrap; }
+    /* ✅ ver3.4.0 新增：客製化面板專用的底部固定列，跟 #bottombar 同樣的定位方式，
+       兩者互斥顯示（見 JS 的 updateBottomBarVisibility()） */
+    #customize-bottombar { display: none; position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 12px 14px calc(16px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); z-index: 500; }
+    .cz-confirm-btn-bottom { width: 100%; background: var(--success); color: #fff; border: none; padding: 16px; border-radius: 14px; font-weight: 900; font-size: 1.1rem; }
+
 
     #cart-view-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2800; align-items:center; justify-content:center; padding:20px; }
 
@@ -188,10 +193,9 @@
         #cat-tabs { order: 3; flex-basis: 100%; width: 100%; gap: 5px; }
         .cat-tab { padding: 9px 8px; font-size: 0.78rem; border-radius: 9px; }
         #panel { padding: 12px 10px; }
-        .cz-header { margin: -12px -10px 12px -10px; padding: 12px 10px 8px 10px; }
-        .cz-thumb { width: 42px; height: 42px; border-radius: 10px; font-size: 1.3rem; }
+        .cz-hero { margin: -12px -10px 0 -10px; width: calc(100% + 20px); }
         .cz-title { font-size: 1.1rem; }
-        .confirm-btn-top { padding: 10px 12px; font-size: 0.88rem; }
+        .cz-confirm-btn-bottom { padding: 13px; font-size: 1rem; }
         .chip { padding: 9px 12px; font-size: 0.85rem; }
         .chip.big { padding: 12px 16px; font-size: 0.92rem; }
         .bb-btn { padding: 13px 4px; font-size: 0.82rem; }
@@ -205,7 +209,7 @@
 
 <div id="app">
     <div id="topbar">
-        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.3.0</span></div>
+        <div id="shop-name">🍜 Million <span id="version-tag" style="font-size:0.6rem; font-weight:normal; color:#aaa; vertical-align:middle;">v3.4.0</span></div>
         <!-- ✅ ver3.0.0：整單堂食/外賣改成入口彈窗一次決定（見 #entry-dining-modal），
              這裡加一個小標籤顯示目前選的是哪一種，點一下可以隨時重新選擇（例如點錯了要改）。
              一開始還沒選之前（globalIsTakeaway 是 null）先隱藏，選完才顯示。 -->
@@ -234,6 +238,12 @@
         <button id="clear-cart-btn" style="flex:0 0 auto; padding:12px 14px; border-radius:12px; border:2px solid #eee; background:#fff; color:#999; font-weight:900; font-size:1.1rem;" onclick="clearCart()" title="清空購物車">🗑️</button>
         <button id="cart-summary-mini" onclick="showCartModal()">🛒 <span id="cart-count">0</span><span id="cart-unit-label">項</span> · $<span id="cart-total-sum">0.00</span> <span id="cart-discount-badge" style="display:none; color:#ff6d00; font-weight:900;"></span></button>
         <button class="bb-btn" id="submitBtn" style="background:var(--primary);" onclick="openSubmitModal()">🚀 確定送出</button>
+    </div>
+
+    <!-- ✅ ver3.4.0 新增：客製化面板專用的底部固定「加入購物車」大按鈕，取代平常的
+         #bottombar（見 updateBottomBarVisibility()：兩者互斥，同一時間只會顯示一個） -->
+    <div id="customize-bottombar">
+        <button id="cz-confirm-btn" class="cz-confirm-btn-bottom" onclick="confirmAddToCart()"></button>
     </div>
 </div>
 
@@ -814,6 +824,7 @@
         document.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === cat));
         if (cat === '推薦') renderRecommendPanel();
         else renderMenuGrid();
+        updateBottomBarVisibility(); // ✅ ver3.4.0：切分類一定會離開客製化面板，換回平常的購物車列（依購物車是否有東西決定顯不顯示）
     }
 
     /* ✅ ver3.1.0：原本的文字清單 renderSideList() 整個換成圖像化菜單格。
@@ -878,19 +889,18 @@
         const t = tempItem;
         const totalPrice = computeTempTotalPrice(t);
 
-        let html = `<div class="cz-header">
-            <div class="cz-header-left">
-                <!-- ✅ ver3.2.1 新增：客製化面板頭部縮圖，跟菜單格的圖片是同一份資料 -->
-                <div class="cz-thumb">${getItemImage(t.mainKey) ? `<img src="${getItemImage(t.mainKey)}" alt="${getItemName(t.mainKey)}">` : `<span>🍜</span>`}</div>
-                <div class="cz-title">${getItemName(t.mainKey)}<small>${editingIndex >= 0 ? (userLang==='zh'?'修改購物車項目':'Editing cart item') : (userLang==='zh'?'請選擇您的偏好':'Customize your order')}</small></div>
-            </div>
-            <div class="cz-header-actions">
-                <!-- ✅ ver3.1.0：改成圖像化菜單格之後，這裡加一顆「返回」鈕，
-                     客人點了卡片進來客製化，但還沒加入購物車前想改逛別的餐點，
-                     可以直接退回菜單格，不用真的送出或取消編輯。編輯中的舊「✕ 取消」邏輯不變。 -->
-                <button class="cz-back-btn" onclick="cancelEdit()">${editingIndex>=0 ? (userLang==='zh'?'✕ 取消':'✕ Cancel') : (userLang==='zh'?'← 返回':'← Back')}</button>
-                <button class="confirm-btn-top" onclick="confirmAddToCart()">✅ ${editingIndex>=0 ? (userLang==='zh'?'更新':'Update') : (userLang==='zh'?'加入購物車':'Add to Cart')} $${totalPrice.toFixed(2)}</button>
-            </div>
+        /* ✅ ver3.4.0：客製化面板改版——照片放大變成頂部主視覺(cz-hero)，
+           返回/取消鈕變成浮在照片左上角的圓形按鈕；原本在頂部的「加入購物車」大按鈕
+           整個搬到畫面最底部的 #customize-bottombar（取代平常的購物車列），
+           跟參考圖片一樣「大圖在上、加入鈕固定在最底」。 */
+        let html = `<div class="cz-hero">
+            ${getItemImage(t.mainKey)
+                ? `<img src="${getItemImage(t.mainKey)}" alt="${getItemName(t.mainKey)}">`
+                : `<div class="cz-hero-noimg">${getItemName(t.mainKey)}</div>`}
+            <button class="cz-hero-back" onclick="cancelEdit()">${editingIndex>=0 ? '✕' : '←'}</button>
+        </div>
+        <div class="cz-info-row">
+            <div class="cz-title">${getItemName(t.mainKey)}<small>${editingIndex >= 0 ? (userLang==='zh'?'修改購物車項目':'Editing cart item') : (userLang==='zh'?'請選擇您的偏好':'Customize your order')}</small></div>
         </div>`;
 
         /* ✅ ver3.0.0 簡化大小選擇：拿掉原本「小 $0 / 大 +$1」兩顆按鈕，改成一顆開關，
@@ -966,6 +976,12 @@
         html += `<div class="summary-box">📋 ${buildSummaryText(t)}</div>`;
 
         document.getElementById('panel').innerHTML = html;
+
+        /* ✅ ver3.4.0：加入購物車/更新按鈕的文字跟金額，寫進畫面最底部固定的
+           #customize-bottombar（平常的 #bottombar 這時候會被藏起來，見 updateBottomBarVisibility()） */
+        document.getElementById('cz-confirm-btn').innerText =
+            `✅ ${editingIndex>=0 ? (userLang==='zh'?'更新':'Update') : (userLang==='zh'?'加入購物車':'Add to Cart')} $${totalPrice.toFixed(2)}`;
+        updateBottomBarVisibility();
     }
 
     function setTempSize(v) { tempItem.sizeKey = v; renderCustomizePanel(); }
@@ -1041,20 +1057,19 @@
             noExtraKeys: [...tempItem.noExtraKeys], additionKeys: {...tempItem.additionKeys}
         };
         const wasEditing = editingIndex >= 0;
-        const addedMainKey = tempItem.mainKey;
         if (wasEditing) { cart[editingIndex] = finalItem; editingIndex = -1; }
         else cart.push(finalItem);
         updateBottomBar();
         const modal = document.getElementById('cart-view-modal');
         if (modal.style.display === 'flex') document.getElementById('cart-modal-body').innerHTML = buildCartRowsHtml();
 
-        if (wasEditing) {
-            tempItem = null;
-            renderMenuGrid();
-        } else {
-            showAddedToast();
-            selectItem(addedMainKey);
-        }
+        /* ✅ ver3.4.0：加完之後一律直接退回菜單格，不再像以前那樣重新打開同一個品項的
+           客製化面板等客人繼續加——使用者反映按了「加入」應該要回到主目錄繼續逛，
+           不要停留在選擇畫面。想再點同一樣東西，直接從菜單格再點一次卡片即可。
+           （加入新品項才跳提示 toast，編輯已有品項沿用原本邏輯不跳，維持跟之前一樣的分別） */
+        tempItem = null;
+        if (!wasEditing) showAddedToast();
+        renderMenuGrid();
     }
 
     let addedToastTimer = null;
@@ -1071,6 +1086,7 @@
     function cancelEdit() {
         tempItem = null; editingIndex = -1;
         if (currentCategory === '推薦') renderRecommendPanel(); else renderMenuGrid();
+        updateBottomBarVisibility(); // ✅ ver3.4.0：退回菜單格時，把 #customize-bottombar 換回平常的購物車列
     }
 
     /* ✅ ver3.0.0 新增：清空購物車——把已選的所有餐點整個取消歸零，
@@ -1180,6 +1196,24 @@
         const badge = document.getElementById('cart-discount-badge');
         if (discount > 0) { badge.style.display = 'inline'; badge.innerText = `🎉-$${discount.toFixed(2)}`; }
         else { badge.style.display = 'none'; }
+        updateBottomBarVisibility();
+    }
+
+    /* ✅ ver3.4.0 新增：#bottombar（購物車列）跟 #customize-bottombar（客製化面板的
+       加入購物車大按鈕）互斥，同一時間只顯示一個：
+       - 正在客製化某個品項(tempItem有值) → 顯示 #customize-bottombar，藏起 #bottombar
+       - 沒在客製化，但購物車是空的（例如剛打開網頁）→ 兩個都藏起來，把畫面空間留給菜單
+       - 沒在客製化，購物車有東西 → 顯示 #bottombar，藏起 #customize-bottombar */
+    function updateBottomBarVisibility() {
+        const normalBar = document.getElementById('bottombar');
+        const customizeBar = document.getElementById('customize-bottombar');
+        if (tempItem) {
+            normalBar.style.display = 'none';
+            customizeBar.style.display = 'block';
+        } else {
+            customizeBar.style.display = 'none';
+            normalBar.style.display = cart.length > 0 ? 'flex' : 'none';
+        }
     }
 
     /* ═══════════════ 推薦分類（簡化版：只顯示店家固定推薦組合，點擊＝加入購物車）═══════════════ */
