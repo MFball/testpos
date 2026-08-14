@@ -13,199 +13,218 @@
 <body class="bg-gray-100 min-h-screen">
   <div class="max-w-lg mx-auto p-4">
     <!-- 標題 + 版本 -->
-    <div class="bg-white rounded-xl shadow p-5 mb-5">
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
       <div class="flex justify-between items-start">
         <div>
-          <h1 class="text-2xl font-bold text-gray-800">店舖收支管理</h1>
-          <p class="text-gray-500 text-sm mt-1">Million Fishball Noodle</p>
+          <h1 class="text-xl font-bold text-gray-800">店舖收支管理</h1>
+          <p class="text-gray-500 text-xs mt-0.5">Million Fishball Noodle</p>
         </div>
-        <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2.5 py-1 rounded">v1.0.2</span>
+        <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded">v1.0.3</span>
       </div>
     </div>
 
     <!-- 導航 -->
-    <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
-      <button onclick="showSection('dashboard')" id="btn-dashboard" class="nav-btn px-4 py-2 rounded-lg bg-blue-600 text-white font-medium whitespace-nowrap">總覽</button>
-      <button onclick="showSection('income')" id="btn-income" class="nav-btn px-4 py-2 rounded-lg bg-white text-gray-700 font-medium whitespace-nowrap">新增收入</button>
-      <button onclick="showSection('expense')" id="btn-expense" class="nav-btn px-4 py-2 rounded-lg bg-white text-gray-700 font-medium whitespace-nowrap">新增支出</button>
-      <button onclick="showSection('list')" id="btn-list" class="nav-btn px-4 py-2 rounded-lg bg-white text-gray-700 font-medium whitespace-nowrap">紀錄列表</button>
+    <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+      <button onclick="showSection('dashboard')" id="btn-dashboard" class="nav-btn px-3 py-2 rounded-lg bg-blue-600 text-white font-medium text-sm whitespace-nowrap">總覽</button>
+      <button onclick="showSection('income')" id="btn-income" class="nav-btn px-3 py-2 rounded-lg bg-white text-gray-700 font-medium text-sm whitespace-nowrap">新增收入</button>
+      <button onclick="showSection('expense')" id="btn-expense" class="nav-btn px-3 py-2 rounded-lg bg-white text-gray-700 font-medium text-sm whitespace-nowrap">新增支出</button>
+      <button onclick="showSection('list')" id="btn-list" class="nav-btn px-3 py-2 rounded-lg bg-white text-gray-700 font-medium text-sm whitespace-nowrap">紀錄列表</button>
     </div>
 
     <!-- ===== 總覽 ===== -->
-    <div id="section-dashboard" class="space-y-5">
-      <div class="bg-white rounded-xl shadow p-4 flex flex-wrap items-center gap-3">
-        <label class="font-medium text-gray-700">查看日期：</label>
-        <input type="date" id="view-date" class="border rounded-lg px-3 py-2" onchange="updateDashboard()">
-        <button onclick="setToday()" class="text-sm text-blue-600 underline">回到今天</button>
+    <div id="section-dashboard" class="space-y-4">
+      <div class="bg-white rounded-xl shadow p-3 flex flex-wrap items-center gap-2">
+        <label class="font-medium text-gray-700 text-sm">查看日期：</label>
+        <input type="date" id="view-date" class="border rounded-lg px-2 py-1.5 text-sm" onchange="updateDashboard()">
+        <button onclick="setToday()" class="text-xs text-blue-600 underline">今天</button>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">本日收入</div>
-          <div id="today-income" class="text-xl font-bold text-green-600 mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">本日收入</div>
+          <div id="today-income" class="text-lg font-bold text-green-600">$0</div>
         </div>
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">本日支出</div>
-          <div id="today-expense" class="text-xl font-bold text-red-600 mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">本日支出</div>
+          <div id="today-expense" class="text-lg font-bold text-red-600">$0</div>
         </div>
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">本日盈虧</div>
-          <div id="today-profit" class="text-xl font-bold mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">本日盈虧</div>
+          <div id="today-profit" class="text-lg font-bold">$0</div>
         </div>
-        <div class="bg-blue-50 rounded-xl shadow p-4 border-2 border-blue-200">
-          <div class="text-sm text-blue-600 font-medium">本月盈虧</div>
-          <div id="month-profit" class="text-xl font-bold mt-1">$0</div>
+        <div class="bg-blue-50 rounded-xl shadow p-3 border border-blue-200">
+          <div class="text-xs text-blue-600 font-medium">本月盈虧</div>
+          <div id="month-profit" class="text-lg font-bold">$0</div>
         </div>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">貨品（進貨）</div>
-          <div id="cat-goods" class="text-lg font-bold text-orange-600 mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">貨品</div>
+          <div id="cat-goods" class="text-base font-bold text-orange-600">$0</div>
         </div>
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">員工（薪金）</div>
-          <div id="cat-salary" class="text-lg font-bold text-orange-600 mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">員工</div>
+          <div id="cat-salary" class="text-base font-bold text-orange-600">$0</div>
         </div>
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">NETS 收入</div>
-          <div id="method-nets" class="text-lg font-bold text-blue-600 mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">NETS</div>
+          <div id="method-nets" class="text-base font-bold text-blue-600">$0</div>
         </div>
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">CDC 收入</div>
-          <div id="method-cdc" class="text-lg font-bold text-blue-600 mt-1">$0</div>
+        <div class="bg-white rounded-xl shadow p-3">
+          <div class="text-xs text-gray-500">CDC</div>
+          <div id="method-cdc" class="text-base font-bold text-blue-600">$0</div>
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow p-5">
-        <h3 class="font-bold mb-3">收入 vs 支出比例</h3>
-        <canvas id="ratioChart" height="200"></canvas>
-        <p id="ratio-text" class="text-center text-sm text-gray-500 mt-2"></p>
+      <div class="bg-white rounded-xl shadow p-4">
+        <h3 class="font-bold mb-2 text-sm">收入 vs 支出</h3>
+        <canvas id="ratioChart" height="180"></canvas>
+        <p id="ratio-text" class="text-center text-xs text-gray-500 mt-1"></p>
       </div>
 
-      <div class="bg-white rounded-xl shadow p-5">
-        <h3 class="font-bold mb-3">每日收支對比</h3>
-        <canvas id="dailyChart" height="200"></canvas>
+      <div class="bg-white rounded-xl shadow p-4">
+        <h3 class="font-bold mb-2 text-sm">每日收支對比</h3>
+        <canvas id="dailyChart" height="180"></canvas>
       </div>
 
-      <div class="bg-white rounded-xl shadow p-5">
+      <div class="bg-white rounded-xl shadow p-4">
         <button onclick="exportExcel()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium">
-          下載 Excel 報表
+          下載 Excel
         </button>
       </div>
     </div>
 
-    <!-- ===== 新增收入（寬鬆版） ===== -->
+    <!-- ===== 新增收入 ===== -->
     <div id="section-income" class="hidden">
-      <div class="bg-white rounded-xl shadow p-5">
+      <div class="bg-white rounded-xl shadow p-4">
         <!-- 日期 -->
-        <div class="flex items-center justify-between mb-6">
-          <div class="border-2 border-gray-800 rounded-lg px-5 py-2 font-bold text-xl" id="income-date-display">
-            --
+        <div class="flex items-center justify-between mb-3">
+          <div class="border-2 border-gray-800 rounded-lg px-4 py-1.5 font-bold text-lg" id="income-date-display">--</div>
+          <input type="date" id="income-date" class="border rounded-lg px-2 py-1.5 text-sm" onchange="updateIncomeDateDisplay()">
+        </div>
+
+        <!-- 每日總結 -->
+        <div class="bg-blue-50 rounded-lg p-3 mb-4 border border-blue-100">
+          <div class="text-sm font-bold text-blue-800 mb-2">每日總結</div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div>總收入：<span id="daily-total" class="font-bold text-green-600">$0</span></div>
+            <div>現金：<span id="sum-cash" class="font-bold">$0</span></div>
+            <div>CDC：<span id="sum-cdc" class="font-bold">$0</span></div>
+            <div>Nets：<span id="sum-nets" class="font-bold">$0</span></div>
+            <div class="col-span-2">外賣平台：<span id="sum-delivery" class="font-bold">$0</span></div>
           </div>
-          <input type="date" id="income-date" class="border rounded-lg px-3 py-2" onchange="updateIncomeDateDisplay()">
         </div>
 
         <!-- 早 -->
-        <div class="mb-8">
-          <div class="text-lg font-bold text-gray-700 mb-3 bg-gray-100 rounded-lg px-3 py-2">早</div>
-          <div class="space-y-3">
+        <div class="mb-5 border rounded-lg p-3">
+          <div class="flex justify-between items-center mb-2">
+            <div class="font-bold text-gray-700">早</div>
+            <div class="text-sm">小計：<span id="sub-morning" class="font-bold text-green-600">$0</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mb-2">
             <div>
-              <label class="text-sm text-gray-600">現金</label>
-              <input type="number" id="cash-morning" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">現金</label>
+              <input type="number" id="cash-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">CDC</label>
-              <input type="number" id="cdc-morning" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">CDC</label>
+              <input type="number" id="cdc-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">Nets</label>
-              <input type="number" id="nets-morning" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">Nets</label>
+              <input type="number" id="nets-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-xs text-gray-500">外賣平台</label>
+              <input type="number" id="delivery-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">外賣平台</label>
-              <input type="number" id="delivery-morning" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-yellow-600">魚圓</label>
+              <input type="number" id="fishball-morning" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
             </div>
-            <div class="grid grid-cols-2 gap-3 pt-2">
-              <div>
-                <label class="text-sm text-yellow-700">魚圓（參考）</label>
-                <input type="number" id="fishball-morning" class="w-full border rounded-lg px-3 py-2 bg-yellow-50" placeholder="0">
-              </div>
-              <div>
-                <label class="text-sm text-yellow-700">肉圓（參考）</label>
-                <input type="number" id="meatball-morning" class="w-full border rounded-lg px-3 py-2 bg-yellow-50" placeholder="0">
-              </div>
+            <div>
+              <label class="text-xs text-yellow-600">肉圓</label>
+              <input type="number" id="meatball-morning" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
             </div>
           </div>
         </div>
 
         <!-- 午 -->
-        <div class="mb-8">
-          <div class="text-lg font-bold text-gray-700 mb-3 bg-gray-100 rounded-lg px-3 py-2">午</div>
-          <div class="space-y-3">
+        <div class="mb-5 border rounded-lg p-3">
+          <div class="flex justify-between items-center mb-2">
+            <div class="font-bold text-gray-700">午</div>
+            <div class="text-sm">小計：<span id="sub-afternoon" class="font-bold text-green-600">$0</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mb-2">
             <div>
-              <label class="text-sm text-gray-600">現金</label>
-              <input type="number" id="cash-afternoon" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">現金</label>
+              <input type="number" id="cash-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">CDC</label>
-              <input type="number" id="cdc-afternoon" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">CDC</label>
+              <input type="number" id="cdc-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">Nets</label>
-              <input type="number" id="nets-afternoon" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">Nets</label>
+              <input type="number" id="nets-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-xs text-gray-500">外賣平台</label>
+              <input type="number" id="delivery-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">外賣平台</label>
-              <input type="number" id="delivery-afternoon" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-yellow-600">魚圓</label>
+              <input type="number" id="fishball-afternoon" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
             </div>
-            <div class="grid grid-cols-2 gap-3 pt-2">
-              <div>
-                <label class="text-sm text-yellow-700">魚圓（參考）</label>
-                <input type="number" id="fishball-afternoon" class="w-full border rounded-lg px-3 py-2 bg-yellow-50" placeholder="0">
-              </div>
-              <div>
-                <label class="text-sm text-yellow-700">肉圓（參考）</label>
-                <input type="number" id="meatball-afternoon" class="w-full border rounded-lg px-3 py-2 bg-yellow-50" placeholder="0">
-              </div>
+            <div>
+              <label class="text-xs text-yellow-600">肉圓</label>
+              <input type="number" id="meatball-afternoon" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
             </div>
           </div>
         </div>
 
         <!-- 夜 -->
-        <div class="mb-6">
-          <div class="text-lg font-bold text-gray-700 mb-3 bg-gray-100 rounded-lg px-3 py-2">夜</div>
-          <div class="space-y-3">
+        <div class="mb-5 border rounded-lg p-3">
+          <div class="flex justify-between items-center mb-2">
+            <div class="font-bold text-gray-700">夜</div>
+            <div class="text-sm">小計：<span id="sub-night" class="font-bold text-green-600">$0</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mb-2">
             <div>
-              <label class="text-sm text-gray-600">現金</label>
-              <input type="number" id="cash-night" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">現金</label>
+              <input type="number" id="cash-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">CDC</label>
-              <input type="number" id="cdc-night" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">CDC</label>
+              <input type="number" id="cdc-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">Nets</label>
-              <input type="number" id="nets-night" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-gray-500">Nets</label>
+              <input type="number" id="nets-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="text-xs text-gray-500">外賣平台</label>
+              <input type="number" id="delivery-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
             </div>
             <div>
-              <label class="text-sm text-gray-600">外賣平台</label>
-              <input type="number" id="delivery-night" class="w-full border-2 rounded-lg px-4 py-3 text-lg" placeholder="0">
+              <label class="text-xs text-yellow-600">魚圓</label>
+              <input type="number" id="fishball-night" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
             </div>
-            <div class="grid grid-cols-2 gap-3 pt-2">
-              <div>
-                <label class="text-sm text-yellow-700">魚圓（參考）</label>
-                <input type="number" id="fishball-night" class="w-full border rounded-lg px-3 py-2 bg-yellow-50" placeholder="0">
-              </div>
-              <div>
-                <label class="text-sm text-yellow-700">肉圓（參考）</label>
-                <input type="number" id="meatball-night" class="w-full border rounded-lg px-3 py-2 bg-yellow-50" placeholder="0">
-              </div>
+            <div>
+              <label class="text-xs text-yellow-600">肉圓</label>
+              <input type="number" id="meatball-night" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
             </div>
           </div>
         </div>
 
-        <button onclick="saveIncomeForm()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-xl font-bold text-lg">
+        <button onclick="saveIncomeForm()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold text-lg">
           儲存
         </button>
       </div>
@@ -213,20 +232,20 @@
 
     <!-- ===== 新增支出 ===== -->
     <div id="section-expense" class="hidden">
-      <div class="bg-white rounded-xl shadow p-6">
-        <h2 class="text-xl font-bold mb-4">新增支出</h2>
-        <div class="space-y-4">
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-lg font-bold mb-4">新增支出</h2>
+        <div class="space-y-3">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
-            <input type="date" id="expense-date" class="w-full border-2 rounded-lg px-4 py-3">
+            <label class="block text-sm text-gray-600 mb-1">日期</label>
+            <input type="date" id="expense-date" class="w-full border rounded-lg px-3 py-2.5">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">金額</label>
-            <input type="number" id="expense-amount" placeholder="例如 800" class="w-full border-2 rounded-lg px-4 py-3 text-lg">
+            <label class="block text-sm text-gray-600 mb-1">金額</label>
+            <input type="number" id="expense-amount" placeholder="0" class="w-full border rounded-lg px-3 py-2.5 text-lg">
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">支出分類</label>
-            <select id="expense-category" class="w-full border-2 rounded-lg px-4 py-3">
+            <label class="block text-sm text-gray-600 mb-1">分類</label>
+            <select id="expense-category" class="w-full border rounded-lg px-3 py-2.5">
               <option value="進貨">進貨（貨品）</option>
               <option value="租金">租金</option>
               <option value="水電煤">水電煤</option>
@@ -237,30 +256,28 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
-            <input type="text" id="expense-note" placeholder="例如：小明 8月薪水" class="w-full border-2 rounded-lg px-4 py-3">
+            <label class="block text-sm text-gray-600 mb-1">備註</label>
+            <input type="text" id="expense-note" placeholder="選填" class="w-full border rounded-lg px-3 py-2.5">
           </div>
-          <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-xl font-bold text-lg">儲存支出</button>
+          <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-xl font-bold">儲存支出</button>
         </div>
       </div>
     </div>
 
     <!-- ===== 紀錄列表 ===== -->
     <div id="section-list" class="hidden">
-      <div class="bg-white rounded-xl shadow p-5 mb-5">
-        <h2 class="text-xl font-bold mb-4">收入紀錄</h2>
+      <div class="bg-white rounded-xl shadow p-4 mb-4">
+        <h2 class="text-lg font-bold mb-3">收入紀錄</h2>
         <div id="income-list" class="space-y-2 text-sm"></div>
       </div>
-      <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-xl font-bold mb-4">支出紀錄</h2>
+      <div class="bg-white rounded-xl shadow p-4">
+        <h2 class="text-lg font-bold mb-3">支出紀錄</h2>
         <div id="expense-list" class="space-y-2 text-sm"></div>
       </div>
     </div>
   </div>
 
   <script>
-    const APP_VERSION = "1.0.2";
-
     const firebaseConfig = {
       apiKey: "AIzaSyBMLw8j0YPL67EbvTkMqcSP7uTxuigp9t8",
       authDomain: "million-fishballnoodle-backend.firebaseapp.com",
@@ -310,6 +327,35 @@
       document.getElementById('btn-' + name).classList.remove('bg-white', 'text-gray-700');
     }
 
+    // 即時計算小計與每日總結
+    function calcTotals() {
+      const periods = ['morning', 'afternoon', 'night'];
+      let totalCash = 0, totalCdc = 0, totalNets = 0, totalDelivery = 0;
+      let grandTotal = 0;
+
+      periods.forEach(p => {
+        const cash = parseFloat(document.getElementById(`cash-${p}`).value) || 0;
+        const cdc = parseFloat(document.getElementById(`cdc-${p}`).value) || 0;
+        const nets = parseFloat(document.getElementById(`nets-${p}`).value) || 0;
+        const delivery = parseFloat(document.getElementById(`delivery-${p}`).value) || 0;
+        const sub = cash + cdc + nets + delivery;
+
+        document.getElementById(`sub-${p}`).textContent = '$' + sub.toLocaleString();
+
+        totalCash += cash;
+        totalCdc += cdc;
+        totalNets += nets;
+        totalDelivery += delivery;
+        grandTotal += sub;
+      });
+
+      document.getElementById('daily-total').textContent = '$' + grandTotal.toLocaleString();
+      document.getElementById('sum-cash').textContent = '$' + totalCash.toLocaleString();
+      document.getElementById('sum-cdc').textContent = '$' + totalCdc.toLocaleString();
+      document.getElementById('sum-nets').textContent = '$' + totalNets.toLocaleString();
+      document.getElementById('sum-delivery').textContent = '$' + totalDelivery.toLocaleString();
+    }
+
     function saveIncomeForm() {
       const date = document.getElementById('income-date').value;
       if (!date) return alert('請選擇日期');
@@ -334,8 +380,7 @@
           const amount = parseFloat(document.getElementById(`${method.id}-${period.key}`).value) || 0;
           if (amount > 0) {
             promises.push(db.ref('incomes').push({
-              date,
-              amount,
+              date, amount,
               method: method.name,
               period: period.name,
               note: period.name + '時段',
@@ -345,16 +390,11 @@
           }
         });
 
-        // 魚圓肉圓參考
         const fishball = parseFloat(document.getElementById(`fishball-${period.key}`).value) || 0;
         const meatball = parseFloat(document.getElementById(`meatball-${period.key}`).value) || 0;
         if (fishball > 0 || meatball > 0) {
           promises.push(db.ref('references').push({
-            date,
-            period: period.name,
-            fishball,
-            meatball,
-            createdAt: Date.now()
+            date, period: period.name, fishball, meatball, createdAt: Date.now()
           }));
         }
       });
@@ -363,12 +403,12 @@
 
       Promise.all(promises).then(() => {
         alert(`成功儲存 ${saveCount} 筆收入！`);
-        // 清空
         periods.forEach(p => {
           ['cash','cdc','nets','delivery','fishball','meatball'].forEach(id => {
             document.getElementById(`${id}-${p.key}`).value = '';
           });
         });
+        calcTotals();
       }).catch(err => alert('儲存失敗：' + err.message));
     }
 
@@ -402,26 +442,26 @@
       document.getElementById('income-list').innerHTML = incomeArr.length === 0 
         ? '<p class="text-gray-400">目前沒有收入紀錄</p>'
         : incomeArr.map(([id, item]) => `
-          <div class="flex justify-between items-center border-b py-3">
+          <div class="flex justify-between items-center border-b py-2">
             <div>
               <span class="font-medium">${item.date}</span> · 
-              <span class="text-green-600 font-bold">$${Number(item.amount).toLocaleString()}</span><br>
-              <span class="text-gray-500 text-xs">${item.method} ${item.period || ''}</span>
+              <span class="text-green-600 font-bold">$${Number(item.amount).toLocaleString()}</span>
+              <div class="text-xs text-gray-500">${item.method} ${item.period || ''}</div>
             </div>
-            <button onclick="deleteIncome('${id}')" class="text-red-500 text-sm">刪除</button>
+            <button onclick="deleteIncome('${id}')" class="text-red-500 text-xs">刪除</button>
           </div>`).join('');
 
       const expenseArr = Object.entries(expenses).sort((a,b) => b[1].createdAt - a[1].createdAt);
       document.getElementById('expense-list').innerHTML = expenseArr.length === 0 
         ? '<p class="text-gray-400">目前沒有支出紀錄</p>'
         : expenseArr.map(([id, item]) => `
-          <div class="flex justify-between items-center border-b py-3">
+          <div class="flex justify-between items-center border-b py-2">
             <div>
               <span class="font-medium">${item.date}</span> · 
-              <span class="text-red-600 font-bold">$${Number(item.amount).toLocaleString()}</span><br>
-              <span class="text-gray-500 text-xs">${item.category}</span>
+              <span class="text-red-600 font-bold">$${Number(item.amount).toLocaleString()}</span>
+              <div class="text-xs text-gray-500">${item.category}</div>
             </div>
-            <button onclick="deleteExpense('${id}')" class="text-red-500 text-sm">刪除</button>
+            <button onclick="deleteExpense('${id}')" class="text-red-500 text-xs">刪除</button>
           </div>`).join('');
     }
 
@@ -472,12 +512,12 @@
       const tp = document.getElementById('today-profit');
       const todayProfit = todayIncome - todayExpense;
       tp.textContent = '$' + todayProfit.toLocaleString();
-      tp.className = 'text-xl font-bold mt-1 ' + (todayProfit >= 0 ? 'text-green-600' : 'text-red-600');
+      tp.className = 'text-lg font-bold ' + (todayProfit >= 0 ? 'text-green-600' : 'text-red-600');
 
       const mp = document.getElementById('month-profit');
       const monthProfit = monthIncome - monthExpense;
       mp.textContent = '$' + monthProfit.toLocaleString();
-      mp.className = 'text-xl font-bold mt-1 ' + (monthProfit >= 0 ? 'text-green-600' : 'text-red-600');
+      mp.className = 'text-lg font-bold ' + (monthProfit >= 0 ? 'text-green-600' : 'text-red-600');
 
       document.getElementById('cat-goods').textContent = '$' + goods.toLocaleString();
       document.getElementById('cat-salary').textContent = '$' + salary.toLocaleString();
