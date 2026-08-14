@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>店舖收支管理</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div class="max-w-5xl mx-auto p-4">
+    <!-- 標題 -->
+    <div class="bg-white rounded-xl shadow p-5 mb-5">
+      <h1 class="text-2xl font-bold text-gray-800">店舖收支管理</h1>
+      <p class="text-gray-500 text-sm mt-1">Million Fishball Noodle · 資料即時同步 Firebase</p>
+    </div>
+
+    <!-- 導航 -->
+    <div class="flex gap-2 mb-5 overflow-x-auto">
+      <button onclick="showSection('dashboard')" id="btn-dashboard" class="nav-btn px-4 py-2 rounded-lg bg-blue-600 text-white font-medium">總覽</button>
+      <button onclick="showSection('income')" id="btn-income" class="nav-btn px-4 py-2 rounded-lg bg-white text-gray-700 font-medium">新增收入</button>
+      <button onclick="showSection('expense')" id="btn-expense" class="nav-btn px-4 py-2 rounded-lg bg-white text-gray-700 font-medium">新增支出</button>
+      <button onclick="showSection('list')" id="btn-list" class="nav-btn px-4 py-2 rounded-lg bg-white text-gray-700 font-medium">紀錄列表</button>
+    </div>
+
+    <!-- ===== Dashboard ===== -->
+    <div id="section-dashboard" class="space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl shadow p-5">
+          <div class="text-sm text-gray-500">本月總收入</div>
+          <div id="total-income" class="text-2xl font-bold text-green-600 mt-1">$0</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-5">
+          <div class="text-sm text-gray-500">本月總支出</div>
+          <div id="total-expense" class="text-2xl font-bold text-red-600 mt-1">$0</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-5">
+          <div class="text-sm text-gray-500">本月盈虧</div>
+          <div id="total-profit" class="text-2xl font-bold mt-1">$0</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="bg-white rounded-xl shadow p-5">
+          <h3 class="font-bold mb-3">收入來源占比</h3>
+          <canvas id="incomeChart" height="200"></canvas>
+        </div>
+        <div class="bg-white rounded-xl shadow p-5">
+          <h3 class="font-bold mb-3">支出分類占比</h3>
+          <canvas id="expenseChart" height="200"></canvas>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow p-5">
+        <button onclick="exportExcel()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium">
+          下載 Excel 報表
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== 新增收入 ===== -->
+    <div id="section-income" class="hidden">
+      <div class="bg-white rounded-xl shadow p-6">
+        <h2 class="text-xl font-bold mb-4">新增收入</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+            <input type="date" id="income-date" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">金額</label>
+            <input type="number" id="income-amount" placeholder="例如 1500" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">收款方式</label>
+            <select id="income-method" class="w-full border rounded-lg px-3 py-2" onchange="togglePlatform()">
+              <option value="現金">現金</option>
+              <option value="NETS">NETS</option>
+              <option value="CDC">CDC</option>
+              <option value="外賣平台">外賣平台</option>
+            </select>
+          </div>
+          <div id="platform-field" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-1">外賣平台</label>
+            <input type="text" id="income-platform" placeholder="例如 Grab / Foodpanda" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+            <input type="text" id="income-note" placeholder="選填" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <button onclick="addIncome()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium">
+            儲存收入
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 新增支出 ===== -->
+    <div id="section-expense" class="hidden">
+      <div class="bg-white rounded-xl shadow p-6">
+        <h2 class="text-xl font-bold mb-4">新增支出</h2>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">日期</label>
+            <input type="date" id="expense-date" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">金額</label>
+            <input type="number" id="expense-amount" placeholder="例如 800" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">支出分類</label>
+            <select id="expense-category" class="w-full border rounded-lg px-3 py-2">
+              <option value="進貨">進貨</option>
+              <option value="租金">租金</option>
+              <option value="水電煤">水電煤</option>
+              <option value="薪金">薪金</option>
+              <option value="外賣平台抽成">外賣平台抽成</option>
+              <option value="雜項">雜項</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
+            <input type="text" id="expense-note" placeholder="例如：小明 8月薪水" class="w-full border rounded-lg px-3 py-2">
+          </div>
+          <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium">
+            儲存支出
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 紀錄列表 ===== -->
+    <div id="section-list" class="hidden">
+      <div class="bg-white rounded-xl shadow p-5 mb-5">
+        <h2 class="text-xl font-bold mb-4">收入紀錄</h2>
+        <div id="income-list" class="space-y-2 text-sm"></div>
+      </div>
+      <div class="bg-white rounded-xl shadow p-5">
+        <h2 class="text-xl font-bold mb-4">支出紀錄</h2>
+        <div id="expense-list" class="space-y-2 text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyBMLw8j0YPL67EbvTkMqcSP7uTxuigp9t8",
+      authDomain: "million-fishballnoodle-backend.firebaseapp.com",
+      databaseURL: "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "million-fishballnoodle-backend",
+      storageBucket: "million-fishballnoodle-backend.firebasestorage.app",
+      messagingSenderId: "748499905313",
+      appId: "1:748499905313:web:774f012c36d1aea68c6c60",
+      measurementId: "G-TTERWFN8LZ"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let incomes = {};
+    let expenses = {};
+    let incomeChart = null;
+    let expenseChart = null;
+
+    // 初始化日期為今天
+    document.getElementById('income-date').valueAsDate = new Date();
+    document.getElementById('expense-date').valueAsDate = new Date();
+
+    // 切換頁面
+    function showSection(name) {
+      ['dashboard', 'income', 'expense', 'list'].forEach(s => {
+        document.getElementById('section-' + s).classList.add('hidden');
+        document.getElementById('btn-' + s).classList.remove('bg-blue-600', 'text-white');
+        document.getElementById('btn-' + s).classList.add('bg-white', 'text-gray-700');
+      });
+      document.getElementById('section-' + name).classList.remove('hidden');
+      document.getElementById('btn-' + name).classList.add('bg-blue-600', 'text-white');
+      document.getElementById('btn-' + name).classList.remove('bg-white', 'text-gray-700');
+    }
+
+    function togglePlatform() {
+      const method = document.getElementById('income-method').value;
+      document.getElementById('platform-field').classList.toggle('hidden', method !== '外賣平台');
+    }
+
+    // 新增收入
+    function addIncome() {
+      const date = document.getElementById('income-date').value;
+      const amount = parseFloat(document.getElementById('income-amount').value);
+      const method = document.getElementById('income-method').value;
+      const platform = document.getElementById('income-platform').value;
+      const note = document.getElementById('income-note').value;
+
+      if (!date || !amount || amount <= 0) {
+        alert('請填寫日期和金額');
+        return;
+      }
+
+      const data = {
+        date,
+        amount,
+        method,
+        platform: method === '外賣平台' ? platform : '',
+        note,
+        createdAt: Date.now()
+      };
+
+      db.ref('incomes').push(data)
+        .then(() => {
+          alert('收入已儲存！');
+          document.getElementById('income-amount').value = '';
+          document.getElementById('income-note').value = '';
+          document.getElementById('income-platform').value = '';
+        })
+        .catch(err => alert('儲存失敗：' + err.message));
+    }
+
+    // 新增支出
+    function addExpense() {
+      const date = document.getElementById('expense-date').value;
+      const amount = parseFloat(document.getElementById('expense-amount').value);
+      const category = document.getElementById('expense-category').value;
+      const note = document.getElementById('expense-note').value;
+
+      if (!date || !amount || amount <= 0) {
+        alert('請填寫日期和金額');
+        return;
+      }
+
+      const data = {
+        date,
+        amount,
+        category,
+        note,
+        createdAt: Date.now()
+      };
+
+      db.ref('expenses').push(data)
+        .then(() => {
+          alert('支出已儲存！');
+          document.getElementById('expense-amount').value = '';
+          document.getElementById('expense-note').value = '';
+        })
+        .catch(err => alert('儲存失敗：' + err.message));
+    }
+
+    // 即時監聽資料
+    db.ref('incomes').on('value', snapshot => {
+      incomes = snapshot.val() || {};
+      updateUI();
+    });
+
+    db.ref('expenses').on('value', snapshot => {
+      expenses = snapshot.val() || {};
+      updateUI();
+    });
+
+    function updateUI() {
+      renderLists();
+      updateDashboard();
+    }
+
+    function renderLists() {
+      // 收入列表
+      const incomeList = document.getElementById('income-list');
+      const incomeArr = Object.entries(incomes).sort((a,b) => b[1].createdAt - a[1].createdAt);
+      if (incomeArr.length === 0) {
+        incomeList.innerHTML = '<p class="text-gray-400">目前沒有收入紀錄</p>';
+      } else {
+        incomeList.innerHTML = incomeArr.map(([id, item]) => `
+          <div class="flex justify-between items-center border-b py-2">
+            <div>
+              <span class="font-medium">${item.date}</span> · 
+              <span class="text-green-600 font-bold">$${item.amount}</span> · 
+              ${item.method}${item.platform ? ' ('+item.platform+')' : ''}
+              ${item.note ? '<br><span class="text-gray-500 text-xs">'+item.note+'</span>' : ''}
+            </div>
+            <button onclick="deleteIncome('${id}')" class="text-red-500 text-xs">刪除</button>
+          </div>
+        `).join('');
+      }
+
+      // 支出列表
+      const expenseList = document.getElementById('expense-list');
+      const expenseArr = Object.entries(expenses).sort((a,b) => b[1].createdAt - a[1].createdAt);
+      if (expenseArr.length === 0) {
+        expenseList.innerHTML = '<p class="text-gray-400">目前沒有支出紀錄</p>';
+      } else {
+        expenseList.innerHTML = expenseArr.map(([id, item]) => `
+          <div class="flex justify-between items-center border-b py-2">
+            <div>
+              <span class="font-medium">${item.date}</span> · 
+              <span class="text-red-600 font-bold">$${item.amount}</span> · 
+              ${item.category}
+              ${item.note ? '<br><span class="text-gray-500 text-xs">'+item.note+'</span>' : ''}
+            </div>
+            <button onclick="deleteExpense('${id}')" class="text-red-500 text-xs">刪除</button>
+          </div>
+        `).join('');
+      }
+    }
+
+    function deleteIncome(id) {
+      if (confirm('確定刪除這筆收入？')) {
+        db.ref('incomes/' + id).remove();
+      }
+    }
+
+    function deleteExpense(id) {
+      if (confirm('確定刪除這筆支出？')) {
+        db.ref('expenses/' + id).remove();
+      }
+    }
+
+    function updateDashboard() {
+      const now = new Date();
+      const currentMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+      let totalIncome = 0;
+      let totalExpense = 0;
+      const methodCount = {};
+      const categoryCount = {};
+
+      Object.values(incomes).forEach(item => {
+        if (item.date && item.date.startsWith(currentMonth)) {
+          totalIncome += item.amount;
+          methodCount[item.method] = (methodCount[item.method] || 0) + item.amount;
+        }
+      });
+
+      Object.values(expenses).forEach(item => {
+        if (item.date && item.date.startsWith(currentMonth)) {
+          totalExpense += item.amount;
+          categoryCount[item.category] = (categoryCount[item.category] || 0) + item.amount;
+        }
+      });
+
+      const profit = totalIncome - totalExpense;
+
+      document.getElementById('total-income').textContent = '$' + totalIncome.toLocaleString();
+      document.getElementById('total-expense').textContent = '$' + totalExpense.toLocaleString();
+      const profitEl = document.getElementById('total-profit');
+      profitEl.textContent = '$' + profit.toLocaleString();
+      profitEl.className = 'text-2xl font-bold mt-1 ' + (profit >= 0 ? 'text-green-600' : 'text-red-600');
+
+      // 圖表
+      renderCharts(methodCount, categoryCount);
+    }
+
+    function renderCharts(methodCount, categoryCount) {
+      // 收入圖
+      if (incomeChart) incomeChart.destroy();
+      const incomeCtx = document.getElementById('incomeChart').getContext('2d');
+      incomeChart = new Chart(incomeCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(methodCount),
+          datasets: [{
+            data: Object.values(methodCount),
+            backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#a855f7']
+          }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+      });
+
+      // 支出圖
+      if (expenseChart) expenseChart.destroy();
+      const expenseCtx = document.getElementById('expenseChart').getContext('2d');
+      expenseChart = new Chart(expenseCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(categoryCount),
+          datasets: [{
+            data: Object.values(categoryCount),
+            backgroundColor: ['#ef4444', '#f97316', '#eab308', '#84cc16', '#06b6d4', '#8b5cf6', '#64748b']
+          }]
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    // 匯出 Excel
+    function exportExcel() {
+      const incomeData = Object.values(incomes).map(i => ({
+        類型: '收入',
+        日期: i.date,
+        金額: i.amount,
+        方式或分類: i.method + (i.platform ? ' ('+i.platform+')' : ''),
+        備註: i.note || ''
+      }));
+
+      const expenseData = Object.values(expenses).map(e => ({
+        類型: '支出',
+        日期: e.date,
+        金額: e.amount,
+        方式或分類: e.category,
+        備註: e.note || ''
+      }));
+
+      const allData = [...incomeData, ...expenseData];
+      if (allData.length === 0) {
+        alert('目前沒有資料可匯出');
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(allData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, '收支紀錄');
+      XLSX.writeFile(wb, '店舖收支_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    }
+  </script>
+</body>
+</html>
