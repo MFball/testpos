@@ -29,18 +29,14 @@
     <!-- ===== 總覽 ===== -->
     <div id="section-dashboard" class="space-y-5">
       <!-- 日期選擇 -->
-      <div class="bg-white rounded-xl shadow p-4 flex items-center gap-3">
+      <div class="bg-white rounded-xl shadow p-4 flex flex-wrap items-center gap-3">
         <label class="font-medium text-gray-700">查看日期：</label>
         <input type="date" id="view-date" class="border rounded-lg px-3 py-2" onchange="updateDashboard()">
         <button onclick="setToday()" class="text-sm text-blue-600 underline">回到今天</button>
       </div>
 
-      <!-- 第一排：本日 + 本月 -->
+      <!-- 第一排：最左收入 → 最右支出 -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="bg-white rounded-xl shadow p-4">
-          <div class="text-sm text-gray-500">本日支出</div>
-          <div id="today-expense" class="text-xl font-bold text-red-600 mt-1">$0</div>
-        </div>
         <div class="bg-white rounded-xl shadow p-4">
           <div class="text-sm text-gray-500">本日收入</div>
           <div id="today-income" class="text-xl font-bold text-green-600 mt-1">$0</div>
@@ -52,6 +48,10 @@
         <div class="bg-blue-50 rounded-xl shadow p-4 border-2 border-blue-200">
           <div class="text-sm text-blue-600 font-medium">本月盈虧</div>
           <div id="month-profit" class="text-2xl font-bold mt-1">$0</div>
+        </div>
+        <div class="bg-white rounded-xl shadow p-4">
+          <div class="text-sm text-gray-500">本日支出</div>
+          <div id="today-expense" class="text-xl font-bold text-red-600 mt-1">$0</div>
         </div>
       </div>
 
@@ -75,11 +75,21 @@
         </div>
       </div>
 
-      <!-- 棒形圖 -->
-      <div class="bg-white rounded-xl shadow p-5">
-        <h3 class="font-bold mb-3">本月每日收支對比</h3>
-        <div class="overflow-x-auto">
-          <canvas id="dailyChart" height="180"></canvas>
+      <!-- 圖表區 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <!-- 圓形圖：收入 vs 支出比例 -->
+        <div class="bg-white rounded-xl shadow p-5">
+          <h3 class="font-bold mb-3">收入 vs 支出比例</h3>
+          <canvas id="ratioChart" height="200"></canvas>
+          <p id="ratio-text" class="text-center text-sm text-gray-500 mt-2"></p>
+        </div>
+
+        <!-- 棒形圖 -->
+        <div class="bg-white rounded-xl shadow p-5">
+          <h3 class="font-bold mb-3">每日收支對比（由當日開始）</h3>
+          <div class="overflow-x-auto">
+            <canvas id="dailyChart" height="200"></canvas>
+          </div>
         </div>
       </div>
 
@@ -121,9 +131,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
             <input type="text" id="income-note" placeholder="選填" class="w-full border rounded-lg px-3 py-2">
           </div>
-          <button onclick="addIncome()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium">
-            儲存收入
-          </button>
+          <button onclick="addIncome()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium">儲存收入</button>
         </div>
       </div>
     </div>
@@ -157,9 +165,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">備註</label>
             <input type="text" id="expense-note" placeholder="例如：小明 8月薪水" class="w-full border rounded-lg px-3 py-2">
           </div>
-          <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium">
-            儲存支出
-          </button>
+          <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium">儲存支出</button>
         </div>
       </div>
     </div>
@@ -195,8 +201,8 @@
     let incomes = {};
     let expenses = {};
     let dailyChart = null;
+    let ratioChart = null;
 
-    // 初始化日期
     const today = new Date().toISOString().slice(0, 10);
     document.getElementById('income-date').value = today;
     document.getElementById('expense-date').value = today;
@@ -230,25 +236,18 @@
       const platform = document.getElementById('income-platform').value;
       const note = document.getElementById('income-note').value;
 
-      if (!date || !amount || amount <= 0) {
-        alert('請填寫日期和金額');
-        return;
-      }
+      if (!date || !amount || amount <= 0) return alert('請填寫日期和金額');
 
-      const data = {
+      db.ref('incomes').push({
         date, amount, method,
         platform: method === '外賣平台' ? platform : '',
         note, createdAt: Date.now()
-      };
-
-      db.ref('incomes').push(data)
-        .then(() => {
-          alert('收入已儲存！');
-          document.getElementById('income-amount').value = '';
-          document.getElementById('income-note').value = '';
-          document.getElementById('income-platform').value = '';
-        })
-        .catch(err => alert('儲存失敗：' + err.message));
+      }).then(() => {
+        alert('收入已儲存！');
+        document.getElementById('income-amount').value = '';
+        document.getElementById('income-note').value = '';
+        document.getElementById('income-platform').value = '';
+      }).catch(err => alert('儲存失敗：' + err.message));
     }
 
     function addExpense() {
@@ -257,31 +256,19 @@
       const category = document.getElementById('expense-category').value;
       const note = document.getElementById('expense-note').value;
 
-      if (!date || !amount || amount <= 0) {
-        alert('請填寫日期和金額');
-        return;
-      }
+      if (!date || !amount || amount <= 0) return alert('請填寫日期和金額');
 
-      const data = { date, amount, category, note, createdAt: Date.now() };
-
-      db.ref('expenses').push(data)
-        .then(() => {
-          alert('支出已儲存！');
-          document.getElementById('expense-amount').value = '';
-          document.getElementById('expense-note').value = '';
-        })
-        .catch(err => alert('儲存失敗：' + err.message));
+      db.ref('expenses').push({
+        date, amount, category, note, createdAt: Date.now()
+      }).then(() => {
+        alert('支出已儲存！');
+        document.getElementById('expense-amount').value = '';
+        document.getElementById('expense-note').value = '';
+      }).catch(err => alert('儲存失敗：' + err.message));
     }
 
-    db.ref('incomes').on('value', snapshot => {
-      incomes = snapshot.val() || {};
-      updateUI();
-    });
-
-    db.ref('expenses').on('value', snapshot => {
-      expenses = snapshot.val() || {};
-      updateUI();
-    });
+    db.ref('incomes').on('value', snap => { incomes = snap.val() || {}; updateUI(); });
+    db.ref('expenses').on('value', snap => { expenses = snap.val() || {}; updateUI(); });
 
     function updateUI() {
       renderLists();
@@ -289,61 +276,48 @@
     }
 
     function renderLists() {
-      const incomeList = document.getElementById('income-list');
       const incomeArr = Object.entries(incomes).sort((a,b) => b[1].createdAt - a[1].createdAt);
-      incomeList.innerHTML = incomeArr.length === 0 
+      document.getElementById('income-list').innerHTML = incomeArr.length === 0 
         ? '<p class="text-gray-400">目前沒有收入紀錄</p>'
         : incomeArr.map(([id, item]) => `
           <div class="flex justify-between items-center border-b py-2">
             <div>
               <span class="font-medium">${item.date}</span> · 
-              <span class="text-green-600 font-bold">$${Number(item.amount).toLocaleString()}</span> · 
-              ${item.method}${item.platform ? ' ('+item.platform+')' : ''}
+              <span class="text-green-600 font-bold">$${Number(item.amount).toLocaleString()}</span> · ${item.method}${item.platform ? ' ('+item.platform+')' : ''}
               ${item.note ? '<br><span class="text-gray-500 text-xs">'+item.note+'</span>' : ''}
             </div>
             <button onclick="deleteIncome('${id}')" class="text-red-500 text-xs">刪除</button>
-          </div>
-        `).join('');
+          </div>`).join('');
 
-      const expenseList = document.getElementById('expense-list');
       const expenseArr = Object.entries(expenses).sort((a,b) => b[1].createdAt - a[1].createdAt);
-      expenseList.innerHTML = expenseArr.length === 0 
+      document.getElementById('expense-list').innerHTML = expenseArr.length === 0 
         ? '<p class="text-gray-400">目前沒有支出紀錄</p>'
         : expenseArr.map(([id, item]) => `
           <div class="flex justify-between items-center border-b py-2">
             <div>
               <span class="font-medium">${item.date}</span> · 
-              <span class="text-red-600 font-bold">$${Number(item.amount).toLocaleString()}</span> · 
-              ${item.category}
+              <span class="text-red-600 font-bold">$${Number(item.amount).toLocaleString()}</span> · ${item.category}
               ${item.note ? '<br><span class="text-gray-500 text-xs">'+item.note+'</span>' : ''}
             </div>
             <button onclick="deleteExpense('${id}')" class="text-red-500 text-xs">刪除</button>
-          </div>
-        `).join('');
+          </div>`).join('');
     }
 
-    function deleteIncome(id) {
-      if (confirm('確定刪除這筆收入？')) db.ref('incomes/' + id).remove();
-    }
-    function deleteExpense(id) {
-      if (confirm('確定刪除這筆支出？')) db.ref('expenses/' + id).remove();
-    }
+    function deleteIncome(id) { if (confirm('確定刪除？')) db.ref('incomes/' + id).remove(); }
+    function deleteExpense(id) { if (confirm('確定刪除？')) db.ref('expenses/' + id).remove(); }
 
     function updateDashboard() {
       const viewDate = document.getElementById('view-date').value || today;
-      const currentMonth = viewDate.slice(0, 7); // YYYY-MM
+      const currentMonth = viewDate.slice(0, 7);
 
       let todayIncome = 0, todayExpense = 0;
       let monthIncome = 0, monthExpense = 0;
       let nets = 0, cdc = 0, goods = 0, salary = 0;
-
-      // 每日資料（給棒形圖用）
       const dailyMap = {};
 
       Object.values(incomes).forEach(item => {
         if (!item.date) return;
         const amt = Number(item.amount) || 0;
-
         if (item.date === viewDate) {
           todayIncome += amt;
           if (item.method === 'NETS') nets += amt;
@@ -359,7 +333,6 @@
       Object.values(expenses).forEach(item => {
         if (!item.date) return;
         const amt = Number(item.amount) || 0;
-
         if (item.date === viewDate) {
           todayExpense += amt;
           if (item.category.includes('進貨') || item.category.includes('貨')) goods += amt;
@@ -375,44 +348,74 @@
       const todayProfit = todayIncome - todayExpense;
       const monthProfit = monthIncome - monthExpense;
 
-      // 更新數字
-      document.getElementById('today-expense').textContent = '$' + todayExpense.toLocaleString();
       document.getElementById('today-income').textContent = '$' + todayIncome.toLocaleString();
-      
-      const todayProfitEl = document.getElementById('today-profit');
-      todayProfitEl.textContent = '$' + todayProfit.toLocaleString();
-      todayProfitEl.className = 'text-xl font-bold mt-1 ' + (todayProfit >= 0 ? 'text-green-600' : 'text-red-600');
+      document.getElementById('today-expense').textContent = '$' + todayExpense.toLocaleString();
 
-      const monthProfitEl = document.getElementById('month-profit');
-      monthProfitEl.textContent = '$' + monthProfit.toLocaleString();
-      monthProfitEl.className = 'text-2xl font-bold mt-1 ' + (monthProfit >= 0 ? 'text-green-600' : 'text-red-600');
+      const tp = document.getElementById('today-profit');
+      tp.textContent = '$' + todayProfit.toLocaleString();
+      tp.className = 'text-xl font-bold mt-1 ' + (todayProfit >= 0 ? 'text-green-600' : 'text-red-600');
+
+      const mp = document.getElementById('month-profit');
+      mp.textContent = '$' + monthProfit.toLocaleString();
+      mp.className = 'text-2xl font-bold mt-1 ' + (monthProfit >= 0 ? 'text-green-600' : 'text-red-600');
 
       document.getElementById('cat-goods').textContent = '$' + goods.toLocaleString();
       document.getElementById('cat-salary').textContent = '$' + salary.toLocaleString();
       document.getElementById('method-nets').textContent = '$' + nets.toLocaleString();
       document.getElementById('method-cdc').textContent = '$' + cdc.toLocaleString();
 
-      // 棒形圖
-      renderDailyChart(dailyMap, currentMonth);
+      // 圓形圖（本月收入 vs 支出）
+      renderRatioChart(monthIncome, monthExpense);
+
+      // 棒形圖（由當日開始，最新日期在左邊）
+      renderDailyChart(dailyMap, viewDate, currentMonth);
     }
 
-    function renderDailyChart(dailyMap, currentMonth) {
-      // 產生該月所有日期
-      const [year, month] = currentMonth.split('-').map(Number);
-      const daysInMonth = new Date(year, month, 0).getDate();
-      const labels = [];
-      const incomeData = [];
-      const expenseData = [];
+    function renderRatioChart(income, expense) {
+      if (ratioChart) ratioChart.destroy();
+      const ctx = document.getElementById('ratioChart').getContext('2d');
+      ratioChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['收入', '支出'],
+          datasets: [{
+            data: [income, expense],
+            backgroundColor: ['#22c55e', '#ef4444'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
 
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${currentMonth}-${String(d).padStart(2, '0')}`;
-        labels.push(d + '日');
-        incomeData.push(dailyMap[dateStr] ? dailyMap[dateStr].income : 0);
-        expenseData.push(dailyMap[dateStr] ? dailyMap[dateStr].expense : 0);
+      // 顯示比例文字
+      let ratioText = '';
+      if (income === 0 && expense === 0) {
+        ratioText = '目前沒有資料';
+      } else if (expense === 0) {
+        ratioText = '收入 : 支出 = ∞ : 0';
+      } else {
+        const ratio = (income / expense).toFixed(2);
+        ratioText = `收入 : 支出 ≈ ${ratio} : 1`;
       }
+      document.getElementById('ratio-text').textContent = ratioText;
+    }
+
+    function renderDailyChart(dailyMap, viewDate, currentMonth) {
+      // 產生從 viewDate 往前的日期（最新日期在最左邊）
+      const dates = Object.keys(dailyMap).filter(d => d <= viewDate).sort().reverse(); // 由新到舊
+
+      // 如果沒資料，至少顯示 viewDate
+      if (dates.length === 0) dates.push(viewDate);
+
+      const labels = dates.map(d => d.slice(8) + '日'); // 只顯示「14日」
+      const incomeData = dates.map(d => dailyMap[d] ? dailyMap[d].income : 0);
+      const expenseData = dates.map(d => dailyMap[d] ? dailyMap[d].expense : 0);
 
       if (dailyChart) dailyChart.destroy();
-
       const ctx = document.getElementById('dailyChart').getContext('2d');
       dailyChart = new Chart(ctx, {
         type: 'bar',
@@ -420,26 +423,23 @@
           labels: labels,
           datasets: [
             {
-              label: '支出',
-              data: expenseData,
-              backgroundColor: '#ef4444',
-              borderRadius: 4
-            },
-            {
               label: '收入',
               data: incomeData,
               backgroundColor: '#22c55e',
+              borderRadius: 4
+            },
+            {
+              label: '支出',
+              data: expenseData,
+              backgroundColor: '#ef4444',
               borderRadius: 4
             }
           ]
         },
         options: {
           responsive: true,
-          plugins: {
-            legend: { position: 'top' }
-          },
+          plugins: { legend: { position: 'top' } },
           scales: {
-            x: { stacked: false },
             y: { beginAtZero: true }
           }
         }
@@ -448,24 +448,15 @@
 
     function exportExcel() {
       const incomeData = Object.values(incomes).map(i => ({
-        類型: '收入',
-        日期: i.date,
-        金額: i.amount,
-        方式或分類: i.method + (i.platform ? ' ('+i.platform+')' : ''),
-        備註: i.note || ''
+        類型: '收入', 日期: i.date, 金額: i.amount,
+        方式或分類: i.method + (i.platform ? ' ('+i.platform+')' : ''), 備註: i.note || ''
       }));
       const expenseData = Object.values(expenses).map(e => ({
-        類型: '支出',
-        日期: e.date,
-        金額: e.amount,
-        方式或分類: e.category,
-        備註: e.note || ''
+        類型: '支出', 日期: e.date, 金額: e.amount,
+        方式或分類: e.category, 備註: e.note || ''
       }));
       const allData = [...incomeData, ...expenseData];
-      if (allData.length === 0) {
-        alert('目前沒有資料可匯出');
-        return;
-      }
+      if (allData.length === 0) return alert('目前沒有資料可匯出');
       const ws = XLSX.utils.json_to_sheet(allData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, '收支紀錄');
