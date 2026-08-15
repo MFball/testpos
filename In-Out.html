@@ -10,14 +10,14 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
   <div class="max-w-lg mx-auto p-4">
-    <!-- 標題 + 版本 -->
+    <!-- 標題 -->
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <div class="flex justify-between items-start">
         <div>
           <h1 class="text-xl font-bold text-gray-800">店舖收支管理</h1>
           <p class="text-gray-500 text-xs mt-0.5">Million Fishball Noodle · 本地儲存</p>
         </div>
-        <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded">v1.0.4</span>
+        <span class="bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded">v1.0.5</span>
       </div>
     </div>
 
@@ -86,29 +86,23 @@
         <canvas id="dailyChart" height="180"></canvas>
       </div>
 
-      <!-- 匯入 / 匯出 -->
       <div class="bg-white rounded-xl shadow p-4 space-y-3">
-        <button onclick="exportExcel()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium">
-          下載 Excel 備份
-        </button>
+        <button onclick="exportExcel()" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium">下載 Excel 備份</button>
         <div>
           <label class="block text-sm text-gray-600 mb-1">匯入 Excel 還原資料</label>
           <input type="file" id="import-file" accept=".xlsx, .xls" class="w-full text-sm" onchange="importExcel(event)">
         </div>
-        <p class="text-xs text-gray-500">建議定期下載 Excel 備份。換手機或清除資料後，可用匯入功能還原。</p>
       </div>
     </div>
 
-    <!-- ===== 新增收入 ===== -->
+    <!-- ===== 新增收入（保持原樣） ===== -->
     <div id="section-income" class="hidden">
       <div class="bg-white rounded-xl shadow p-4">
-        <!-- 日期 -->
         <div class="flex items-center justify-between mb-3">
           <div class="border-2 border-gray-800 rounded-lg px-4 py-1.5 font-bold text-lg" id="income-date-display">--</div>
           <input type="date" id="income-date" class="border rounded-lg px-2 py-1.5 text-sm" onchange="updateIncomeDateDisplay()">
         </div>
 
-        <!-- 每日總結 -->
         <div class="bg-blue-50 rounded-lg p-3 mb-4 border border-blue-100">
           <div class="text-sm font-bold text-blue-800 mb-2">每日總結</div>
           <div class="grid grid-cols-2 gap-2 text-sm">
@@ -120,150 +114,83 @@
           </div>
         </div>
 
-        <!-- 早 -->
-        <div class="mb-5 border rounded-lg p-3">
-          <div class="flex justify-between items-center mb-2">
-            <div class="font-bold text-gray-700">早</div>
-            <div class="text-sm">小計：<span id="sub-morning" class="font-bold text-green-600">$0</span></div>
+        <!-- 早午夜表單（同前一版） -->
+        <div id="income-form-periods"></div>
+
+        <button onclick="saveIncomeForm()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold text-lg mt-2">儲存</button>
+      </div>
+    </div>
+
+    <!-- ===== 新增支出（新設計） ===== -->
+    <div id="section-expense" class="hidden">
+      <div class="bg-white rounded-xl shadow p-4">
+        <!-- 日期 + 當日支出總數 -->
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="border-2 border-gray-800 rounded-lg px-3 py-1 font-bold" id="expense-date-display">--</div>
+            <span class="font-bold text-gray-700">支出</span>
           </div>
-          <div class="grid grid-cols-3 gap-2 mb-2">
-            <div>
-              <label class="text-xs text-gray-500">現金</label>
-              <input type="number" id="cash-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-gray-500">CDC</label>
-              <input type="number" id="cdc-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-gray-500">Nets</label>
-              <input type="number" id="nets-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
+          <div class="text-right">
+            <div class="text-xs text-gray-500">總數</div>
+            <div id="expense-day-total" class="text-lg font-bold text-red-600">$0</div>
           </div>
-          <div class="grid grid-cols-3 gap-2">
-            <div>
-              <label class="text-xs text-gray-500">外賣平台</label>
-              <input type="number" id="delivery-morning" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-yellow-600">魚圓</label>
-              <input type="number" id="fishball-morning" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
-            </div>
-            <div>
-              <label class="text-xs text-yellow-600">肉圓</label>
-              <input type="number" id="meatball-morning" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
-            </div>
+        </div>
+        <input type="date" id="expense-date" class="w-full border rounded-lg px-3 py-2 mb-4 text-sm" onchange="updateExpenseDateDisplay(); updateExpenseDayTotal()">
+
+        <!-- 供應商 -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">供應商</label>
+          <div class="flex gap-2">
+            <select id="expense-supplier" class="flex-1 border-2 rounded-lg px-3 py-2.5 bg-white">
+              <option value="">請選擇供應商</option>
+            </select>
+            <button onclick="showAddSupplier()" class="bg-blue-600 text-white w-12 rounded-lg text-xl font-bold">+</button>
           </div>
         </div>
 
-        <!-- 午 -->
-        <div class="mb-5 border rounded-lg p-3">
-          <div class="flex justify-between items-center mb-2">
-            <div class="font-bold text-gray-700">午</div>
-            <div class="text-sm">小計：<span id="sub-afternoon" class="font-bold text-green-600">$0</span></div>
-          </div>
-          <div class="grid grid-cols-3 gap-2 mb-2">
-            <div>
-              <label class="text-xs text-gray-500">現金</label>
-              <input type="number" id="cash-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-gray-500">CDC</label>
-              <input type="number" id="cdc-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-gray-500">Nets</label>
-              <input type="number" id="nets-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-          </div>
-          <div class="grid grid-cols-3 gap-2">
-            <div>
-              <label class="text-xs text-gray-500">外賣平台</label>
-              <input type="number" id="delivery-afternoon" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-yellow-600">魚圓</label>
-              <input type="number" id="fishball-afternoon" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
-            </div>
-            <div>
-              <label class="text-xs text-yellow-600">肉圓</label>
-              <input type="number" id="meatball-afternoon" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
-            </div>
-          </div>
+        <!-- 金額 -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">金額</label>
+          <input type="number" id="expense-amount" placeholder="0" class="w-full border-2 rounded-lg px-3 py-2.5 text-lg">
         </div>
 
-        <!-- 夜 -->
-        <div class="mb-5 border rounded-lg p-3">
-          <div class="flex justify-between items-center mb-2">
-            <div class="font-bold text-gray-700">夜</div>
-            <div class="text-sm">小計：<span id="sub-night" class="font-bold text-green-600">$0</span></div>
-          </div>
-          <div class="grid grid-cols-3 gap-2 mb-2">
-            <div>
-              <label class="text-xs text-gray-500">現金</label>
-              <input type="number" id="cash-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-gray-500">CDC</label>
-              <input type="number" id="cdc-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-gray-500">Nets</label>
-              <input type="number" id="nets-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-          </div>
-          <div class="grid grid-cols-3 gap-2">
-            <div>
-              <label class="text-xs text-gray-500">外賣平台</label>
-              <input type="number" id="delivery-night" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()">
-            </div>
-            <div>
-              <label class="text-xs text-yellow-600">魚圓</label>
-              <input type="number" id="fishball-night" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
-            </div>
-            <div>
-              <label class="text-xs text-yellow-600">肉圓</label>
-              <input type="number" id="meatball-night" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0">
-            </div>
-          </div>
+        <!-- 分類 -->
+        <div class="mb-6">
+          <label class="block text-sm font-medium text-gray-700 mb-1">分類</label>
+          <select id="expense-category" class="w-full border-2 rounded-lg px-3 py-2.5">
+            <option value="進貨">進貨（貨品）</option>
+            <option value="租金">租金</option>
+            <option value="水電煤">水電煤</option>
+            <option value="薪金">薪金（員工）</option>
+            <option value="外賣平台抽成">外賣平台抽成</option>
+            <option value="雜項">雜項</option>
+            <option value="其他">其他</option>
+          </select>
         </div>
 
-        <button onclick="saveIncomeForm()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3.5 rounded-xl font-bold text-lg">
-          儲存
+        <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-xl font-bold text-lg">
+          儲存支出
         </button>
       </div>
     </div>
 
-    <!-- ===== 新增支出 ===== -->
-    <div id="section-expense" class="hidden">
-      <div class="bg-white rounded-xl shadow p-5">
-        <h2 class="text-lg font-bold mb-4">新增支出</h2>
+    <!-- 新增供應商 彈窗 -->
+    <div id="supplier-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl p-5 w-full max-w-sm">
+        <h3 class="text-lg font-bold mb-4">新增供應商</h3>
         <div class="space-y-3">
           <div>
-            <label class="block text-sm text-gray-600 mb-1">日期</label>
-            <input type="date" id="expense-date" class="w-full border rounded-lg px-3 py-2.5">
+            <label class="block text-sm text-gray-600 mb-1">供應商名稱</label>
+            <input type="text" id="new-supplier-name" class="w-full border rounded-lg px-3 py-2" placeholder="例如：ABC 食材公司">
           </div>
           <div>
-            <label class="block text-sm text-gray-600 mb-1">金額</label>
-            <input type="number" id="expense-amount" placeholder="0" class="w-full border rounded-lg px-3 py-2.5 text-lg">
+            <label class="block text-sm text-gray-600 mb-1">UEN</label>
+            <input type="text" id="new-supplier-uen" class="w-full border rounded-lg px-3 py-2" placeholder="例如：202312345A">
           </div>
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">分類</label>
-            <select id="expense-category" class="w-full border rounded-lg px-3 py-2.5">
-              <option value="進貨">進貨（貨品）</option>
-              <option value="租金">租金</option>
-              <option value="水電煤">水電煤</option>
-              <option value="薪金">薪金（員工）</option>
-              <option value="外賣平台抽成">外賣平台抽成</option>
-              <option value="雜項">雜項</option>
-              <option value="其他">其他</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm text-gray-600 mb-1">備註</label>
-            <input type="text" id="expense-note" placeholder="選填" class="w-full border rounded-lg px-3 py-2.5">
-          </div>
-          <button onclick="addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-xl font-bold">儲存支出</button>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button onclick="hideAddSupplier()" class="flex-1 border rounded-lg py-2.5">取消</button>
+          <button onclick="addSupplier()" class="flex-1 bg-blue-600 text-white rounded-lg py-2.5 font-medium">儲存</button>
         </div>
       </div>
     </div>
@@ -282,29 +209,90 @@
   </div>
 
   <script>
+    // ===== 資料 =====
     let incomes = JSON.parse(localStorage.getItem('incomes') || '{}');
     let expenses = JSON.parse(localStorage.getItem('expenses') || '{}');
+    let suppliers = JSON.parse(localStorage.getItem('suppliers') || '[]');
+
     let dailyChart = null;
     let ratioChart = null;
 
     const today = new Date().toISOString().slice(0, 10);
+
+    // 初始化
     document.getElementById('income-date').value = today;
     document.getElementById('expense-date').value = today;
     document.getElementById('view-date').value = today;
     updateIncomeDateDisplay();
+    updateExpenseDateDisplay();
+    renderSupplierSelect();
+    renderIncomeForm();
     updateUI();
 
     function saveData() {
       localStorage.setItem('incomes', JSON.stringify(incomes));
       localStorage.setItem('expenses', JSON.stringify(expenses));
+      localStorage.setItem('suppliers', JSON.stringify(suppliers));
     }
 
+    // ===== 供應商相關 =====
+    function renderSupplierSelect() {
+      const select = document.getElementById('expense-supplier');
+      select.innerHTML = '<option value="">請選擇供應商</option>';
+      suppliers.forEach((s, index) => {
+        select.innerHTML += `<option value="${index}">${s.name}${s.uen ? ' ('+s.uen+')' : ''}</option>`;
+      });
+    }
+
+    function showAddSupplier() {
+      document.getElementById('supplier-modal').classList.remove('hidden');
+      document.getElementById('supplier-modal').classList.add('flex');
+      document.getElementById('new-supplier-name').value = '';
+      document.getElementById('new-supplier-uen').value = '';
+    }
+
+    function hideAddSupplier() {
+      document.getElementById('supplier-modal').classList.add('hidden');
+      document.getElementById('supplier-modal').classList.remove('flex');
+    }
+
+    function addSupplier() {
+      const name = document.getElementById('new-supplier-name').value.trim();
+      const uen = document.getElementById('new-supplier-uen').value.trim();
+      if (!name) return alert('請輸入供應商名稱');
+
+      suppliers.push({ name, uen });
+      saveData();
+      renderSupplierSelect();
+      // 自動選中剛新增的
+      document.getElementById('expense-supplier').value = suppliers.length - 1;
+      hideAddSupplier();
+    }
+
+    // ===== 日期顯示 =====
     function updateIncomeDateDisplay() {
       const dateVal = document.getElementById('income-date').value;
       if (!dateVal) return;
       const d = new Date(dateVal);
       const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       document.getElementById('income-date-display').textContent = `${d.getDate()} ${monthNames[d.getMonth()]}`;
+    }
+
+    function updateExpenseDateDisplay() {
+      const dateVal = document.getElementById('expense-date').value;
+      if (!dateVal) return;
+      const d = new Date(dateVal);
+      document.getElementById('expense-date-display').textContent = `${d.getDate()}/${d.getMonth()+1}`;
+      updateExpenseDayTotal();
+    }
+
+    function updateExpenseDayTotal() {
+      const date = document.getElementById('expense-date').value;
+      let total = 0;
+      Object.values(expenses).forEach(e => {
+        if (e.date === date) total += Number(e.amount) || 0;
+      });
+      document.getElementById('expense-day-total').textContent = '$' + total.toLocaleString();
     }
 
     function setToday() {
@@ -321,12 +309,43 @@
       document.getElementById('section-' + name).classList.remove('hidden');
       document.getElementById('btn-' + name).classList.add('bg-blue-600', 'text-white');
       document.getElementById('btn-' + name).classList.remove('bg-white', 'text-gray-700');
+
+      if (name === 'expense') updateExpenseDayTotal();
+    }
+
+    // ===== 收入表單渲染 =====
+    function renderIncomeForm() {
+      const periods = [
+        { key: 'morning', name: '早' },
+        { key: 'afternoon', name: '午' },
+        { key: 'night', name: '夜' }
+      ];
+      let html = '';
+      periods.forEach(p => {
+        html += `
+        <div class="mb-5 border rounded-lg p-3">
+          <div class="flex justify-between items-center mb-2">
+            <div class="font-bold text-gray-700">${p.name}</div>
+            <div class="text-sm">小計：<span id="sub-${p.key}" class="font-bold text-green-600">$0</span></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mb-2">
+            <div><label class="text-xs text-gray-500">現金</label><input type="number" id="cash-${p.key}" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()"></div>
+            <div><label class="text-xs text-gray-500">CDC</label><input type="number" id="cdc-${p.key}" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()"></div>
+            <div><label class="text-xs text-gray-500">Nets</label><input type="number" id="nets-${p.key}" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()"></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div><label class="text-xs text-gray-500">外賣平台</label><input type="number" id="delivery-${p.key}" class="w-full border rounded-lg px-2 py-2 text-center" placeholder="0" oninput="calcTotals()"></div>
+            <div><label class="text-xs text-yellow-600">魚圓</label><input type="number" id="fishball-${p.key}" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0"></div>
+            <div><label class="text-xs text-yellow-600">肉圓</label><input type="number" id="meatball-${p.key}" class="w-full border rounded-lg px-2 py-2 text-center bg-yellow-50" placeholder="0"></div>
+          </div>
+        </div>`;
+      });
+      document.getElementById('income-form-periods').innerHTML = html;
     }
 
     function calcTotals() {
       const periods = ['morning', 'afternoon', 'night'];
       let totalCash = 0, totalCdc = 0, totalNets = 0, totalDelivery = 0, grandTotal = 0;
-
       periods.forEach(p => {
         const cash = parseFloat(document.getElementById(`cash-${p}`).value) || 0;
         const cdc = parseFloat(document.getElementById(`cdc-${p}`).value) || 0;
@@ -336,7 +355,6 @@
         document.getElementById(`sub-${p}`).textContent = '$' + sub.toLocaleString();
         totalCash += cash; totalCdc += cdc; totalNets += nets; totalDelivery += delivery; grandTotal += sub;
       });
-
       document.getElementById('daily-total').textContent = '$' + grandTotal.toLocaleString();
       document.getElementById('sum-cash').textContent = '$' + totalCash.toLocaleString();
       document.getElementById('sum-cdc').textContent = '$' + totalCdc.toLocaleString();
@@ -347,39 +365,20 @@
     function saveIncomeForm() {
       const date = document.getElementById('income-date').value;
       if (!date) return alert('請選擇日期');
-
-      const periods = [
-        { key: 'morning', name: '早' },
-        { key: 'afternoon', name: '午' },
-        { key: 'night', name: '夜' }
-      ];
-      const methods = [
-        { id: 'cash', name: '現金' },
-        { id: 'cdc', name: 'CDC' },
-        { id: 'nets', name: 'NETS' },
-        { id: 'delivery', name: '外賣平台' }
-      ];
-
+      const periods = [{key:'morning',name:'早'},{key:'afternoon',name:'午'},{key:'night',name:'夜'}];
+      const methods = [{id:'cash',name:'現金'},{id:'cdc',name:'CDC'},{id:'nets',name:'NETS'},{id:'delivery',name:'外賣平台'}];
       let saveCount = 0;
       periods.forEach(period => {
         methods.forEach(method => {
           const amount = parseFloat(document.getElementById(`${method.id}-${period.key}`).value) || 0;
           if (amount > 0) {
             const id = Date.now() + Math.random().toString(36).slice(2, 8);
-            incomes[id] = {
-              date, amount,
-              method: method.name,
-              period: period.name,
-              note: period.name + '時段',
-              createdAt: Date.now()
-            };
+            incomes[id] = { date, amount, method: method.name, period: period.name, note: period.name + '時段', createdAt: Date.now() };
             saveCount++;
           }
         });
       });
-
       if (saveCount === 0) return alert('請至少填寫一筆金額');
-
       saveData();
       alert(`成功儲存 ${saveCount} 筆收入！`);
       periods.forEach(p => {
@@ -391,26 +390,42 @@
       updateUI();
     }
 
+    // ===== 支出 =====
     function addExpense() {
       const date = document.getElementById('expense-date').value;
+      const supplierIndex = document.getElementById('expense-supplier').value;
       const amount = parseFloat(document.getElementById('expense-amount').value);
       const category = document.getElementById('expense-category').value;
-      const note = document.getElementById('expense-note').value;
 
-      if (!date || !amount || amount <= 0) return alert('請填寫日期和金額');
+      if (!date) return alert('請選擇日期');
+      if (supplierIndex === '') return alert('請選擇供應商');
+      if (!amount || amount <= 0) return alert('請填寫金額');
+
+      const supplier = suppliers[supplierIndex];
 
       const id = Date.now() + Math.random().toString(36).slice(2, 8);
-      expenses[id] = { date, amount, category, note, createdAt: Date.now() };
+      expenses[id] = {
+        date,
+        amount,
+        category,
+        supplier: supplier.name,
+        supplierUEN: supplier.uen || '',
+        note: '',
+        createdAt: Date.now()
+      };
       saveData();
       alert('支出已儲存！');
       document.getElementById('expense-amount').value = '';
-      document.getElementById('expense-note').value = '';
+      document.getElementById('expense-supplier').value = '';
+      updateExpenseDayTotal();
       updateUI();
     }
 
+    // ===== 共通 =====
     function updateUI() {
       renderLists();
       updateDashboard();
+      updateExpenseDayTotal();
     }
 
     function renderLists() {
@@ -435,7 +450,7 @@
             <div>
               <span class="font-medium">${item.date}</span> · 
               <span class="text-red-600 font-bold">$${Number(item.amount).toLocaleString()}</span>
-              <div class="text-xs text-gray-500">${item.category}</div>
+              <div class="text-xs text-gray-500">${item.category} ${item.supplier ? '· ' + item.supplier : ''}</div>
             </div>
             <button onclick="deleteExpense('${id}')" class="text-red-500 text-xs">刪除</button>
           </div>`).join('');
@@ -459,7 +474,6 @@
     function updateDashboard() {
       const viewDate = document.getElementById('view-date').value || today;
       const currentMonth = viewDate.slice(0, 7);
-
       let todayIncome = 0, todayExpense = 0, monthIncome = 0, monthExpense = 0;
       let nets = 0, cdc = 0, goods = 0, salary = 0;
       const dailyMap = {};
@@ -520,10 +534,7 @@
       if (ratioChart) ratioChart.destroy();
       ratioChart = new Chart(document.getElementById('ratioChart'), {
         type: 'doughnut',
-        data: {
-          labels: ['收入', '支出'],
-          datasets: [{ data: [income, expense], backgroundColor: ['#22c55e', '#ef4444'] }]
-        },
+        data: { labels: ['收入', '支出'], datasets: [{ data: [income, expense], backgroundColor: ['#22c55e', '#ef4444'] }] },
         options: { plugins: { legend: { position: 'bottom' } } }
       });
       document.getElementById('ratio-text').textContent = 
@@ -535,7 +546,6 @@
     function renderDailyChart(dailyMap, viewDate) {
       const dates = Object.keys(dailyMap).filter(d => d <= viewDate).sort().reverse();
       if (dates.length === 0) dates.push(viewDate);
-
       if (dailyChart) dailyChart.destroy();
       dailyChart = new Chart(document.getElementById('dailyChart'), {
         type: 'bar',
@@ -546,21 +556,16 @@
             { label: '支出', data: dates.map(d => dailyMap[d]?.expense || 0), backgroundColor: '#ef4444' }
           ]
         },
-        options: {
-          responsive: true,
-          plugins: { legend: { position: 'top' } },
-          scales: { y: { beginAtZero: true } }
-        }
+        options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }
       });
     }
 
-    // 匯出 Excel
     function exportExcel() {
       const incomeData = Object.values(incomes).map(i => ({
         類型: '收入', 日期: i.date, 金額: i.amount, 方式: i.method, 時段: i.period || '', 備註: i.note || ''
       }));
       const expenseData = Object.values(expenses).map(e => ({
-        類型: '支出', 日期: e.date, 金額: e.amount, 方式: e.category, 時段: '', 備註: e.note || ''
+        類型: '支出', 日期: e.date, 金額: e.amount, 方式: e.category, 供應商: e.supplier || '', UEN: e.supplierUEN || '', 備註: e.note || ''
       }));
       const allData = [...incomeData, ...expenseData];
       if (allData.length === 0) return alert('目前沒有資料可匯出');
@@ -570,11 +575,9 @@
       XLSX.writeFile(wb, '店舖收支_' + new Date().toISOString().slice(0,10) + '.xlsx');
     }
 
-    // 匯入 Excel
     function importExcel(event) {
       const file = event.target.files[0];
       if (!file) return;
-
       const reader = new FileReader();
       reader.onload = function(e) {
         try {
@@ -582,46 +585,27 @@
           const workbook = XLSX.read(data, { type: 'array' });
           const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const json = XLSX.utils.sheet_to_json(sheet);
-
           let incomeCount = 0, expenseCount = 0;
-
           json.forEach(row => {
-            const type = row['類型'] || row['类型'] || '';
+            const type = row['類型'] || '';
             const date = row['日期'] || '';
-            const amount = parseFloat(row['金額'] || row['金额'] || 0);
+            const amount = parseFloat(row['金額'] || 0);
             if (!date || !amount) return;
-
             const id = Date.now() + Math.random().toString(36).slice(2, 8);
-
             if (type.includes('收入')) {
-              incomes[id] = {
-                date: String(date).slice(0, 10),
-                amount,
-                method: row['方式'] || '',
-                period: row['時段'] || row['时段'] || '',
-                note: row['備註'] || row['备注'] || '',
-                createdAt: Date.now()
-              };
+              incomes[id] = { date: String(date).slice(0,10), amount, method: row['方式']||'', period: row['時段']||'', note: row['備註']||'', createdAt: Date.now() };
               incomeCount++;
             } else if (type.includes('支出')) {
-              expenses[id] = {
-                date: String(date).slice(0, 10),
-                amount,
-                category: row['方式'] || '',
-                note: row['備註'] || row['备注'] || '',
-                createdAt: Date.now()
-              };
+              expenses[id] = { date: String(date).slice(0,10), amount, category: row['方式']||'', supplier: row['供應商']||'', supplierUEN: row['UEN']||'', note: row['備註']||'', createdAt: Date.now() };
               expenseCount++;
             }
           });
-
           saveData();
           updateUI();
           alert(`匯入成功！\n收入：${incomeCount} 筆\n支出：${expenseCount} 筆`);
           event.target.value = '';
         } catch (err) {
-          alert('匯入失敗，請確認是本系統匯出的 Excel 檔案');
-          console.error(err);
+          alert('匯入失敗，請確認檔案格式');
         }
       };
       reader.readAsArrayBuffer(file);
