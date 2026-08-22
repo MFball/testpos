@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.5 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.6 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -41,6 +41,11 @@
        customer-v3_4_1 同一套做法），拉下去可以看到繁體中文／简体中文／English 三個選項 */
     #lang-toggle { display: flex; gap: 4px; }
     .lang-select { padding: 9px 10px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-weight: bold; font-size: 0.8rem; color: #444; }
+    /* ✅ ver5.9.6 新增：收據列印語言開關（左中右英的兩顆按鈕，樣式沿用舊版 lang-toggle 的
+       按鈕外觀），跟上面畫面顯示語言的下拉選單分開放，避免兩者被誤認為同一件事 */
+    #print-lang-toggle { display: flex; gap: 4px; }
+    #print-lang-toggle button { padding: 8px 9px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-weight: bold; font-size: 0.75rem; color: #666; }
+    #print-lang-toggle button.active { background: #111; color: #fff; border-color: #111; }
     .icon-btn { width: 40px; height: 40px; border-radius: 10px; border: 2px solid #eee; background: #fff; font-size: 1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     #version-tag { font-size: 0.65rem; color: #aaa; font-weight: 900; white-space: nowrap; padding: 0 2px; }
 
@@ -192,6 +197,7 @@
         #topbar { padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top)); gap: 6px; }
         #status-text { display: none; }             /* 空間有限，隱藏次要文字，優先確保分類可見 */
         #lang-toggle .lang-select { padding: 6px 8px; font-size: 0.72rem; }
+        #print-lang-toggle button { padding: 6px 7px; font-size: 0.68rem; }
         .icon-btn { width: 34px; height: 34px; font-size: 0.9rem; }
         #cat-tabs { order: 3; flex-basis: 100%; width: 100%; gap: 5px; }
         .cat-tab { padding: 9px 8px; font-size: 0.78rem; border-radius: 9px; }
@@ -227,7 +233,13 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.5</span>
+        <span id="version-tag">v5.9.6</span>
+        <!-- ✅ ver5.9.6 新增：收據列印語言開關，跟上面畫面顯示語言(lang-toggle)分開——
+             左邊中文/右邊英文，控制的是印出來的收據文字，不是畫面介面 -->
+        <div id="print-lang-toggle" title="收據列印語言（跟畫面顯示語言分開設定）">
+            <button data-lang="zh" class="active" onclick="setPrintLang('zh')">🖨️中</button>
+            <button data-lang="en" onclick="setPrintLang('en')">🖨️EN</button>
+        </div>
         <div id="lang-toggle">
             <select class="lang-select" onchange="setLang(this.value)">
                 <option value="zh">繁體中文</option>
@@ -774,27 +786,28 @@
     const T2S_MAP = {
         '並':'并','亂':'乱','佇':'伫','來':'来','個':'个','側':'侧','備':'备','傳':'传','價':'价','優':'优','兒':'儿','內':'内','兩':'两',
         '別':'别','刪':'删','則':'则','剛':'刚','動':'动','務':'务','勢':'势','區':'区','員':'员','問':'问','啟':'启','單':'单','嗎':'吗',
-        '嘆':'叹','嘗':'尝','圓':'圆','圖':'图','執':'执','報':'报','場':'场','壓':'压','實':'实','寫':'写','寬':'宽','寶':'宝','將':'将',
-        '專':'专','尋':'寻','對':'对','導':'导','層':'层','屬':'属','帳':'帐','帶':'带','幫':'帮','幾':'几','庫':'库','廚':'厨','張':'张',
-        '強':'强','彈':'弹','後':'后','徑':'径','從':'从','復':'复','態':'态','應':'应','捲':'卷','掃':'扫','換':'换','搶':'抢','擇':'择',
-        '擊':'击','擋':'挡','據':'据','擠':'挤','擾':'扰','攔':'拦','攤':'摊','敗':'败','數':'数','斷':'断','於':'于','時':'时','暢':'畅',
-        '暫':'暂','書':'书','會':'会','東':'东','條':'条','極':'极','構':'构','標':'标','樣':'样','機':'机','檔':'档','檢':'检','檯':'台',
-        '檻':'槛','櫃':'柜','欄':'栏','權':'权','歷':'历','歸':'归','氣':'气','決':'决','沒':'没','況':'况','減':'减','測':'测','湯':'汤',
-        '準':'准','滿':'满','瀏':'浏','為':'为','無':'无','煩':'烦','熱':'热','燈':'灯','狀':'状','獨':'独','現':'现','環':'环','產':'产',
-        '畫':'画','異':'异','當':'当','疊':'叠','發':'发','監':'监','確':'确','碼':'码','種':'种','稱':'称','積':'积','穩':'稳','筆':'笔',
-        '節':'节','範':'范','簡':'简','籤':'签','紀':'纪','純':'纯','紙':'纸','級':'级','細':'细','組':'组','結':'结','給':'给','統':'统',
-        '經':'经','維':'维','網':'网','線':'线','編':'编','縮':'缩','總':'总','繪':'绘','繼':'继','續':'续','義':'义','聯':'联','聽':'听',
-        '腸':'肠','與':'与','舊':'旧','萬':'万','著':'着','蓋':'盖','蔥':'葱','薦':'荐','藍':'蓝','處':'处','號':'号','蝦':'虾','螢':'萤',
-        '補':'补','裝':'装','裡':'里','製':'制','複':'复','見':'见','規':'规','視':'视','覽':'览','觀':'观','觸':'触','訂':'订','計':'计',
-        '訊':'讯','記':'记','設':'设','許':'许','詞':'词','詢':'询','試':'试','話':'话','該':'该','詳':'详','認':'认','語':'语','誤':'误',
-        '說':'说','調':'调','請':'请','論':'论','證':'证','識':'识','譯':'译','護':'护','讀':'读','變':'变','讓':'让','豬':'猪','貨':'货',
-        '販':'贩','買':'买','費':'费','資':'资','賣':'卖','賦':'赋','賴':'赖','購':'购','車':'车','軌':'轨','軟':'软','較':'较','載':'载',
-        '輪':'轮','輯':'辑','輸':'输','轉':'转','這':'这','連':'连','進':'进','運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选',
-        '遺':'遗','還':'还','邊':'边','邏':'逻','醬':'酱','釣':'钓','鈕':'钮','鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错',
-        '鍵':'键','鎖':'锁','長':'长','門':'门','閉':'闭','開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐',
-        '隻':'只','雙':'双','雞':'鸡','離':'离','雲':'云','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头',
-        '顆':'颗','題':'题','額':'额','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验',
-        '驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点','齊':'齐',
+        '嘆':'叹','嘗':'尝','噴':'喷','圓':'圆','圖':'图','執':'执','報':'报','場':'场','壓':'压','壞':'坏','實':'实','寫':'写','寬':'宽',
+        '寶':'宝','將':'将','專':'专','尋':'寻','對':'对','導':'导','層':'层','屬':'属','帳':'帐','帶':'带','幫':'帮','幾':'几','庫':'库',
+        '廚':'厨','張':'张','強':'强','彈':'弹','後':'后','徑':'径','從':'从','復':'复','態':'态','應':'应','捲':'卷','掃':'扫','換':'换',
+        '搶':'抢','擇':'择','擊':'击','擋':'挡','據':'据','擠':'挤','擾':'扰','攔':'拦','攤':'摊','敗':'败','數':'数','斷':'断','於':'于',
+        '時':'时','暢':'畅','暫':'暂','書':'书','會':'会','東':'东','條':'条','極':'极','構':'构','標':'标','樣':'样','機':'机','檔':'档',
+        '檢':'检','檯':'台','檻':'槛','櫃':'柜','欄':'栏','權':'权','歷':'历','歸':'归','氣':'气','決':'决','沒':'没','況':'况','減':'减',
+        '測':'测','湯':'汤','準':'准','滿':'满','瀏':'浏','為':'为','無':'无','煩':'烦','熱':'热','燈':'灯','狀':'状','獨':'独','現':'现',
+        '環':'环','產':'产','畫':'画','異':'异','當':'当','疊':'叠','發':'发','監':'监','確':'确','碼':'码','種':'种','稱':'称','積':'积',
+        '穩':'稳','筆':'笔','節':'节','範':'范','簡':'简','籤':'签','紀':'纪','紅':'红','純':'纯','紙':'纸','級':'级','細':'细','組':'组',
+        '結':'结','給':'给','統':'统','經':'经','維':'维','網':'网','線':'线','編':'编','縮':'缩','總':'总','繪':'绘','繼':'继','續':'续',
+        '義':'义','聯':'联','聽':'听','腸':'肠','與':'与','舊':'旧','萬':'万','著':'着','蓋':'盖','蔥':'葱','薦':'荐','藍':'蓝','處':'处',
+        '號':'号','蝦':'虾','螢':'萤','補':'补','裝':'装','裡':'里','製':'制','複':'复','見':'见','規':'规','視':'视','覽':'览','觀':'观',
+        '觸':'触','訂':'订','計':'计','訊':'讯','記':'记','設':'设','許':'许','詞':'词','詢':'询','試':'试','話':'话','該':'该','詳':'详',
+        '認':'认','語':'语','誤':'误','說':'说','調':'调','請':'请','論':'论','證':'证','識':'识','譯':'译','護':'护','讀':'读','變':'变',
+        '讓':'让','豬':'猪','貨':'货','販':'贩','買':'买','費':'费','資':'资','賣':'卖','賦':'赋','賴':'赖','購':'购','車':'车','軌':'轨',
+        '軟':'软','較':'较','載':'载','輪':'轮','輯':'辑','輸':'输','轉':'转','辦':'办','這':'这','連':'连','進':'进','運':'运','過':'过',
+        '遞':'递','遠':'远','適':'适','選':'选','遺':'遗','還':'还','邊':'边','邏':'逻','醬':'酱','釣':'钓','鈕':'钮','鈴':'铃','銀':'银',
+        '銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键','鎖':'锁','長':'长','門':'门','閉':'闭','開':'开','間':'间','關':'关','陣':'阵',
+        '際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双','雞':'鸡','離':'离','雲':'云','響':'响','頁':'页','頂':'顶','項':'项',
+        '順':'顺','須':'须','預':'预','頭':'头','顆':'颗','題':'题','額':'额','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼',
+        '餘':'余','饋':'馈','馬':'马','驗':'验','驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点',
+        '齊':'齐',
     };
     function toSimplified(str) {
         return String(str).replace(/[\u4e00-\u9fff]/g, ch => T2S_MAP[ch] || ch);
@@ -1096,17 +1109,21 @@
     /* ✅ 真正的重印：跟上面的「🔍預覽」不一樣，這裡會真的印出紙本。
        本機模式：直接透過藍牙印表機重印（沿用原本記錄的單號/ID，不會佔用新的流水號）；
        雲端模式：重新送一次到 /orders.json，廚房出單機監聽到會自動再印一次。
-       兩種模式都不會覆蓋掉本地已存的當日訂單紀錄、也不會重複計入銷售統計。*/
+       兩種模式都不會覆蓋掉本地已存的當日訂單紀錄、也不會重複計入銷售統計。
+       ✅ ver5.9.6：拿掉原本「確定要重印嗎？」的二次確認彈窗——按下紅色的🖨️重印鈕本身
+       就已經是明確的操作意圖了，不需要再多問一次。同時拿掉印完之後的 alert() 彈窗
+       （狀態列文字已經有顯示結果），改成印完就自動關閉歷史面板、退回上一頁；
+       如果印失敗，還是會跳 alert() 顯示錯誤原因，而且不會自動關閉面板，方便直接重試。 */
     async function actuallyReprintHistory(idx) {
         const data = getOrderData();
         const target = data.history[idx];
         if (!target) return;
-        if (!confirm(userLang === 'zh' ? `確定要重印 No. ${target.num} 這張單嗎？` : `Reprint order No. ${target.num}?`)) return;
 
         const printLang = target.printLang || 'zh';
         const savedMethod = localStorage.getItem(PRINT_METHOD_KEY);
         const originalCart = [...cart];
         cart = target.items;
+        let success = false;
 
         try {
             if (savedMethod === 'direct') {
@@ -1115,16 +1132,17 @@
                 document.getElementById('status-text').innerText = '🖨️ 正在重印...';
                 await writeDirectReceipt(printer);
                 document.getElementById('status-text').innerText = '✅ 已重印';
-                alert(userLang === 'zh' ? '✅ 已重新列印！' : '✅ Reprinted!');
             } else {
                 await saveOrderData({ history: [target] }, { skipLocalSave: true });
-                alert(userLang === 'zh' ? '✅ 已重新送到廚房出單機列印！' : '✅ Sent to the kitchen printer again!');
+                document.getElementById('status-text').innerText = userLang === 'zh' ? '✅ 已重新送到廚房出單機列印' : '✅ Sent to the kitchen printer again';
             }
+            success = true;
         } catch (err) {
             alert((userLang === 'zh' ? '重印失敗：' : 'Reprint failed: ') + err.message);
         } finally {
             cart = originalCart;
             renderPanelCartSummary(); updateBottomBar();
+            if (success) toggleHistory(); // 印成功才自動關閉面板；失敗的話留在這裡，方便直接再按一次重試
         }
     }
 
@@ -1250,22 +1268,32 @@
        跟雲端／廚房單列印（saveOrderData → payload.printLang，廚房出單機依此顯示對應語言），
        兩邊收據語言才會真的跟著這裡的選擇走。按「取消」則什麼都不做，購物車維持原狀。*/
     const PRINT_METHOD_KEY = 'million_print_method'; // 存的值：'direct'（本機列印）或 'cloud'（Firebase／廚房出單機）
+    /* ✅ ver5.9.6 新增：PRINT_LANG_KEY 這個常數之前一直沒有真的宣告出來，但下面
+       quickSuggestOrder()／quickOrderCombo()（快選卡片、人氣一鍵下單）兩處
+       已經在用 localStorage.getItem(PRINT_LANG_KEY) 讀取列印語言了——沒宣告會直接
+       噴 ReferenceError，等於這兩個「一鍵下單」功能本來就是壞的。這裡補上宣告，
+       順便讓「確認送出」的主流程也改用同一個設定（見下面 printLangSetting）。 */
+    const PRINT_LANG_KEY = 'million_print_lang'; // 存的值：'zh'（中文列印）或 'en'（英文列印），跟畫面顯示語言(userLang)分開設定
+    let printLangSetting = localStorage.getItem(PRINT_LANG_KEY) || 'zh'; // 預設中文
+    function setPrintLang(l) {
+        printLangSetting = l;
+        localStorage.setItem(PRINT_LANG_KEY, l);
+        document.querySelectorAll('#print-lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
+    }
     let pendingPrintLang = 'zh'; // 這次送單暫存的語言選擇，選完方式後就會用它印出收據
 
-    /* ✅ ver5.7.6 修正「每次送出都要多問一次列印語言」的問題：
-       畫面最上面本來就有一個中文／English 的語言切換鈕（userLang），使用者切成中文，
-       整個點餐畫面就會變成中文；切成 English，畫面就會變成英文。收據語言理應直接跟著
-       這個已經選好的介面語言走，不需要在「確認送出」的當下再多問一次、多一層操作。
-       所以拿掉 v5.9.3 加回來的語言選擇彈窗，直接用目前的 userLang 當作收據列印語言。
-       （列印方式——本機列印 or 雲端／廚房出單機——第一次仍會詢問一次，之後自動沿用，
-       這部分維持不變，跟語言選擇是兩件事。） */
+    /* ✅ ver5.9.6：新增一個獨立的「收據列印語言」開關（跟畫面顯示語言 userLang 分開處理），
+       預設中文。之前(ver5.7.6)收據語言是直接沿用畫面顯示語言，導致切成英文介面操作時，
+       收據也會跟著印英文，沒辦法「介面英文、收據中文」這樣分開設定——現在改成收據語言
+       固定看這個開關(printLangSetting)，跟 userLang 完全獨立，切換介面語言不會再影響
+       收據要印哪種語言，也不用每次送單都重新問一次。 */
     function confirmSubmitPrompt() {
         if (cart.length === 0) { alert(userLang==='zh' ? '購物車是空的' : 'Cart is empty'); return; }
-        pendingPrintLang = userLang;
+        pendingPrintLang = printLangSetting;
         const savedMethod = localStorage.getItem(PRINT_METHOD_KEY);
         if (savedMethod === 'direct') { submitOrderDirectPrint(pendingPrintLang); return; }
         if (savedMethod === 'cloud') { submitOrderViaFirebase(pendingPrintLang); return; }
-        // 尚未選過列印方式（這台裝置第一次送單）：詢問一次列印方式，語言仍直接沿用 userLang
+        // 尚未選過列印方式（這台裝置第一次送單）：詢問一次列印方式，語言用上面設定好的印表機語言
         configurePrintMethodDialog();
         document.getElementById('print-lang-modal').style.display = 'flex';
     }
@@ -2544,6 +2572,9 @@
         loadPromotion();                           // 開機先讀一次活動優惠設定
         setInterval(loadPromotion, 60000);         // 之後每60秒背景重新讀取一次，活動開始/結束、檔位變更都能自動生效
         startListeningPendingPayments();           // 開機即時監聽待確認付款訂單
+        /* ✅ ver5.9.6：把印表機語言開關的畫面狀態，對到剛剛從 localStorage 讀出來的
+           printLangSetting（例如上次關掉前選的是英文，這次一開機按鈕要顯示對應的active狀態） */
+        document.querySelectorAll('#print-lang-toggle button').forEach(b => b.classList.toggle('active', b.dataset.lang === printLangSetting));
         selectCategory('人氣');   /* 首次開啟直接顯示人氣推薦，不再是空白畫面 */
         updateBottomBar();
     });
