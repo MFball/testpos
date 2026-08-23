@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.7 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.8 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -241,7 +241,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.7</span>
+        <span id="version-tag">v5.9.8</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -433,6 +433,21 @@
        ═══════════════════════════════════════════════════ */
     const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
     let promotionConfig = { enabled: false, startDateTime: '', endDateTime: '', tiers: [], excludedItems: [] };
+    /* ✅ ver5.9.8 新增：活動優惠一年才辦一次，平常沒活動的時候完全不需要背景輪詢。
+       loadPromotion() 每次讀完都會呼叫這個，自己判斷「接下來還需不需要繼續追蹤」——
+       只有活動已啟用、而且還沒結束（包含已經在跑、或還沒到開始時間但已經設定排程好了）
+       才會安排下一次輪詢；平常沒活動、或活動已經結束，讀這一次之後就完全安靜下來。
+       跟 isPromoActive() 不一樣：isPromoActive() 只看「此刻算不算在活動期間內」（算折扣用），
+       這裡看的是「接下來還要不要繼續追蹤它」（排程用），兩者條件不完全一樣。 */
+    let promotionPollTimer = null;
+    function isPromoRelevantForPolling() {
+        if (!promotionConfig.enabled || !promotionConfig.endDateTime) return false;
+        return new Date() <= new Date(promotionConfig.endDateTime);
+    }
+    function schedulePromotionPolling() {
+        if (promotionPollTimer) { clearInterval(promotionPollTimer); promotionPollTimer = null; }
+        if (isPromoRelevantForPolling()) promotionPollTimer = setInterval(loadPromotion, 60000);
+    }
     async function loadPromotion() {
         try {
             const res = await fetch(PROMOTION_URL + '?t=' + Date.now());
@@ -444,6 +459,7 @@
             console.log('讀取活動設定失敗，暫時視為沒有活動：', err.message);
         }
         refreshCartViews();
+        schedulePromotionPolling();
     }
     function isPromoActive() {
         if (!promotionConfig.enabled || !promotionConfig.startDateTime || !promotionConfig.endDateTime) return false;
@@ -774,6 +790,8 @@
         const oldText = btn.innerText;
         btn.innerText = '⏳';
         await loadCloudMenu();
+        await loadPromotion();      // ✅ ver5.9.8：活動優惠平常不輪詢，補上手動重新整理時順便一起檢查一次
+                                     // （例如剛在後台把活動打開，店員按這顆鈕就能馬上生效，不用等重開頁面）
         quickSuggestionCache = {};   // 清空隨機推薦快取，讓它根據最新菜單重新抽選
         selectCategory(currentCategory);   // 重新渲染目前畫面
         btn.innerText = oldText;
@@ -809,13 +827,13 @@
         '覽':'览','觀':'观','觸':'触','訂':'订','計':'计','訊':'讯','記':'记','設':'设','許':'许','詞':'词','詢':'询','試':'试','話':'话',
         '該':'该','詳':'详','認':'认','語':'语','誤':'误','說':'说','調':'调','請':'请','論':'论','證':'证','識':'识','譯':'译','護':'护',
         '讀':'读','變':'变','讓':'让','豬':'猪','貨':'货','販':'贩','買':'买','費':'费','資':'资','賣':'卖','賦':'赋','賴':'赖','購':'购',
-        '車':'车','軌':'轨','軟':'软','較':'较','載':'载','輪':'轮','輯':'辑','輸':'输','轉':'转','辦':'办','這':'这','連':'连','進':'进',
-        '運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选','遺':'遗','還':'还','邊':'边','邏':'逻','醬':'酱','釣':'钓','鈕':'钮',
-        '鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键','鎖':'锁','長':'长','門':'门','閉':'闭','開':'开','間':'间',
-        '關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双','雞':'鸡','離':'离','雲':'云','響':'响','頁':'页',
-        '頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头','顆':'颗','題':'题','額':'额','顏':'颜','類':'类','顧':'顾','顯':'显',
-        '風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验','驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯',
-        '麵':'面','麼':'么','點':'点','齊':'齐',
+        '蹤':'踪','車':'车','軌':'轨','軟':'软','較':'较','載':'载','輪':'轮','輯':'辑','輸':'输','轉':'转','辦':'办','這':'这','連':'连',
+        '進':'进','運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选','遺':'遗','還':'还','邊':'边','邏':'逻','醬':'酱','釣':'钓',
+        '鈕':'钮','鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键','鎖':'锁','鐘':'钟','長':'长','門':'门','閉':'闭',
+        '開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双','雞':'鸡','離':'离','雲':'云',
+        '靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头','顆':'颗','題':'题','額':'额','顏':'颜',
+        '類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验','驚':'惊','驟':'骤','體':'体',
+        '魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点','齊':'齐',
     };
     function toSimplified(str) {
         return String(str).replace(/[\u4e00-\u9fff]/g, ch => T2S_MAP[ch] || ch);
@@ -2581,9 +2599,13 @@
     window.addEventListener('DOMContentLoaded', async () => {
         await loadCloudMenu();   /* ✅ 開機時先讀取主理員設定的最新菜單，再渲染畫面 */
         loadPrintConfig();                        // 開機先讀一次列印設定
-        setInterval(loadPrintConfig, 60000);       // 之後每60秒背景重新讀取一次，讓後台的設定變更能自動生效
-        loadPromotion();                           // 開機先讀一次活動優惠設定
-        setInterval(loadPromotion, 60000);         // 之後每60秒背景重新讀取一次，活動開始/結束、檔位變更都能自動生效
+        /* ✅ ver5.9.8：60秒改成10分鐘一次——列印設定本來就不會每分鐘變，拉長間隔省下大部分背景流量 */
+        setInterval(loadPrintConfig, 600000);      // 之後每10分鐘背景重新讀取一次，讓後台的設定變更能自動生效
+        /* ✅ ver5.9.8：活動優惠一年才辦一次，平常沒活動的時候完全不需要一直輪詢背景流量。
+           改成 loadPromotion() 每次讀完自己判斷「現在是不是真的有活動在跑（或排定要開始）」，
+           只有真的相關才會排定下一輪詢；沒活動的話讀這一次之後就完全安靜，不會再自動重抓。
+           （見 loadPromotion() 結尾呼叫的 schedulePromotionPolling()） */
+        loadPromotion();                           // 開機先讀一次活動優惠設定，讀完自己決定要不要接著輪詢
         startListeningPendingPayments();           // 開機即時監聽待確認付款訂單
         /* ✅ ver5.9.7：把印表機語言滑動開關的畫面狀態，對到剛剛從 localStorage 讀出來的
            printLangSetting（例如上次關掉前選的是英文，這次一開機開關要顯示對應的滑動狀態），
