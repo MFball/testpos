@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.8 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.9 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -241,7 +241,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.8</span>
+        <span id="version-tag">v5.9.9</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -754,6 +754,16 @@
                     mergeSimpleOptionName(k, v);
                 });
                 config.specials = Object.keys(orderMap).sort((a, b) => orderMap[a] - orderMap[b]);
+            }
+
+            /* ✅ ver5.9.9：麵種改成可以在主理員後台「🍜 麵種」分頁新增/修改/刪除/排序。
+               雲端有資料時以雲端為準（刪掉的麵種就不會再出現），沿用已知的圖片網址；
+               雲端沒有資料（後台還沒更新到新版）就繼續用程式內建的 10 種麵。 */
+            if (cloud.noodleTypes && Object.keys(cloud.noodleTypes).length > 0) {
+                const nk = Object.keys(cloud.noodleTypes).sort((a, b) => (cloud.noodleTypes[a].order ?? 9999) - (cloud.noodleTypes[b].order ?? 9999));
+                const rebuiltNoodles = {};
+                nk.forEach(k => { rebuiltNoodles[k] = config.noodleTypeImgs[k] || ''; mergeSimpleOptionName(k, cloud.noodleTypes[k]); });
+                config.noodleTypeImgs = rebuiltNoodles;
             }
 
             /* ✅ 排放位置：依照主理員設定的 order 排序 —— 面/湯重新排列圖片對照表的 key 順序，
@@ -2087,7 +2097,7 @@
             tempItem = { mainKey: key, sizeKey: '', noodleKey: '', sauceKeys: [], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '小食', isTakeaway: false };
         } else {
             /* 麵食類：預設「面薄、辣椒、小份、堂食」— 收銀員可直接按確認出收據，也可以再點一下修改 */
-            tempItem = { mainKey: key, sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: false };
+            tempItem = { mainKey: key, sizeKey: '小的', noodleKey: Object.keys(config.noodleTypeImgs)[0] || '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, qty: 1, category: '面', isTakeaway: false };
         }
         renderSideList();
         renderCustomizePanel();
