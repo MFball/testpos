@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.9.0</title>
+<title>Million 麵店 · 主理員後台 ver2.10.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -129,7 +129,7 @@
 <!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
 <div id="pinGate">
     <div style="font-size:2.5rem;">🍜</div>
-    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.9.0</small></h2>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.10.0</small></h2>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
     <div id="pinError"></div>
     <button id="pinBtn" onclick="checkPin()">進入</button>
@@ -138,7 +138,7 @@
 <!-- ══════════════════ 主畫面 ══════════════════ -->
 <div id="app">
     <div class="topbar">
-        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.9.0</span></h1>
+        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.10.0</span></h1>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
             <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
@@ -159,6 +159,8 @@
         <button class="tab-btn" data-cat="加料" onclick="switchTab('加料')">🧂 加料</button>
         <button class="tab-btn" data-cat="不要什麼" onclick="switchTab('不要什麼')">🚫 不要什麼</button>
         <button class="tab-btn" data-cat="特別要求" onclick="switchTab('特別要求')">📝 特別要求</button>
+        <!-- ✅ ver2.10.0 新增：麵種（客人點麵時可選的麵條種類）可以在後台新增/修改/刪除/排序 -->
+        <button class="tab-btn" data-cat="麵種" onclick="switchTab('麵種')">🍜 麵種</button>
         <button class="tab-btn" data-cat="列印設定" onclick="switchTab('列印設定')">🖨️ 列印設定</button>
         <button class="tab-btn" data-cat="活動" onclick="switchTab('活動')">🎉 活動</button>
         <!-- ✅ ver2.9.0 新增：卡片樣式（圖像化菜單格的顏色/字級）、推薦組合（推薦分類要配的餐點） -->
@@ -561,6 +563,20 @@ const SEED_DEFAULTS = {
         '豬油渣':    { en: '',                     order: 40 },
         '肉圓換魚圓': { en: 'Meatball→Fishball',    order: 50 },
         '少份量':    { en: 'Less Portion',         order: 60 }
+    },
+    /* ✅ ver2.10.0：麵種預設值——跟顧客點餐/點餐機原本內建的 10 種麵完全一致，
+       第一次打開新版後台會自動補進雲端，之後就可以在「🍜 麵種」分頁自由新增/修改/刪除/排序 */
+    noodleTypes: {
+        '面薄':      { en: 'Mee Pok',             order: 10 },
+        '幼面':      { en: 'Mee Kia',             order: 20 },
+        '粿條':      { en: 'Kway Teow',           order: 30 },
+        '熟面':      { en: 'Yellow Noodle',       order: 40 },
+        '米粉':      { en: 'Bee Hoon',            order: 50 },
+        '米太目':    { en: 'Mee Tai Mak',         order: 60 },
+        '冬粉':      { en: 'Tang Hoon',           order: 70 },
+        '粿條面':    { en: 'Kway Teow Mee',       order: 80 },
+        '粿條米粉':  { en: 'Kway Teow Bee Hoon',  order: 90 },
+        '米粉面':    { en: 'Bee Hoon Mee',        order: 100 }
     }
 };
 
@@ -571,13 +587,14 @@ const CATS = {
     '加料':    { type: 'addon',  addName: '加料',       dataKey: 'additions', icon: '🧂' },
     '不要什麼': { type: 'simple', addName: '不要什麼選項', dataKey: 'noWant',        icon: '🚫' },
     '特別要求': { type: 'simple', addName: '特別要求選項', dataKey: 'specialRequest', icon: '📝' },
+    '麵種':    { type: 'simple', addName: '麵種',       dataKey: 'noodleTypes',    icon: '🍜' },
     '列印設定': { type: 'print' },
     '活動': { type: 'promo' },
     '卡片樣式': { type: 'cardstyle' },
     '推薦組合': { type: 'recommend' }
 };
 
-let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
+let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {}, noodleTypes: {} };
 let printConfig = {
     shopName: "Million 麵店",
     paperSize: "58mm",
@@ -642,6 +659,13 @@ let recommendCombos = [
     { mainKey: '香菇肉碎面', sizeKey: '小的', noodleKey: '面薄', sauceKey: '辣椒' },
     { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '粿條面', sauceKey: '湯' }
 ];
+/* ✅ ver2.10.0：推薦組合的麵種下拉選單改成讀「🍜 麵種」分頁設定的內容（依排序），
+   雲端還沒有資料時才退回下面這份固定清單 */
+function getNoodleTypeOptions() {
+    const keys = Object.keys(menuData.noodleTypes || {});
+    if (keys.length === 0) return NOODLE_TYPE_OPTIONS;
+    return keys.sort((a, b) => ((menuData.noodleTypes[a].order ?? 9999) - (menuData.noodleTypes[b].order ?? 9999)));
+}
 const NOODLE_TYPE_OPTIONS = ['面薄','幼面','粿條','熟面','米粉','米太目','冬粉','粿條面','粿條米粉','米粉面'];
 const SAUCE_OPTIONS = ['辣椒','少辣','多辣','茄汁','黑醬油','白醬青','醋','三味','分湯','湯'];
 
@@ -1122,7 +1146,7 @@ function renderRecommendList() {
             <div style="flex:1 1 110px; min-width:100px;">
                 <div class="field-label" style="margin:0 0 4px;">麵種</div>
                 <select class="field-input" onchange="updateRecommendCombo(${i}, 'noodleKey', this.value)">
-                    ${NOODLE_TYPE_OPTIONS.map(k => `<option value="${k}" ${c.noodleKey===k?'selected':''}>${k}</option>`).join('')}
+                    ${(getNoodleTypeOptions().includes(c.noodleKey) ? getNoodleTypeOptions() : [c.noodleKey, ...getNoodleTypeOptions()]).map(k => `<option value="${k}" ${c.noodleKey===k?'selected':''}>${k}</option>`).join('')}
                 </select>
             </div>
             <div style="flex:1 1 110px; min-width:100px;">
@@ -1137,7 +1161,7 @@ function renderRecommendList() {
 function addRecommendCombo() {
     const mainKeys = Object.keys(menuData.foodImgs || {});
     if (mainKeys.length === 0) { toast('請先新增麵食類餐點'); return; }
-    recommendCombos.push({ mainKey: mainKeys[0], sizeKey: '小的', noodleKey: NOODLE_TYPE_OPTIONS[0], sauceKey: SAUCE_OPTIONS[0] });
+    recommendCombos.push({ mainKey: mainKeys[0], sizeKey: '小的', noodleKey: getNoodleTypeOptions()[0], sauceKey: SAUCE_OPTIONS[0] });
     renderRecommendList();
 }
 function removeRecommendCombo(i) { recommendCombos.splice(i, 1); renderRecommendList(); }
@@ -1169,7 +1193,7 @@ async function loadMenu() {
         const res = await fetch(MENU_URL + '?t=' + Date.now(), { cache: 'no-store' });
         const cloud = await res.json();
         if (!cloud) {
-            menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {} };
+            menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {}, noodleTypes: {} };
             document.getElementById('seedBanner').style.display = 'block';
         } else {
             const missingCats = Object.keys(SEED_DEFAULTS).filter(k => !cloud[k] || Object.keys(cloud[k]).length === 0);
@@ -1199,7 +1223,8 @@ async function loadMenu() {
                 soupImgs: cloud.soupImgs || {}, additions: cloud.additions || {},
                 items: cloud.items || {}, meta: cloud.meta || {},
                 noWant: cloud.noWant || {},
-                specialRequest: cloud.specialRequest || {}
+                specialRequest: cloud.specialRequest || {},
+                noodleTypes: cloud.noodleTypes || {}
             };
             document.getElementById('seedBanner').style.display = 'none';
         }
