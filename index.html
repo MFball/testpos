@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.9 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.10 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -241,7 +241,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.9</span>
+        <span id="version-tag">v5.9.10</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -1553,6 +1553,10 @@
                 cmds.push({ text: note, font: `bold ${notePx}px sans-serif`, y });
                 y += notePx + gapWithin;
             });
+            /* ✅ ver5.9.10：每個品項印出自己的金額（單價×份數，已含加料；外賣附加費另外一行），
+               最下面的 TOTAL 就是這些金額加總（再扣活動折扣）。 */
+            cmds.push({ text: '$' + (item.price * item.qty).toFixed(2), font: `bold ${Math.round(bodyPx * 1.1)}px sans-serif`, y });
+            y += Math.round(bodyPx * 1.1) + gapWithin;
             if (item.isTakeaway) {
                 cmds.push({ text: (printLang === 'zh' ? '(外賣附加: +$' : '(Takeaway fee: +$') + (0.30 * item.qty).toFixed(2) + ')', font: `${feePx}px sans-serif`, color: '#555', y });
                 y += feePx + gapWithin;
@@ -1745,6 +1749,11 @@
                 }
             }
 
+            /* ✅ ver5.9.10：每個品項印出自己的金額（單價×份數，已含加料；外賣附加費另外一行） */
+            if (cfg.showPrice !== false) {
+                cmds.push({ type:'text', text:'$' + (item.price * item.qty).toFixed(2), font:'bold 32px sans-serif', x:centerX, y, align:'center', maxW });
+                y += 44;
+            }
             if (cfg.showPrice !== false && item.isTakeaway) {
                 cmds.push({ type:'text', text:`(${printLang==='zh'?'外賣附加':'Takeaway fee'}: +$${(0.30 * item.qty).toFixed(2)})`, font:'18px sans-serif', color:'#555', x:centerX, y, align:'center', maxW });
                 y += 28;
