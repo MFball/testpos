@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.10 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.11 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -152,6 +152,10 @@
     .hot-card-body { flex: 1; min-width: 0; padding: 8px 10px; }
     .hot-rank { font-weight: 900; color: var(--hot); font-size: 0.72rem; margin-bottom: 2px; }
     .hot-name { font-weight: 900; font-size: 0.98rem; color: #222; line-height: 1.25; }
+    /* ✅ ver5.9.11：麵種、醬料改成醒目的色塊標籤（麵種橘色、醬料藍色），員工一眼就能看到選的是什麼，不用讀小字 */
+    .hot-chip { display: inline-block; font-size: 0.9rem; font-weight: 900; padding: 3px 9px; border-radius: 8px; margin: 2px 4px 2px 0; background: #eee; color: #444; }
+    .hot-chip-noodle { background: #fff3e0; color: #e65100; border: 1.5px solid #ffb74d; }
+    .hot-chip-sauce { background: #e3f2fd; color: #0d47a1; border: 1.5px solid #64b5f6; }
     .hot-desc { font-size: 0.76rem; color: #666; margin: 3px 0; }
     .hot-loc { display: inline-block; font-size: 0.68rem; font-weight: 900; padding: 2px 7px; border-radius: 8px; color: #fff; }
     /* 卡片最底：價錢 + 明確的下單按鈕 */
@@ -241,7 +245,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.10</span>
+        <span id="version-tag">v5.9.11</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -364,6 +368,7 @@
        客人按「已付款」後訂單會先進這個「待確認付款」節點，需要收銀機這邊的店員核對
        PayNow收款後手動「放行」，才會真的轉進 CLOUD_URL 給廚房自動列印，避免有人亂按
        已付款但沒真的付錢，讓廚房白做一份沒人要的餐點 */
+    const POPULAR_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/popularCombos.json";
     const PENDING_ORDERS_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/pendingOrders.json";
 
     /* ✅ ver5.4.0：收銀機列印收據過去也是完全寫死的樣板（店名、是否印價錢都固定），
@@ -800,6 +805,7 @@
         const oldText = btn.innerText;
         btn.innerText = '⏳';
         await loadCloudMenu();
+        await loadPopularCombos();  // ✅ ver5.9.11：主理員改完人氣設定後，按這顆鈕也會一起更新
         await loadPromotion();      // ✅ ver5.9.8：活動優惠平常不輪詢，補上手動重新整理時順便一起檢查一次
                                      // （例如剛在後台把活動打開，店員按這顆鈕就能馬上生效，不用等重開頁面）
         quickSuggestionCache = {};   // 清空隨機推薦快取，讓它根據最新菜單重新抽選
@@ -1227,7 +1233,30 @@
        第1名 - 魚圓面／面薄／辣椒／堂食
        第2名 - 香菇肉碎面／面薄／辣椒／堂食
        第3名 - 魚圓面／粿條面／湯／堂食 */
+    /* ✅ ver5.9.11：「人氣」頁最上面的固定搭配，改成讀主理員後台「🔥 人氣設定」設定的內容
+       （雲端 /popularCombos）。還沒設定過、或讀取失敗時，沿用下面原本內建的 3 個固定搭配。
+       固定搭配的數量不限，排在越前面越先看到；固定搭配之後的空位才會依今日銷量補上。 */
+    let popularCombosCloud = null;
+    async function loadPopularCombos() {
+        try {
+            const res = await fetch(POPULAR_URL + '?t=' + Date.now());
+            const data = await res.json();
+            if (res.ok && Array.isArray(data) && data.length > 0) popularCombosCloud = data;
+        } catch (e) { /* 讀取失敗就沿用內建的 3 個固定搭配 */ }
+    }
     function getDefaultCombos() {
+        if (popularCombosCloud && popularCombosCloud.length > 0) {
+            return popularCombosCloud.map(c => {
+                const isSoup = !!config.soupImgs[c.mainKey];
+                return {
+                    mainKey: c.mainKey, sizeKey: c.sizeKey || '小的',
+                    noodleKey: isSoup ? '湯品' : c.noodleKey,
+                    sauceKeys: isSoup ? ['湯'] : [c.sauceKey],
+                    specialKeys: [], noExtraKeys: [], additionKeys: {}, isTakeaway: false,
+                    category: isSoup ? '湯' : '面', count: 0, isDefault: true
+                };
+            }).filter(c => config.foodImgs[c.mainKey] || config.soupImgs[c.mainKey]);   // 餐點如果已經被刪掉就不顯示
+        }
         return [
             { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, isTakeaway: false, category: '面', count: 0, isDefault: true },
             { mainKey: '香菇肉碎面', sizeKey: '小的', noodleKey: '面薄', sauceKeys: ['辣椒'], specialKeys: [], noExtraKeys: [], additionKeys: {}, isTakeaway: false, category: '面', count: 0, isDefault: true },
@@ -1235,7 +1264,7 @@
         ];
     }
 
-    function getTopCombos(n = 6) {
+    function getTopCombos(n = Math.max(6, getDefaultCombos().length)) {
         const data = getSalesData();
 
         /* 固定前三名：不管其他實際銷售數字多高，都不會被擠下去、順序也不會被打亂。
@@ -2494,12 +2523,12 @@
     /* ═══════════════ 🔥 人氣：當日銷售 TOP6，一鍵下單並直接列印 ═══════════════ */
     function renderPopularityPanel() {
         const panel = document.getElementById('panel');
-        const combos = getTopCombos(6);
+        const combos = getTopCombos();
         if (combos.length === 0) {
             panel.innerHTML = `<div class="empty-hint">🔥 ${userLang==='zh' ? '今日尚無銷售紀錄<br>累積訂單後，最熱賣的 6 款餐點會自動出現在這裡' : 'No sales recorded yet today.<br>Top 6 best sellers will appear here automatically.'}</div>`;
             return;
         }
-        panel.innerHTML = `<div style="font-weight:900; font-size:1.15rem; margin-bottom:12px;">🔥 ${userLang==='zh'?'今日人氣 TOP 6（點一下＝直接下單並列印）':'Today Top 6 (tap = order & print instantly)'}</div>
+        panel.innerHTML = `<div style="font-weight:900; font-size:1.15rem; margin-bottom:12px;">🔥 ${userLang==='zh'?'人氣推薦（點一下＝直接下單並列印）':'Popular (tap = order & print instantly)'}</div>
         <div class="hot-grid">${combos.map((c, i) => {
             const base = computeBasePrice(c.mainKey, c.sizeKey, c.category);
             let extra = computeAdditionsPrice(c.additionKeys);
@@ -2524,7 +2553,7 @@
                     <div class="hot-card-body">
                         <div class="hot-rank">${c.isDefault ? `⭐ No.${i+1} · ${userLang==='zh'?'熱門推薦':'Recommended'}` : `🔥 No.${i+1} · ${userLang==='zh'?'今日售出':'sold'} ${c.count} ${userLang==='zh'?'份':''}`}</div>
                         <div class="hot-name">${getItemName(c.mainKey)}${c.category==='面' ? ` (${getItemName(c.sizeKey)})` : ''}</div>
-                        <div class="hot-desc">${noodleText} ${sauceText} ${snackText}</div>
+                        <div class="hot-desc">${noodleText ? `<span class="hot-chip hot-chip-noodle">${noodleText}</span>` : ''}${sauceText ? `<span class="hot-chip hot-chip-sauce">${sauceText}</span>` : ''}${snackText ? `<span class="hot-chip">${snackText}</span>` : ''}</div>
                         <div class="hot-loc" style="background:${c.isTakeaway?'var(--takeaway)':'var(--success)'};">${c.isTakeaway?'🥡外賣':'🍽堂食'}</div>
                     </div>
                 </div>
@@ -2537,7 +2566,7 @@
     }
 
     async function quickOrderCombo(i) {
-        const combos = getTopCombos(6);
+        const combos = getTopCombos();
         const c = combos[i];
         if (!c) return;
         if (isMenuItemSoldOut(c.mainKey, c.category)) { alert(userLang==='zh' ? '目前缺貨中' : 'Currently sold out'); return; }
@@ -2617,6 +2646,7 @@
     /* ═══════════════ 初始化 ═══════════════ */
     window.addEventListener('DOMContentLoaded', async () => {
         await loadCloudMenu();   /* ✅ 開機時先讀取主理員設定的最新菜單，再渲染畫面 */
+        await loadPopularCombos();   // ✅ ver5.9.11：人氣頁固定搭配（主理員後台設定），只在開機讀一次，不輪詢
         loadPrintConfig();                        // 開機先讀一次列印設定
         /* ✅ ver5.9.8：60秒改成10分鐘一次——列印設定本來就不會每分鐘變，拉長間隔省下大部分背景流量 */
         setInterval(loadPrintConfig, 600000);      // 之後每10分鐘背景重新讀取一次，讓後台的設定變更能自動生效
