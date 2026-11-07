@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.10.0</title>
+<title>Million 麵店 · 主理員後台 ver2.11.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -129,7 +129,7 @@
 <!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
 <div id="pinGate">
     <div style="font-size:2.5rem;">🍜</div>
-    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.10.0</small></h2>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.11.0</small></h2>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
     <div id="pinError"></div>
     <button id="pinBtn" onclick="checkPin()">進入</button>
@@ -138,7 +138,7 @@
 <!-- ══════════════════ 主畫面 ══════════════════ -->
 <div id="app">
     <div class="topbar">
-        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.10.0</span></h1>
+        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.11.0</span></h1>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
             <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
@@ -166,6 +166,8 @@
         <!-- ✅ ver2.9.0 新增：卡片樣式（圖像化菜單格的顏色/字級）、推薦組合（推薦分類要配的餐點） -->
         <button class="tab-btn" data-cat="卡片樣式" onclick="switchTab('卡片樣式')">🎨 卡片樣式</button>
         <button class="tab-btn" data-cat="推薦組合" onclick="switchTab('推薦組合')">⭐ 推薦組合</button>
+        <!-- ✅ ver2.11.0 新增：點餐機「人氣」頁的固定搭配，在這裡自己配 -->
+        <button class="tab-btn" data-cat="人氣設定" onclick="switchTab('人氣設定')">🔥 人氣設定</button>
     </div>
 
     <div id="itemList"></div>
@@ -451,6 +453,21 @@
     </div>
 
     <!-- ⭐ ver2.9.0 新增：推薦組合設定 -->
+    <!-- 🔥 ver2.11.0 新增：點餐機「人氣」頁固定搭配設定 -->
+    <div id="popularSection" class="print-config-panel" style="display: none;">
+        <h3>
+            <span>🔥 人氣設定（點餐機）</span>
+            <button class="btn btn-primary" onclick="savePopular()">💾 儲存人氣設定</button>
+        </h3>
+        <div style="background:#fff3e0; border:1px solid #ffcc80; border-radius:8px; padding:10px 14px; margin:12px 0 4px; font-size:0.85rem; color:#7a4a00; line-height:1.6;">
+            設定點餐機「🔥 人氣」頁最上面固定出現的搭配（例如：魚圓面＋粿條＋湯底）。員工在這一頁看照片、點一下就直接下單並列印，不用再自己找麵種和醬料，急的時候也不容易選錯。<br>
+            排在越上面的越先看到，可以用 ▲▼ 調整順序；固定搭配之後的空位，仍然會自動補上今日熱賣的餐點。
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+        <div id="popular-list"></div>
+        <button class="btn" style="background:#eee; color:#444; margin-top:10px;" onclick="addPopularCombo()">➕ 新增人氣搭配</button>
+    </div>
+
     <div id="recommendSection" class="print-config-panel" style="display: none;">
         <h3>
             <span>⭐ 推薦組合設定</span>
@@ -524,6 +541,7 @@ const PRINT_CONFIG_URL = "https://million-fishballnoodle-backend-default-rtdb.as
 const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
 /* ✅ ver2.9.0 新增：卡片樣式、推薦組合各自獨立的雲端節點，跟 printConfig/promotion 同一套模式 */
 const CARD_STYLE_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/cardStyle.json";
+const POPULAR_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/popularCombos.json";
 const RECOMMEND_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/recommendCombos.json";
 
 /* 種子資料：跟目前點餐機內建的預設菜單完全一致，供「從預設值建立」按鈕使用 */
@@ -591,7 +609,8 @@ const CATS = {
     '列印設定': { type: 'print' },
     '活動': { type: 'promo' },
     '卡片樣式': { type: 'cardstyle' },
-    '推薦組合': { type: 'recommend' }
+    '推薦組合': { type: 'recommend' },
+    '人氣設定': { type: 'popular' }
 };
 
 let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {}, noodleTypes: {} };
@@ -683,6 +702,7 @@ function checkPin() {
         loadPromotion();
         loadCardStyle();
         loadRecommend();
+        loadPopular();
     } else {
         document.getElementById('pinError').innerText = '密碼錯誤';
         document.getElementById('pinInput').value = '';
@@ -1108,6 +1128,108 @@ async function saveCardStyle() {
 /* ═══════════════════════════════════════════════════
    ✅ ver2.9.0 新增：推薦組合設定
    ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   ✅ ver2.11.0 新增：點餐機「人氣」頁固定搭配設定（雲端節點 /popularCombos）
+   每筆：主餐(麵食或湯品)、大小、麵種、醬料；選湯品時麵種/醬料固定為湯，不用選。
+   還沒設定過時，點餐機沿用原本內建的 3 個固定搭配，畫面不會變。
+   ═══════════════════════════════════════════════════ */
+let popularCombos = [
+    { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '面薄', sauceKey: '辣椒' },
+    { mainKey: '香菇肉碎面', sizeKey: '小的', noodleKey: '面薄', sauceKey: '辣椒' },
+    { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '粿條面', sauceKey: '湯' }
+];
+async function loadPopular() {
+    try {
+        const res = await fetch(POPULAR_URL + '?t=' + Date.now());
+        const data = await res.json();
+        if (res.ok && Array.isArray(data) && data.length > 0) popularCombos = data;
+    } catch (e) { console.log('讀取人氣設定失敗，使用預設值'); }
+}
+function isSoupMain(k) { return !!(menuData.soupImgs && menuData.soupImgs[k]); }
+function renderPopularList() {
+    const list = document.getElementById('popular-list');
+    const foodKeys = Object.keys(menuData.foodImgs || {});
+    const soupKeys = Object.keys(menuData.soupImgs || {});
+    if (foodKeys.length + soupKeys.length === 0) { list.innerHTML = '<div style="color:#999; font-size:0.85rem;">請先到「麵食類／湯品類」新增餐點，才能設定人氣搭配</div>'; return; }
+    if (popularCombos.length === 0) { list.innerHTML = '<div style="color:#999; font-size:0.85rem; margin-bottom:8px;">還沒有任何人氣搭配，按下面「新增人氣搭配」開始設定</div>'; return; }
+    const nm = k => (menuData.items[k] && menuData.items[k].zh) || k;
+    const noodleOpts = getNoodleTypeOptions();
+    list.innerHTML = popularCombos.map((c, i) => {
+        const soup = isSoupMain(c.mainKey);
+        const img = (menuData.foodImgs[c.mainKey] || menuData.soupImgs[c.mainKey] || '');
+        const hasImg = img && !String(img).includes('placeholder');
+        const nOpts = noodleOpts.includes(c.noodleKey) ? noodleOpts : [c.noodleKey, ...noodleOpts];
+        return `<div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; background:#f9f9f9; border:1px solid var(--border); border-radius:12px; padding:10px 12px; margin-bottom:10px;">
+            <div style="width:56px; height:56px; border-radius:10px; overflow:hidden; background:#f2ebe0; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:#a08f6f; text-align:center;">${hasImg ? `<img src="${img}" style="width:100%;height:100%;object-fit:cover;">` : '無圖'}</div>
+            <div style="flex:1 1 150px; min-width:130px;">
+                <div class="field-label" style="margin:0 0 4px;">主餐</div>
+                <select class="field-input" onchange="updatePopularCombo(${i}, 'mainKey', this.value, true)">
+                    <optgroup label="🍝 麵食類">${foodKeys.map(k => `<option value="${k}" ${c.mainKey===k?'selected':''}>${nm(k)}</option>`).join('')}</optgroup>
+                    <optgroup label="🍜 湯品類">${soupKeys.map(k => `<option value="${k}" ${c.mainKey===k?'selected':''}>${nm(k)}</option>`).join('')}</optgroup>
+                </select>
+            </div>
+            <div style="flex:1 1 80px; min-width:76px;">
+                <div class="field-label" style="margin:0 0 4px;">大小</div>
+                <select class="field-input" onchange="updatePopularCombo(${i}, 'sizeKey', this.value)">
+                    <option value="小的" ${c.sizeKey!=='大的'?'selected':''}>小</option>
+                    <option value="大的" ${c.sizeKey==='大的'?'selected':''}>大</option>
+                </select>
+            </div>
+            ${soup ? `<div style="flex:2 1 200px; color:#888; font-size:0.85rem; padding-bottom:10px;">湯品：麵種／醬料固定為「湯」</div>` : `
+            <div style="flex:1 1 110px; min-width:100px;">
+                <div class="field-label" style="margin:0 0 4px;">麵種</div>
+                <select class="field-input" onchange="updatePopularCombo(${i}, 'noodleKey', this.value)">
+                    ${nOpts.map(k => `<option value="${k}" ${c.noodleKey===k?'selected':''}>${k}</option>`).join('')}
+                </select>
+            </div>
+            <div style="flex:1 1 110px; min-width:100px;">
+                <div class="field-label" style="margin:0 0 4px;">醬料/湯底</div>
+                <select class="field-input" onchange="updatePopularCombo(${i}, 'sauceKey', this.value)">
+                    ${SAUCE_OPTIONS.map(k => `<option value="${k}" ${c.sauceKey===k?'selected':''}>${k}</option>`).join('')}
+                </select>
+            </div>`}
+            <div style="display:flex; gap:4px; flex-shrink:0;">
+                <button onclick="movePopularCombo(${i}, -1)" ${i===0?'disabled':''} style="background:#eee; border:none; border-radius:8px; padding:10px 11px; font-weight:bold;">▲</button>
+                <button onclick="movePopularCombo(${i}, 1)" ${i===popularCombos.length-1?'disabled':''} style="background:#eee; border:none; border-radius:8px; padding:10px 11px; font-weight:bold;">▼</button>
+                <button onclick="removePopularCombo(${i})" style="background:#ffebee; color:#e53935; border:none; border-radius:8px; padding:10px 12px; font-weight:bold;">✕</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+function addPopularCombo() {
+    const foodKeys = Object.keys(menuData.foodImgs || {});
+    if (foodKeys.length === 0) { toast('請先新增麵食類餐點'); return; }
+    popularCombos.push({ mainKey: foodKeys[0], sizeKey: '小的', noodleKey: getNoodleTypeOptions()[0], sauceKey: SAUCE_OPTIONS[0] });
+    renderPopularList();
+}
+function removePopularCombo(i) { popularCombos.splice(i, 1); renderPopularList(); }
+function movePopularCombo(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= popularCombos.length) return;
+    [popularCombos[i], popularCombos[j]] = [popularCombos[j], popularCombos[i]];
+    renderPopularList();
+}
+function updatePopularCombo(i, field, value, rerender) {
+    popularCombos[i][field] = value;
+    if (field === 'mainKey') {
+        // 換成湯品→麵種/醬料固定成湯；換回麵食→補上預設的麵種/醬料
+        if (isSoupMain(value)) { popularCombos[i].noodleKey = '湯品'; popularCombos[i].sauceKey = '湯'; }
+        else if (popularCombos[i].noodleKey === '湯品') { popularCombos[i].noodleKey = getNoodleTypeOptions()[0]; popularCombos[i].sauceKey = SAUCE_OPTIONS[0]; }
+    }
+    if (rerender) renderPopularList();
+}
+async function savePopular() {
+    try {
+        const res = await fetch(POPULAR_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(popularCombos) });
+        if (!res.ok) {
+            const hint = (res.status === 401 || res.status === 403) ? '（很可能是 Firebase 資料庫規則尚未開放 /popularCombos 節點的寫入權限）' : '';
+            throw new Error(`伺服器回應 ${res.status}${hint}`);
+        }
+        toast("✓ 人氣設定已儲存！點餐機按一下 🔄 重新載入（或重開頁面）就會套用。");
+        await loadPopular();
+    } catch (err) { toast("儲存失敗：" + err.message); }
+}
+
 async function loadRecommend() {
     try {
         const res = await fetch(RECOMMEND_URL + '?t=' + Date.now());
@@ -1285,6 +1407,7 @@ function switchTab(cat) {
     document.getElementById('promoSection').style.display = 'none';
     document.getElementById('cardStyleSection').style.display = 'none';
     document.getElementById('recommendSection').style.display = 'none';
+    document.getElementById('popularSection').style.display = 'none';
 
     if (cat === '列印設定') {
         document.getElementById('printConfigSection').style.display = 'block';
@@ -1298,6 +1421,11 @@ function switchTab(cat) {
     }
     if (cat === '卡片樣式') {
         document.getElementById('cardStyleSection').style.display = 'block';
+        return;
+    }
+    if (cat === '人氣設定') {
+        document.getElementById('popularSection').style.display = 'block';
+        renderPopularList();
         return;
     }
     if (cat === '推薦組合') {
@@ -1319,7 +1447,7 @@ function getImgMap(cat) {
 
 function getKeysForTab() {
     const cat = CATS[currentTab];
-    if (!cat || cat.type === 'print' || cat.type === 'promo' || cat.type === 'cardstyle' || cat.type === 'recommend') return [];
+    if (!cat || cat.type === 'print' || cat.type === 'promo' || cat.type === 'cardstyle' || cat.type === 'recommend' || cat.type === 'popular') return [];
     if (cat.type === 'food') return Object.keys(menuData[cat.imgField]);
     return Object.keys(menuData[cat.dataKey]);
 }
