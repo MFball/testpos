@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.11 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.12 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -31,11 +31,16 @@
     /* ── 頂部：單號 + 分類 + 語言（含瀏海機安全區域內縮） ── */
     #topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); background: #fff; border-bottom: 2px solid #eee; flex-wrap: wrap; row-gap: 6px; }
     #status-text { font-size: 0.68rem; color: #888; font-weight: bold; white-space: nowrap; }
-    #cat-tabs { display: flex; gap: 6px; flex: 1; overflow-x: auto; }
+    /* ✅ ver5.9.12：頂部分成上下兩行——第一行是功能按鈕/版本/列印語言/介面語言，第二行是分類頁籤。
+       之前全部擠在同一行，iPad 這種大畫面上分類頁籤（小食、人氣…）會被擠到看不見。 */
+    #cat-tabs { display: flex; gap: 8px; order: 10; flex: 1 1 100%; width: 100%; overflow-x: auto; }
+    #version-tag { margin-left: auto; }
     .cat-tab { padding: 10px 16px; border-radius: 12px; border: 2.5px solid #eee; background: #fafafa; font-weight: 900; font-size: 0.95rem; white-space: nowrap; color: #555; }
     .cat-tab.active[data-cat="湯"] { background: var(--soup); color: #fff; border-color: var(--soup); }
     .cat-tab.active[data-cat="面"] { background: var(--noodle); color: #fff; border-color: var(--noodle); }
     .cat-tab.active[data-cat="小食"] { background: var(--add); color: #fff; border-color: var(--add); }
+    .cat-tab { flex: 1 0 auto; text-align: center; }
+    .cat-tab.active[data-cat="簡易"] { background: #7b1fa2; color: #fff; border-color: #7b1fa2; }
     .cat-tab.active[data-cat="人氣"] { background: var(--hot); color: #fff; border-color: var(--hot); }
     /* ✅ ver5.9.5：語言切換從「一個個按鈕排出來」改成一顆下拉選單（跟顧客點餐 App
        customer-v3_4_1 同一套做法），拉下去可以看到繁體中文／简体中文／English 三個選項 */
@@ -198,6 +203,24 @@
     #added-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     canvas { display: none; }
 
+        /* ✅ ver5.9.12 新增：「簡易」頁——麵食圖片化，每款出現左右兩張卡片（可同時點兩種配法），
+       卡片下面 A大小／B麵種／C醬料／D數量 四個下拉選單，卡片右下角 E 堂食/外賣 */
+    .easy-title { font-weight: 900; font-size: 1.05rem; margin-bottom: 10px; }
+    .easy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .easy-card { background: #fff; border: 3px solid #eee; border-radius: 14px; overflow: hidden; }
+    .easy-card-active { border-color: #7b1fa2; box-shadow: 0 2px 10px rgba(123,31,162,0.25); }
+    .easy-card-soldout { opacity: 0.45; pointer-events: none; }
+    .easy-media { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); }
+    .easy-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .easy-name { position: absolute; left: 8px; top: 8px; max-width: 70%; background: rgba(0,0,0,0.62); color: #fff; font-weight: 900; font-size: 1.15rem; padding: 4px 12px; border-radius: 10px; }
+    .easy-price { position: absolute; right: 8px; top: 8px; background: #e53935; color: #fff; font-weight: 900; font-size: 1.05rem; padding: 4px 11px; border-radius: 10px; display: none; }
+    .easy-ta { position: absolute; right: 8px; bottom: 8px; }
+    .easy-ta select { font-weight: 900; font-size: 0.95rem; padding: 6px 8px; border-radius: 10px; border: 2px solid #fff; background: rgba(255,255,255,0.93); color: #222; }
+    .easy-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
+    .easy-field { display: flex; flex-direction: column; font-size: 0.68rem; color: #888; font-weight: 900; min-width: 0; }
+    .easy-sel { width: 100%; font-size: 0.95rem; font-weight: 900; padding: 8px 4px; border-radius: 10px; border: 2px solid #ddd; background: #fafafa; color: #222; min-width: 0; }
+    #easybar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: none; align-items: center; gap: 8px; z-index: 500; }
+
     @media (max-width: 480px) {
         .cat-tab { padding: 8px 10px; font-size: 0.82rem; }
         .hot-grid { grid-template-columns: 1fr; }
@@ -236,6 +259,7 @@
         <div id="cat-tabs">
             <button class="cat-tab" data-cat="湯" onclick="selectCategory('湯')">🍜 湯品類</button>
             <button class="cat-tab" data-cat="面" onclick="selectCategory('面')">🍝 麵食類</button>
+            <button class="cat-tab" data-cat="簡易" onclick="selectCategory('簡易')">⚡ 簡易</button>
             <button class="cat-tab" data-cat="小食" onclick="selectCategory('小食')">🍡 小食</button>
             <button class="cat-tab" data-cat="人氣" onclick="selectCategory('人氣')">🔥 人氣</button>
         </div>
@@ -245,7 +269,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.11</span>
+        <span id="version-tag">v5.9.12</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -264,6 +288,22 @@
     <div id="main-row">
         <div id="side-list"></div>
         <div id="panel"></div>
+    </div>
+
+    <!-- ✅ ver5.9.12：簡易頁專用的自訂數量視窗 + 底部「清空／列印」列（切到簡易頁時取代平常的購物車列） -->
+    <div id="easy-qty-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3000; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:16px; padding:20px; width:min(86vw,320px); text-align:center;">
+            <div id="easy-qty-title" style="font-weight:900; margin-bottom:10px; font-size:1.1rem;">自訂數量</div>
+            <input id="easy-qty-input" type="number" inputmode="numeric" min="0" max="999" style="width:100%; box-sizing:border-box; font-size:1.8rem; text-align:center; padding:10px; border:2px solid #ddd; border-radius:10px;">
+            <div style="display:flex; gap:8px; margin-top:14px;">
+                <button class="bb-btn" style="background:#999;" onclick="closeEasyQty(false)">取消</button>
+                <button class="bb-btn" style="background:var(--primary);" onclick="closeEasyQty(true)">確定</button>
+            </div>
+        </div>
+    </div>
+    <div id="easybar">
+        <button class="bb-btn" style="background:var(--price-tag); flex:0.7;" onclick="easyClear()">❌ 清空</button>
+        <button class="bb-btn" id="easy-print-btn" style="background:var(--primary); flex:1.6;" onclick="easyPrint()">🖨️ 列印</button>
     </div>
 
     <div id="bottombar">
@@ -2091,12 +2131,16 @@
         delete quickSuggestionCache[cat];
         renderSideList();
         if (cat === '人氣') renderPopularityPanel();
+        else if (cat === '簡易') renderEasyPanel();
         else renderPanelCartSummary();
+        /* ✅ ver5.9.12：簡易頁用自己的「清空／列印」列，不顯示平常的購物車列 */
+        document.getElementById('bottombar').style.display = (cat === '簡易') ? 'none' : '';
+        document.getElementById('easybar').style.display = (cat === '簡易') ? 'flex' : 'none';
     }
 
     function renderSideList() {
         const cont = document.getElementById('side-list');
-        if (currentCategory === '人氣') { cont.innerHTML = ''; cont.style.display = 'none'; return; }
+        if (currentCategory === '人氣' || currentCategory === '簡易') { cont.innerHTML = ''; cont.style.display = 'none'; return; }
         cont.style.display = 'block';
         let keys, priceOf;
         if (currentCategory === '湯') { keys = Object.keys(config.soupImgs); priceOf = k => config.prices[k]; }
@@ -2427,6 +2471,7 @@
     }
 
     function renderPanelCartSummary() {
+        if (currentCategory === '簡易') { renderEasyPanel(); return; }   // ✅ ver5.9.12：簡易頁不顯示購物車摘要，避免被其他更新蓋掉
         const panel = document.getElementById('panel');
         /* ✅ 需求3：購物車還空的時候，若目前在湯/面/小食分類，改顯示隨機挑選的4款快選卡片
            （可一按下單），取代原本純文字的空白提示；「人氣」分類與購物車彈窗維持原樣不變 */
@@ -2613,6 +2658,149 @@
         }
     }
 
+    /* ═══════════════ ⚡ 簡易頁（ver5.9.12 新增）═══════════════
+       麵食類圖片化；每款麵出現左右兩張卡片，可以同時點兩種不同配法（例如一碗小/面薄/辣椒、一碗大/粿條/湯）。
+       每張卡片：A 大小、B 麵種、C 醬料、D 數量（0-10 或自訂）、E 堂食/外賣（卡片右下角）。
+       按最下方「列印」＝把所有數量 ≥ 1 的卡片合成同一張訂單直接送出列印（流程跟「人氣」一鍵下單相同）。 */
+    let easyCards = null, easyCardsSig = '', easyBusy = false, easyQtyTarget = -1;
+    function easyDefaultCard(key) {
+        const nk = Object.keys(config.noodleTypeImgs);
+        return { key, size: '小的', noodle: nk.includes('面薄') ? '面薄' : (nk[0] || ''), sauce: '辣椒', qty: 0, takeaway: false };
+    }
+    function initEasyCards(keys) {
+        easyCards = [];
+        keys.forEach(k => { easyCards.push(easyDefaultCard(k)); easyCards.push(easyDefaultCard(k)); });   // 每款兩張：左、右
+    }
+    function easyUnitPrice(c) { return computeBasePrice(c.key, c.size, '面'); }
+    function easyLinePrice(c) { return (easyUnitPrice(c) + (c.takeaway ? 0.30 : 0)) * c.qty; }
+    function easyOpts(list, cur) { return list.map(([v, label]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${label}</option>`).join(''); }
+    function easyCardHtml(c, i) {
+        const zh = userLang === 'zh';
+        const soldOut = isMenuItemSoldOut(c.key, '面');
+        const img = getItemImage(c.key);
+        const nk = Object.keys(config.noodleTypeImgs);
+        const noodleList = (nk.includes(c.noodle) ? nk : [c.noodle, ...nk]).map(k => [k, getItemName(k)]);
+        const sauceList = config.sauces.map(k => [k, getItemName(k)]);
+        let qtyList = []; for (let n = 0; n <= 10; n++) qtyList.push([n, n]);
+        if (c.qty > 10) qtyList.push([c.qty, c.qty]);
+        qtyList.push(['custom', zh ? '自訂…' : 'Custom…']);
+        const lbl = (a, b) => zh ? a : b;
+        return `<div class="easy-card ${c.qty >= 1 ? 'easy-card-active' : ''} ${soldOut ? 'easy-card-soldout' : ''}" id="easy-card-${i}">
+            <div class="easy-media">${img ? `<img src="${img}" alt="">` : ''}
+                <div class="easy-name">${getItemName(c.key)}${soldOut ? (zh ? '（缺貨）' : ' (Sold out)') : ''}</div>
+                <div class="easy-price" id="easy-price-${i}" style="${c.qty >= 1 ? 'display:block;' : ''}">$${easyLinePrice(c).toFixed(2)}</div>
+                <div class="easy-ta"><select onchange="easySet(${i},'takeaway',this.value==='1')">${easyOpts([['0', zh ? '🍽 堂食' : '🍽 Dine-in'], ['1', zh ? '🥡 外賣' : '🥡 Takeaway']], c.takeaway ? '1' : '0')}</select></div>
+            </div>
+            <div class="easy-fields">
+                <label class="easy-field"><span>${lbl('大小', 'Size')}</span><select class="easy-sel" onchange="easySet(${i},'size',this.value)">${easyOpts([['小的', getItemName('小的')], ['大的', getItemName('大的')]], c.size)}</select></label>
+                <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><select class="easy-sel" onchange="easySet(${i},'noodle',this.value)">${easyOpts(noodleList, c.noodle)}</select></label>
+                <label class="easy-field"><span>${lbl('醬料', 'Sauce')}</span><select class="easy-sel" onchange="easySet(${i},'sauce',this.value)">${easyOpts(sauceList, c.sauce)}</select></label>
+                <label class="easy-field"><span>${lbl('數量', 'Qty')}</span><select class="easy-sel" onchange="easyQty(${i},this)">${easyOpts(qtyList, c.qty)}</select></label>
+            </div>
+        </div>`;
+    }
+    function renderEasyPanel() {
+        const keys = Object.keys(config.foodImgs);
+        const sig = keys.join('|');
+        if (!easyCards || easyCardsSig !== sig) { initEasyCards(keys); easyCardsSig = sig; }
+        const zh = userLang === 'zh';
+        document.getElementById('panel').innerHTML =
+            `<div class="easy-title">⚡ ${zh ? '簡易下單：選好數量後，按最下方「列印」' : 'Easy order: set quantities, then tap Print below'}</div>
+             <div class="easy-grid">${easyCards.map(easyCardHtml).join('')}</div>`;
+        updateEasyBar();
+    }
+    function easyRefreshCard(i) {
+        const c = easyCards[i];
+        const card = document.getElementById('easy-card-' + i), price = document.getElementById('easy-price-' + i);
+        if (card) card.classList.toggle('easy-card-active', c.qty >= 1);
+        if (price) { price.style.display = c.qty >= 1 ? 'block' : 'none'; price.innerText = '$' + easyLinePrice(c).toFixed(2); }
+        updateEasyBar();
+    }
+    function easySet(i, field, value) { easyCards[i][field] = value; easyRefreshCard(i); }
+    function easyQty(i, sel) {
+        if (sel.value === 'custom') { openEasyQty(i); return; }
+        easyCards[i].qty = parseInt(sel.value) || 0;
+        easyRefreshCard(i);
+    }
+    function openEasyQty(i) {
+        easyQtyTarget = i;
+        document.getElementById('easy-qty-title').innerText = (userLang === 'zh' ? '自訂數量：' : 'Custom qty: ') + getItemName(easyCards[i].key);
+        const inp = document.getElementById('easy-qty-input');
+        inp.value = easyCards[i].qty || '';
+        document.getElementById('easy-qty-modal').style.display = 'flex';
+        setTimeout(() => inp.focus(), 50);
+    }
+    function closeEasyQty(ok) {
+        document.getElementById('easy-qty-modal').style.display = 'none';
+        if (ok && easyQtyTarget >= 0) {
+            const n = parseInt(document.getElementById('easy-qty-input').value);
+            if (!isNaN(n) && n >= 0) easyCards[easyQtyTarget].qty = Math.min(n, 999);
+        }
+        easyQtyTarget = -1;
+        renderEasyPanel();   // 重畫一次，讓數量下拉選單顯示正確的值（取消時也會還原成原本的數量）
+    }
+    function buildEasyItems() {
+        return (easyCards || []).filter(c => c.qty >= 1 && !isMenuItemSoldOut(c.key, '面')).map(c => ({
+            mainKey: c.key, sizeKey: c.size, noodleKey: c.noodle, sauceKeys: [c.sauce],
+            specialKeys: [], noExtraKeys: [], additionKeys: {},
+            price: easyUnitPrice(c), qty: c.qty, category: '面', isTakeaway: c.takeaway
+        }));
+    }
+    function updateEasyBar() {
+        const btn = document.getElementById('easy-print-btn');
+        if (!btn) return;
+        const items = buildEasyItems();
+        const zh = userLang === 'zh';
+        if (items.length === 0) { btn.innerText = zh ? '🖨️ 列印' : '🖨️ Print'; return; }
+        const totals = getCartTotals(items);
+        const n = items.reduce((s, x) => s + x.qty, 0);
+        btn.innerText = `🖨️ ${zh ? '列印' : 'Print'}（${n}${zh ? '份' : ''} · $${totals.final.toFixed(2)}）`;
+    }
+    function easyClear() {
+        if (!easyCards) return;
+        initEasyCards(Object.keys(config.foodImgs));
+        renderEasyPanel();
+    }
+    async function easyPrint() {
+        if (easyBusy) return;
+        const items = buildEasyItems();
+        if (items.length === 0) { alert(userLang === 'zh' ? '請先把想要的餐點數量選成 1 以上' : 'Please set a quantity of 1 or more first'); return; }
+        easyBusy = true;
+        const btn = document.getElementById('easy-print-btn');
+        btn.disabled = true;
+        const originalCart = [...cart];
+        cart = items;
+        const totals = getCartTotals(cart);
+        let success = false;
+        try {
+            const orderInfo = await getNextOrderNo();
+            const savedMethod = localStorage.getItem(PRINT_METHOD_KEY);
+            const lang = printLangSetting;
+            const orderData = getOrderData();
+            const histItems = JSON.parse(JSON.stringify(items));
+            if (savedMethod === 'direct') {
+                const printer = await getDirectPrinter();
+                drawDirectReceiptCanvas(orderInfo.no, lang, orderInfo.key);
+                await writeDirectReceipt(printer);
+                orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: totals.final.toFixed(2), original: totals.original.toFixed(2), discount: totals.discount.toFixed(2), items: histItems, noPrint: true, printLang: lang });
+            } else {
+                orderData.history.unshift({ num: orderInfo.no, key: orderInfo.key, total: totals.final.toFixed(2), original: totals.original.toFixed(2), discount: totals.discount.toFixed(2), items: histItems, printLang: lang });
+            }
+            recordSale(items);
+            await saveOrderData(orderData);
+            success = true;
+            document.getElementById('status-text').innerText = userLang === 'zh' ? '✅ 簡易下單已送出列印' : '✅ Easy order sent to print';
+        } catch (e) {
+            alert((userLang === 'zh' ? '簡易下單失敗：' : 'Easy order failed: ') + e.message);
+        } finally {
+            cart = originalCart;
+            btn.disabled = false;
+            easyBusy = false;
+            if (success) easyClear(); else updateEasyBar();   // 成功才清空，失敗的話保留選擇，方便直接再按一次
+            updateBottomBar();
+        }
+    }
+
     /* ═══════════════ 語言切換 ═══════════════ */
     function setLang(fullLang) {
         /* ✅ ver5.9.5：下拉選單現在有三個選項 zh(繁)/cn(簡)/en(英)。userLang 內部繼續只當
@@ -2625,11 +2813,12 @@
         document.querySelectorAll('.lang-select').forEach(sel => { sel.value = fullLang; });
         document.querySelectorAll('.cat-tab').forEach(t => {
             const cat = t.dataset.cat;
-            t.innerText = cat==='湯' ? (l==='zh'?'🍜 湯品類':'🍜 Soup') : cat==='面' ? (l==='zh'?'🍝 麵食類':'🍝 Noodle') : cat==='小食' ? (l==='zh'?'🍡 小食':'🍡 Snacks') : (l==='zh'?'🔥 人氣':'🔥 Popular');
+            t.innerText = cat==='湯' ? (l==='zh'?'🍜 湯品類':'🍜 Soup') : cat==='面' ? (l==='zh'?'🍝 麵食類':'🍝 Noodle') : cat==='簡易' ? (l==='zh'?'⚡ 簡易':'⚡ Easy') : cat==='小食' ? (l==='zh'?'🍡 小食':'🍡 Snacks') : (l==='zh'?'🔥 人氣':'🔥 Popular');
         });
         renderSideList();
         if (tempItem) renderCustomizePanel();
         else if (currentCategory === '人氣') renderPopularityPanel();
+        else if (currentCategory === '簡易') renderEasyPanel();
         else renderPanelCartSummary();
         updateBottomBar();
         /* ✅ ver5.9.5：切到簡體時打開自動轉換觀察器，並立刻把剛剛重新渲染出來的畫面轉一次
