@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.13 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.14 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -211,13 +211,16 @@
     .easy-group { margin-bottom: 16px; }
     .easy-add { width: 100%; margin-top: 8px; padding: 11px; border: 2px dashed #b39ddb; background: #faf5ff; color: #6a1b9a; border-radius: 12px; font-weight: 900; font-size: 0.95rem; }
     .easy-remove { position: absolute; left: 8px; bottom: 8px; background: rgba(229,57,53,0.92); color: #fff; border: none; border-radius: 10px; padding: 6px 11px; font-weight: 900; font-size: 0.9rem; }
-    .easy-fields-soup { grid-template-columns: 1fr 1fr !important; }
+    .easy-fields-soup { grid-template-columns: 1fr !important; }
     .easy-card { background: #fff; border: 3px solid #eee; border-radius: 14px; overflow: hidden; }
     .easy-card-active { border-color: #7b1fa2; box-shadow: 0 2px 10px rgba(123,31,162,0.25); }
     .easy-card-soldout { opacity: 0.45; pointer-events: none; }
-    .easy-media { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); }
+    .easy-media { cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, #f2ebe0, #e8dcc4); }
     .easy-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .easy-name { position: absolute; left: 8px; top: 8px; max-width: 70%; background: rgba(0,0,0,0.62); color: #fff; font-weight: 900; font-size: 1.15rem; padding: 4px 12px; border-radius: 10px; }
+    .easy-top { position: absolute; left: 8px; top: 8px; right: 90px; display: flex; align-items: flex-start; gap: 8px; pointer-events: none; }
+    .easy-name { background: rgba(0,0,0,0.62); color: #fff; font-weight: 900; font-size: 1.15rem; padding: 4px 12px; border-radius: 10px; }
+    /* ✅ ver5.9.14：點圖片加份數——品名旁邊的白色「X 數字」標籤；點它＝減 1 */
+    .easy-qty { display: none; pointer-events: auto; background: #fff; color: #222; font-weight: 900; font-size: 1.3rem; padding: 2px 14px; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.3); cursor: pointer; }
     .easy-price { position: absolute; right: 8px; top: 8px; background: #e53935; color: #fff; font-weight: 900; font-size: 1.05rem; padding: 4px 11px; border-radius: 10px; display: none; }
     .easy-ta { position: absolute; right: 8px; bottom: 8px; }
     .easy-ta select { font-weight: 900; font-size: 0.95rem; padding: 6px 8px; border-radius: 10px; border: 2px solid #fff; background: rgba(255,255,255,0.93); color: #222; }
@@ -274,7 +277,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.13</span>
+        <span id="version-tag">v5.9.14</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -296,16 +299,6 @@
     </div>
 
     <!-- ✅ ver5.9.12：簡易頁專用的自訂數量視窗 + 底部「清空／列印」列（切到簡易頁時取代平常的購物車列） -->
-    <div id="easy-qty-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3000; align-items:center; justify-content:center;">
-        <div style="background:#fff; border-radius:16px; padding:20px; width:min(86vw,320px); text-align:center;">
-            <div id="easy-qty-title" style="font-weight:900; margin-bottom:10px; font-size:1.1rem;">自訂數量</div>
-            <input id="easy-qty-input" type="number" inputmode="numeric" min="0" max="999" style="width:100%; box-sizing:border-box; font-size:1.8rem; text-align:center; padding:10px; border:2px solid #ddd; border-radius:10px;">
-            <div style="display:flex; gap:8px; margin-top:14px;">
-                <button class="bb-btn" style="background:#999;" onclick="closeEasyQty(false)">取消</button>
-                <button class="bb-btn" style="background:var(--primary);" onclick="closeEasyQty(true)">確定</button>
-            </div>
-        </div>
-    </div>
     <div id="easybar">
         <button class="bb-btn" style="background:var(--price-tag); flex:0.7;" onclick="easyClear()">❌ 清空</button>
         <button class="bb-btn" id="easy-print-btn" style="background:var(--primary); flex:1.5; font-size:0.85rem;" onclick="easyPrint(true)">🧾 列印（含金額）</button>
@@ -873,30 +866,30 @@
        完全是照 userLang 走的，全部維持原樣不動），簡體只是多一層「畫面顯示」的後製轉換，
        不會影響收據列印或送到雲端的訂單摘要文字（那些永遠還是繁體或英文，不會印出簡體字）。 */
     const T2S_MAP = {
-        '並':'并','亂':'乱','佇':'伫','來':'来','個':'个','側':'侧','備':'备','傳':'传','價':'价','優':'优','兒':'儿','內':'内','兩':'两',
-        '別':'别','刪':'删','則':'则','剛':'刚','動':'动','務':'务','勢':'势','區':'区','員':'员','問':'问','啟':'启','單':'单','嗎':'吗',
-        '嘆':'叹','嘗':'尝','噴':'喷','圓':'圆','圖':'图','執':'执','報':'报','場':'场','塊':'块','壓':'压','壞':'坏','實':'实','寫':'写',
-        '寬':'宽','寶':'宝','將':'将','專':'专','尋':'寻','對':'对','導':'导','層':'层','屬':'属','帳':'帐','帶':'带','幫':'帮','幾':'几',
-        '庫':'库','廚':'厨','張':'张','強':'强','彈':'弹','後':'后','徑':'径','從':'从','復':'复','態':'态','應':'应','捲':'卷','掃':'扫',
-        '換':'换','搶':'抢','擇':'择','擊':'击','擋':'挡','據':'据','擠':'挤','擴':'扩','擾':'扰','攔':'拦','攤':'摊','敗':'败','數':'数',
-        '斷':'断','於':'于','時':'时','暢':'畅','暫':'暂','書':'书','會':'会','東':'东','條':'条','極':'极','構':'构','標':'标','樣':'样',
-        '機':'机','檔':'档','檢':'检','檯':'台','檻':'槛','櫃':'柜','欄':'栏','權':'权','歷':'历','歸':'归','氣':'气','決':'决','沒':'没',
-        '況':'况','減':'减','測':'测','湯':'汤','準':'准','滿':'满','瀏':'浏','為':'为','無':'无','煩':'烦','熱':'热','燈':'灯','狀':'状',
-        '獨':'独','現':'现','環':'环','產':'产','畫':'画','異':'异','當':'当','疊':'叠','發':'发','監':'监','確':'确','碼':'码','種':'种',
-        '稱':'称','積':'积','穩':'稳','筆':'笔','節':'节','範':'范','簡':'简','籤':'签','紀':'纪','紅':'红','純':'纯','紙':'纸','級':'级',
-        '細':'细','組':'组','結':'结','給':'给','統':'统','經':'经','維':'维','網':'网','線':'线','編':'编','縮':'缩','總':'总','繪':'绘',
-        '繼':'继','續':'续','義':'义','聯':'联','聽':'听','腸':'肠','與':'与','舊':'旧','萬':'万','著':'着','蓋':'盖','蔥':'葱','薦':'荐',
-        '藍':'蓝','處':'处','號':'号','蝦':'虾','螢':'萤','補':'补','裝':'装','裡':'里','製':'制','複':'复','見':'见','規':'规','視':'视',
-        '覺':'觉','覽':'览','觀':'观','觸':'触','訂':'订','計':'计','訊':'讯','記':'记','設':'设','許':'许','詞':'词','詢':'询','試':'试',
-        '話':'话','該':'该','詳':'详','認':'认','語':'语','誤':'误','說':'说','調':'调','請':'请','論':'论','證':'证','識':'识','譯':'译',
-        '護':'护','讀':'读','變':'变','讓':'让','豬':'猪','貨':'货','販':'贩','買':'买','費':'费','資':'资','賣':'卖','賦':'赋','賴':'赖',
-        '購':'购','蹤':'踪','車':'车','軌':'轨','軟':'软','較':'较','載':'载','輪':'轮','輯':'辑','輸':'输','轉':'转','辦':'办','這':'这',
-        '連':'连','進':'进','運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选','遺':'遗','還':'还','邊':'边','邏':'逻','醬':'酱',
-        '釣':'钓','鈕':'钮','鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键','鎖':'锁','鐘':'钟','長':'长','門':'门',
-        '閉':'闭','開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双','雞':'鸡','離':'离',
-        '雲':'云','靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头','顆':'颗','題':'题','額':'额',
-        '顏':'颜','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验','驚':'惊','驟':'骤',
-        '體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点','齊':'齐',
+        '並':'并','乾':'干','亂':'乱','佇':'伫','來':'来','個':'个','側':'侧','備':'备','傳':'传','價':'价','優':'优','兒':'儿','內':'内',
+        '兩':'两','別':'别','刪':'删','則':'则','剛':'刚','動':'动','務':'务','勢':'势','區':'区','員':'员','問':'问','啟':'启','單':'单',
+        '嗎':'吗','嘆':'叹','嘗':'尝','噴':'喷','圓':'圆','圖':'图','執':'执','報':'报','場':'场','塊':'块','壓':'压','壞':'坏','實':'实',
+        '寫':'写','寬':'宽','寶':'宝','將':'将','專':'专','尋':'寻','對':'对','導':'导','層':'层','屬':'属','帳':'帐','帶':'带','幫':'帮',
+        '幾':'几','庫':'库','廚':'厨','張':'张','強':'强','彈':'弹','後':'后','徑':'径','從':'从','復':'复','態':'态','應':'应','捲':'卷',
+        '掃':'扫','換':'换','搶':'抢','擇':'择','擊':'击','擋':'挡','據':'据','擠':'挤','擴':'扩','擾':'扰','攔':'拦','攤':'摊','敗':'败',
+        '數':'数','斷':'断','於':'于','時':'时','暢':'畅','暫':'暂','書':'书','會':'会','東':'东','條':'条','極':'极','構':'构','標':'标',
+        '樣':'样','機':'机','檔':'档','檢':'检','檯':'台','檻':'槛','櫃':'柜','欄':'栏','權':'权','歷':'历','歸':'归','氣':'气','決':'决',
+        '沒':'没','況':'况','減':'减','測':'测','湯':'汤','準':'准','滿':'满','瀏':'浏','為':'为','無':'无','煩':'烦','熱':'热','燈':'灯',
+        '狀':'状','獨':'独','現':'现','環':'环','產':'产','畫':'画','異':'异','當':'当','疊':'叠','發':'发','監':'监','確':'确','碼':'码',
+        '種':'种','稱':'称','積':'积','穩':'稳','筆':'笔','節':'节','範':'范','簡':'简','籤':'签','紀':'纪','紅':'红','純':'纯','紙':'纸',
+        '級':'级','細':'细','組':'组','結':'结','給':'给','統':'统','經':'经','維':'维','網':'网','線':'线','編':'编','縮':'缩','總':'总',
+        '繪':'绘','繼':'继','續':'续','義':'义','聯':'联','聽':'听','腸':'肠','與':'与','舊':'旧','萬':'万','著':'着','蓋':'盖','蔥':'葱',
+        '薦':'荐','藍':'蓝','處':'处','號':'号','蝦':'虾','螢':'萤','補':'补','裝':'装','裡':'里','製':'制','複':'复','見':'见','規':'规',
+        '視':'视','覺':'觉','覽':'览','觀':'观','觸':'触','訂':'订','計':'计','訊':'讯','記':'记','設':'设','許':'许','詞':'词','詢':'询',
+        '試':'试','話':'话','該':'该','詳':'详','認':'认','語':'语','誤':'误','說':'说','調':'调','請':'请','論':'论','證':'证','識':'识',
+        '譯':'译','護':'护','讀':'读','變':'变','讓':'让','豬':'猪','貨':'货','販':'贩','買':'买','費':'费','資':'资','賣':'卖','賦':'赋',
+        '賴':'赖','購':'购','蹤':'踪','車':'车','軌':'轨','軟':'软','較':'较','載':'载','輪':'轮','輯':'辑','輸':'输','轉':'转','辦':'办',
+        '這':'这','連':'连','進':'进','運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选','遺':'遗','還':'还','邊':'边','邏':'逻',
+        '醬':'酱','釣':'钓','鈕':'钮','鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键','鎖':'锁','鐘':'钟','長':'长',
+        '門':'门','閉':'闭','開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双','雞':'鸡',
+        '離':'离','雲':'云','靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头','顆':'颗','題':'题',
+        '額':'额','顏':'颜','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验','驚':'惊',
+        '驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点','齊':'齐',
     };
     function toSimplified(str) {
         return String(str).replace(/[\u4e00-\u9fff]/g, ch => T2S_MAP[ch] || ch);
@@ -2677,17 +2670,20 @@
         }
     }
 
-    /* ═══════════════ ⚡ 簡易頁（ver5.9.12 新增，ver5.9.13 擴充）═══════════════
-       麵食＋湯品都圖片化；每款預設出現左右兩張卡片，可以同時點兩種不同配法，
-       ✅ ver5.9.13：每款下面有「➕ 再加一種配法」，想同時點 3 種、4 種…不同配法都可以（多加的卡片有 ✕ 可移除）。
-       麵食卡片：A 大小、B 麵種、C 醬料、D 數量（0-10 或自訂）、E 堂食/外賣（右下角）。
-       湯品卡片：A 大小、D 數量、E 堂食/外賣（湯品沒有麵種和醬料）。
+    /* ═══════════════ ⚡ 簡易頁（ver5.9.12 新增，ver5.9.13 擴充，ver5.9.14 改成點圖加份數）═══════════════
+       麵食＋湯品都圖片化；每款預設出現左右兩張卡片，可以同時點兩種不同配法；
+       每款下面有「➕ 再加一種配法」，想同時點 3 種、4 種…都可以（多加的卡片有 ✕ 可移除）。
+       ✅ ver5.9.14：數量不再用下拉選單——直接「點圖片」＝加 1 份，圖片左上角品名旁會出現 X1、再點變 X2…；
+       點那個「X 數字」＝減 1（減到 0 就消失）。原本的「數量」下拉選單改成第二個「加醬料」下拉選單。
+       麵食卡片：A 大小、B 麵種、C 醬料、D 加醬料（可不選）、E 堂食/外賣（右下角）。
+       湯品卡片：A 大小、E 堂食/外賣（湯品沒有麵種和醬料）。
        最下方兩顆列印鈕：🧾「列印」＝含金額（給客人收據）；👨‍🍳「廚房單」＝不印任何金額（最右邊，給廚房）。 */
-    let easyCards = null, easyCardsSig = '', easyBusy = false, easyQtyTarget = -1;
+    let easyCards = null, easyCardsSig = '', easyBusy = false;
     let receiptHidePrice = false;   // true 時，收據不印任何金額（品項金額、外賣附加費、原價、折扣、TOTAL 全部省略）
+    const EASY_EXCLUSIVE = ['湯', '分湯'];   // 跟客製化面板一樣：湯／分湯不能跟乾的醬料並存
     function easyDefaultCard(key, cat) {
         const nk = Object.keys(config.noodleTypeImgs);
-        return { key, cat, size: '小的', noodle: cat === '湯' ? '湯品' : (nk.includes('面薄') ? '面薄' : (nk[0] || '')), sauce: cat === '湯' ? '湯' : '辣椒', qty: 0, takeaway: false };
+        return { key, cat, size: '小的', noodle: cat === '湯' ? '湯品' : (nk.includes('面薄') ? '面薄' : (nk[0] || '')), sauce: cat === '湯' ? '湯' : '辣椒', sauce2: '', qty: 0, takeaway: false };
     }
     function initEasyCards() {
         easyCards = [];
@@ -2697,19 +2693,19 @@
     function easyUnitPrice(c) { return computeBasePrice(c.key, c.size, c.cat); }
     function easyLinePrice(c) { return (easyUnitPrice(c) + (c.takeaway ? 0.30 : 0)) * c.qty; }
     function easyOpts(list, cur) { return list.map(([v, label]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${label}</option>`).join(''); }
+    /* 「加醬料」可選的內容：一定有「無」，其餘是乾的醬料（排除湯/分湯，也排除跟第一個醬料重複的） */
+    function easySauce2List(c) {
+        return [['', userLang === 'zh' ? '無' : 'None'], ...config.sauces.filter(k => !EASY_EXCLUSIVE.includes(k) && k !== c.sauce).map(k => [k, getItemName(k)])];
+    }
     function easyCardHtml(c, i, removable) {
         const zh = userLang === 'zh';
         const soldOut = isMenuItemSoldOut(c.key, c.cat);
         const img = getItemImage(c.key);
-        let qtyList = []; for (let n = 0; n <= 10; n++) qtyList.push([n, n]);
-        if (c.qty > 10) qtyList.push([c.qty, c.qty]);
-        qtyList.push(['custom', zh ? '自訂…' : 'Custom…']);
         const lbl = (a, b) => zh ? a : b;
         const sizeSel = `<label class="easy-field"><span>${lbl('大小', 'Size')}</span><select class="easy-sel" onchange="easySet(${i},'size',this.value)">${easyOpts([['小的', getItemName('小的')], ['大的', getItemName('大的')]], c.size)}</select></label>`;
-        const qtySel = `<label class="easy-field"><span>${lbl('數量', 'Qty')}</span><select class="easy-sel" onchange="easyQty(${i},this)">${easyOpts(qtyList, c.qty)}</select></label>`;
         let fields;
         if (c.cat === '湯') {
-            fields = `<div class="easy-fields easy-fields-soup">${sizeSel}${qtySel}</div>`;
+            fields = `<div class="easy-fields easy-fields-soup">${sizeSel}</div>`;
         } else {
             const nk = Object.keys(config.noodleTypeImgs);
             const noodleList = (nk.includes(c.noodle) ? nk : [c.noodle, ...nk]).map(k => [k, getItemName(k)]);
@@ -2717,14 +2713,18 @@
             fields = `<div class="easy-fields">${sizeSel}
                 <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><select class="easy-sel" onchange="easySet(${i},'noodle',this.value)">${easyOpts(noodleList, c.noodle)}</select></label>
                 <label class="easy-field"><span>${lbl('醬料', 'Sauce')}</span><select class="easy-sel" onchange="easySet(${i},'sauce',this.value)">${easyOpts(sauceList, c.sauce)}</select></label>
-                ${qtySel}</div>`;
+                <label class="easy-field"><span>${lbl('加醬料', '+ Sauce')}</span><select class="easy-sel" id="easy-s2-${i}" onchange="easySet(${i},'sauce2',this.value)" ${EASY_EXCLUSIVE.includes(c.sauce) ? 'disabled' : ''}>${easyOpts(easySauce2List(c), c.sauce2)}</select></label>
+                </div>`;
         }
         return `<div class="easy-card ${c.qty >= 1 ? 'easy-card-active' : ''} ${soldOut ? 'easy-card-soldout' : ''}" id="easy-card-${i}">
-            <div class="easy-media">${img ? `<img src="${img}" alt="">` : ''}
-                <div class="easy-name">${getItemName(c.key)}${soldOut ? (zh ? '（缺貨）' : ' (Sold out)') : ''}</div>
+            <div class="easy-media" onclick="easyTap(${i})">${img ? `<img src="${img}" alt="" draggable="false">` : ''}
+                <div class="easy-top">
+                    <div class="easy-name">${getItemName(c.key)}${soldOut ? (zh ? '（缺貨）' : ' (Sold out)') : ''}</div>
+                    <div class="easy-qty" id="easy-qty-${i}" onclick="easyDec(${i},event)" style="${c.qty >= 1 ? 'display:block;' : ''}">X ${c.qty}</div>
+                </div>
                 <div class="easy-price" id="easy-price-${i}" style="${c.qty >= 1 ? 'display:block;' : ''}">$${easyLinePrice(c).toFixed(2)}</div>
-                ${removable ? `<button class="easy-remove" onclick="easyRemoveCard(${i})">✕ ${zh ? '移除' : 'Remove'}</button>` : ''}
-                <div class="easy-ta"><select onchange="easySet(${i},'takeaway',this.value==='1')">${easyOpts([['0', zh ? '🍽 堂食' : '🍽 Dine-in'], ['1', zh ? '🥡 外賣' : '🥡 Takeaway']], c.takeaway ? '1' : '0')}</select></div>
+                ${removable ? `<button class="easy-remove" onclick="event.stopPropagation(); easyRemoveCard(${i})">✕ ${zh ? '移除' : 'Remove'}</button>` : ''}
+                <div class="easy-ta" onclick="event.stopPropagation()"><select onchange="easySet(${i},'takeaway',this.value==='1')">${easyOpts([['0', zh ? '🍽 堂食' : '🍽 Dine-in'], ['1', zh ? '🥡 外賣' : '🥡 Takeaway']], c.takeaway ? '1' : '0')}</select></div>
             </div>
             ${fields}
         </div>`;
@@ -2743,7 +2743,7 @@
         if (!easyCards || easyCardsSig !== sig) { initEasyCards(); easyCardsSig = sig; }
         const zh = userLang === 'zh';
         document.getElementById('panel').innerHTML =
-            `<div class="easy-title">⚡ ${zh ? '簡易下單：選好數量後，按最下方「列印」（右邊橘色＝廚房單，不印金額）' : 'Easy order: set quantities, then tap Print below (orange = kitchen ticket, no prices)'}</div>
+            `<div class="easy-title">⚡ ${zh ? '點圖片＝加 1 份（再點再加）；點左上角「X 數字」＝減 1。橘色鈕＝廚房單（不印金額）' : 'Tap a photo = +1 (tap again for more); tap the "X n" badge = −1. Orange = kitchen ticket (no prices)'}</div>
              <div class="easy-section">🍝 ${zh ? '麵食類' : 'Noodles'}</div>${easyGroupsHtml('面')}
              <div class="easy-section">🍜 ${zh ? '湯品類' : 'Soups'}</div>${easyGroupsHtml('湯')}`;
         updateEasyBar();
@@ -2756,39 +2756,39 @@
     function easyRemoveCard(i) { easyCards.splice(i, 1); renderEasyPanel(); }
     function easyRefreshCard(i) {
         const c = easyCards[i];
-        const card = document.getElementById('easy-card-' + i), price = document.getElementById('easy-price-' + i);
+        const card = document.getElementById('easy-card-' + i), price = document.getElementById('easy-price-' + i), badge = document.getElementById('easy-qty-' + i);
         if (card) card.classList.toggle('easy-card-active', c.qty >= 1);
         if (price) { price.style.display = c.qty >= 1 ? 'block' : 'none'; price.innerText = '$' + easyLinePrice(c).toFixed(2); }
+        if (badge) { badge.style.display = c.qty >= 1 ? 'block' : 'none'; badge.innerText = 'X ' + c.qty; }
         updateEasyBar();
     }
-    function easySet(i, field, value) { easyCards[i][field] = value; easyRefreshCard(i); }
-    function easyQty(i, sel) {
-        if (sel.value === 'custom') { openEasyQty(i); return; }
-        easyCards[i].qty = parseInt(sel.value) || 0;
+    function easyTap(i) {          // 點圖片＝加 1 份
+        const c = easyCards[i];
+        if (!c || isMenuItemSoldOut(c.key, c.cat)) return;
+        c.qty = Math.min(c.qty + 1, 999);
         easyRefreshCard(i);
     }
-    function openEasyQty(i) {
-        easyQtyTarget = i;
-        document.getElementById('easy-qty-title').innerText = (userLang === 'zh' ? '自訂數量：' : 'Custom qty: ') + getItemName(easyCards[i].key);
-        const inp = document.getElementById('easy-qty-input');
-        inp.value = easyCards[i].qty || '';
-        document.getElementById('easy-qty-modal').style.display = 'flex';
-        setTimeout(() => inp.focus(), 50);
+    function easyDec(i, ev) {      // 點「X 數字」＝減 1
+        if (ev) ev.stopPropagation();
+        const c = easyCards[i];
+        if (c && c.qty > 0) { c.qty--; easyRefreshCard(i); }
     }
-    function closeEasyQty(ok) {
-        document.getElementById('easy-qty-modal').style.display = 'none';
-        if (ok && easyQtyTarget >= 0) {
-            const n = parseInt(document.getElementById('easy-qty-input').value);
-            if (!isNaN(n) && n >= 0) easyCards[easyQtyTarget].qty = Math.min(n, 999);
+    function easySet(i, field, value) {
+        const c = easyCards[i];
+        c[field] = value;
+        if (field === 'sauce') {
+            // 選了湯/分湯就不能再加乾醬料；第一個醬料改成跟「加醬料」一樣的，就把加醬料清掉
+            if (EASY_EXCLUSIVE.includes(value) || c.sauce2 === value) c.sauce2 = '';
+            const sel = document.getElementById('easy-s2-' + i);
+            if (sel) { sel.innerHTML = easyOpts(easySauce2List(c), c.sauce2); sel.disabled = EASY_EXCLUSIVE.includes(c.sauce); }
         }
-        easyQtyTarget = -1;
-        renderEasyPanel();   // 重畫一次，讓數量下拉選單顯示正確的值（取消時也會還原成原本的數量）
+        easyRefreshCard(i);
     }
     function buildEasyItems() {
         return (easyCards || []).filter(c => c.qty >= 1 && !isMenuItemSoldOut(c.key, c.cat)).map(c => ({
             mainKey: c.key, sizeKey: c.size,
             noodleKey: c.cat === '湯' ? '湯品' : c.noodle,
-            sauceKeys: [c.cat === '湯' ? '湯' : c.sauce],
+            sauceKeys: c.cat === '湯' ? ['湯'] : [c.sauce, c.sauce2].filter(Boolean),
             specialKeys: [], noExtraKeys: [], additionKeys: {},
             price: easyUnitPrice(c), qty: c.qty, category: c.cat, isTakeaway: c.takeaway
         }));
@@ -2818,7 +2818,7 @@
     async function easyPrint(withPrice) {
         if (easyBusy) return;
         const items = buildEasyItems();
-        if (items.length === 0) { alert(userLang === 'zh' ? '請先把想要的餐點數量選成 1 以上' : 'Please set a quantity of 1 or more first'); return; }
+        if (items.length === 0) { alert(userLang === 'zh' ? '請先點圖片選擇想要的餐點' : 'Tap a photo to choose something first'); return; }
         easyBusy = true;
         const btns = [document.getElementById('easy-print-btn'), document.getElementById('easy-kitchen-btn')];
         btns.forEach(b => b.disabled = true);
