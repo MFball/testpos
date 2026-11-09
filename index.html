@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.14 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.15 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -211,7 +211,7 @@
     .easy-group { margin-bottom: 16px; }
     .easy-add { width: 100%; margin-top: 8px; padding: 11px; border: 2px dashed #b39ddb; background: #faf5ff; color: #6a1b9a; border-radius: 12px; font-weight: 900; font-size: 0.95rem; }
     .easy-remove { position: absolute; left: 8px; bottom: 8px; background: rgba(229,57,53,0.92); color: #fff; border: none; border-radius: 10px; padding: 6px 11px; font-weight: 900; font-size: 0.9rem; }
-    .easy-fields-soup { grid-template-columns: 1fr !important; }
+    .easy-fields-soup { grid-template-columns: 1fr 2fr !important; }
     .easy-card { background: #fff; border: 3px solid #eee; border-radius: 14px; overflow: hidden; }
     .easy-card-active { border-color: #7b1fa2; box-shadow: 0 2px 10px rgba(123,31,162,0.25); }
     .easy-card-soldout { opacity: 0.45; pointer-events: none; }
@@ -224,7 +224,13 @@
     .easy-price { position: absolute; right: 8px; top: 8px; background: #e53935; color: #fff; font-weight: 900; font-size: 1.05rem; padding: 4px 11px; border-radius: 10px; display: none; }
     .easy-ta { position: absolute; right: 8px; bottom: 8px; }
     .easy-ta select { font-weight: 900; font-size: 0.95rem; padding: 6px 8px; border-radius: 10px; border: 2px solid #fff; background: rgba(255,255,255,0.93); color: #222; }
-    .easy-fields { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
+    .easy-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
+    .easy-field-wide { grid-column: span 2; }
+    /* ✅ ver5.9.15：大小／堂食外賣改成一按就切換的按鈕——預設（小、堂食）是白底，切換後變成醒目的顏色，一眼看得出有沒有改 */
+    .easy-tog { width: 100%; padding: 9px 4px; border-radius: 10px; border: 2px solid #ddd; background: #fafafa; font-weight: 900; font-size: 1rem; color: #444; touch-action: manipulation; }
+    .easy-tog.on { background: #ff9800; border-color: #ef6c00; color: #fff; }
+    .easy-ta-btn { font-weight: 900; font-size: 1rem; padding: 8px 14px; border-radius: 12px; border: 2px solid #fff; background: rgba(255,255,255,0.93); color: #2e7d32; touch-action: manipulation; }
+    .easy-ta-btn.on { background: #3949ab; color: #fff; }
     .easy-field { display: flex; flex-direction: column; font-size: 0.68rem; color: #888; font-weight: 900; min-width: 0; }
     .easy-sel { width: 100%; font-size: 0.95rem; font-weight: 900; padding: 8px 4px; border-radius: 10px; border: 2px solid #ddd; background: #fafafa; color: #222; min-width: 0; }
     #easybar { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) 14px; box-shadow: 0 -6px 16px rgba(0,0,0,0.1); display: none; align-items: center; gap: 8px; z-index: 500; }
@@ -277,7 +283,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.14</span>
+        <span id="version-tag">v5.9.15</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -2683,14 +2689,15 @@
     const EASY_EXCLUSIVE = ['湯', '分湯'];   // 跟客製化面板一樣：湯／分湯不能跟乾的醬料並存
     function easyDefaultCard(key, cat) {
         const nk = Object.keys(config.noodleTypeImgs);
-        return { key, cat, size: '小的', noodle: cat === '湯' ? '湯品' : (nk.includes('面薄') ? '面薄' : (nk[0] || '')), sauce: cat === '湯' ? '湯' : '辣椒', sauce2: '', qty: 0, takeaway: false };
+        return { key, cat, size: '小的', noodle: cat === '湯' ? '湯品' : (nk.includes('面薄') ? '面薄' : (nk[0] || '')), sauce: cat === '湯' ? '湯' : '辣椒', sauce2: '', add: '', qty: 0, takeaway: false };
     }
     function initEasyCards() {
         easyCards = [];
         Object.keys(config.foodImgs).forEach(k => { easyCards.push(easyDefaultCard(k, '面'), easyDefaultCard(k, '面')); });
         Object.keys(config.soupImgs).forEach(k => { easyCards.push(easyDefaultCard(k, '湯'), easyDefaultCard(k, '湯')); });
     }
-    function easyUnitPrice(c) { return computeBasePrice(c.key, c.size, c.cat); }
+    /* ✅ ver5.9.15：單價 ＝ 主餐 + 大小加價 + 選的加料（1 份）；跟客製化面板的算法一致 */
+    function easyUnitPrice(c) { return computeBasePrice(c.key, c.size, c.cat) + computeAdditionsPrice(c.add ? { [c.add]: 1 } : {}); }
     function easyLinePrice(c) { return (easyUnitPrice(c) + (c.takeaway ? 0.30 : 0)) * c.qty; }
     function easyOpts(list, cur) { return list.map(([v, label]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${label}</option>`).join(''); }
     /* 「加醬料」可選的內容：一定有「無」，其餘是乾的醬料（排除湯/分湯，也排除跟第一個醬料重複的） */
@@ -2702,19 +2709,22 @@
         const soldOut = isMenuItemSoldOut(c.key, c.cat);
         const img = getItemImage(c.key);
         const lbl = (a, b) => zh ? a : b;
-        const sizeSel = `<label class="easy-field"><span>${lbl('大小', 'Size')}</span><select class="easy-sel" onchange="easySet(${i},'size',this.value)">${easyOpts([['小的', getItemName('小的')], ['大的', getItemName('大的')]], c.size)}</select></label>`;
+        /* ✅ ver5.9.15：大小、堂食/外賣改成「一按就切換」的按鈕（不用拉下選單）；多了「加料」下拉選單 */
+        const sizeBtn = `<div class="easy-field"><span>${lbl('大小', 'Size')}</span><button class="easy-tog ${c.size === '大的' ? 'on' : ''}" id="easy-size-${i}" onclick="easyToggleSize(${i})">${getItemName(c.size)}</button></div>`;
+        const addList = [['', zh ? '無' : 'None'], ...config.additions.map(a => [a.key, `${getItemName(a.key)} +$${a.price}`])];
+        const addSel = `<label class="easy-field easy-field-wide"><span>${lbl('加料', 'Add-ons')}</span><select class="easy-sel" onchange="easySet(${i},'add',this.value)">${easyOpts(addList, c.add)}</select></label>`;
         let fields;
         if (c.cat === '湯') {
-            fields = `<div class="easy-fields easy-fields-soup">${sizeSel}</div>`;
+            fields = `<div class="easy-fields easy-fields-soup">${sizeBtn}${addSel}</div>`;
         } else {
             const nk = Object.keys(config.noodleTypeImgs);
             const noodleList = (nk.includes(c.noodle) ? nk : [c.noodle, ...nk]).map(k => [k, getItemName(k)]);
             const sauceList = config.sauces.map(k => [k, getItemName(k)]);
-            fields = `<div class="easy-fields">${sizeSel}
+            fields = `<div class="easy-fields">${sizeBtn}
                 <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><select class="easy-sel" onchange="easySet(${i},'noodle',this.value)">${easyOpts(noodleList, c.noodle)}</select></label>
                 <label class="easy-field"><span>${lbl('醬料', 'Sauce')}</span><select class="easy-sel" onchange="easySet(${i},'sauce',this.value)">${easyOpts(sauceList, c.sauce)}</select></label>
                 <label class="easy-field"><span>${lbl('加醬料', '+ Sauce')}</span><select class="easy-sel" id="easy-s2-${i}" onchange="easySet(${i},'sauce2',this.value)" ${EASY_EXCLUSIVE.includes(c.sauce) ? 'disabled' : ''}>${easyOpts(easySauce2List(c), c.sauce2)}</select></label>
-                </div>`;
+                ${addSel}</div>`;
         }
         return `<div class="easy-card ${c.qty >= 1 ? 'easy-card-active' : ''} ${soldOut ? 'easy-card-soldout' : ''}" id="easy-card-${i}">
             <div class="easy-media" onclick="easyTap(${i})">${img ? `<img src="${img}" alt="" draggable="false">` : ''}
@@ -2724,7 +2734,7 @@
                 </div>
                 <div class="easy-price" id="easy-price-${i}" style="${c.qty >= 1 ? 'display:block;' : ''}">$${easyLinePrice(c).toFixed(2)}</div>
                 ${removable ? `<button class="easy-remove" onclick="event.stopPropagation(); easyRemoveCard(${i})">✕ ${zh ? '移除' : 'Remove'}</button>` : ''}
-                <div class="easy-ta" onclick="event.stopPropagation()"><select onchange="easySet(${i},'takeaway',this.value==='1')">${easyOpts([['0', zh ? '🍽 堂食' : '🍽 Dine-in'], ['1', zh ? '🥡 外賣' : '🥡 Takeaway']], c.takeaway ? '1' : '0')}</select></div>
+                <div class="easy-ta" onclick="event.stopPropagation()"><button class="easy-ta-btn ${c.takeaway ? 'on' : ''}" id="easy-ta-${i}" onclick="easyToggleTa(${i})">${c.takeaway ? (zh ? '🥡 外賣' : '🥡 Takeaway') : (zh ? '🍽 堂食' : '🍽 Dine-in')}</button></div>
             </div>
             ${fields}
         </div>`;
@@ -2743,7 +2753,7 @@
         if (!easyCards || easyCardsSig !== sig) { initEasyCards(); easyCardsSig = sig; }
         const zh = userLang === 'zh';
         document.getElementById('panel').innerHTML =
-            `<div class="easy-title">⚡ ${zh ? '點圖片＝加 1 份（再點再加）；點左上角「X 數字」＝減 1。橘色鈕＝廚房單（不印金額）' : 'Tap a photo = +1 (tap again for more); tap the "X n" badge = −1. Orange = kitchen ticket (no prices)'}</div>
+            `<div class="easy-title">⚡ ${zh ? '點圖片＝加 1 份（再點再加）；點左上角「X 數字」＝減 1；大小、堂食/外賣＝按一下就切換。橘色鈕＝廚房單（不印金額）' : 'Tap a photo = +1 (tap again for more); tap the "X n" badge = −1. Orange = kitchen ticket (no prices)'}</div>
              <div class="easy-section">🍝 ${zh ? '麵食類' : 'Noodles'}</div>${easyGroupsHtml('面')}
              <div class="easy-section">🍜 ${zh ? '湯品類' : 'Soups'}</div>${easyGroupsHtml('湯')}`;
         updateEasyBar();
@@ -2773,6 +2783,20 @@
         const c = easyCards[i];
         if (c && c.qty > 0) { c.qty--; easyRefreshCard(i); }
     }
+    function easyToggleSize(i) {      // 小 ↔ 大，按一下就切換
+        const c = easyCards[i];
+        c.size = c.size === '大的' ? '小的' : '大的';
+        const b = document.getElementById('easy-size-' + i);
+        if (b) { b.innerText = getItemName(c.size); b.classList.toggle('on', c.size === '大的'); }
+        easyRefreshCard(i);
+    }
+    function easyToggleTa(i) {        // 堂食 ↔ 外賣，按一下就切換
+        const c = easyCards[i];
+        c.takeaway = !c.takeaway;
+        const b = document.getElementById('easy-ta-' + i), zh = userLang === 'zh';
+        if (b) { b.innerText = c.takeaway ? (zh ? '🥡 外賣' : '🥡 Takeaway') : (zh ? '🍽 堂食' : '🍽 Dine-in'); b.classList.toggle('on', c.takeaway); }
+        easyRefreshCard(i);
+    }
     function easySet(i, field, value) {
         const c = easyCards[i];
         c[field] = value;
@@ -2789,7 +2813,7 @@
             mainKey: c.key, sizeKey: c.size,
             noodleKey: c.cat === '湯' ? '湯品' : c.noodle,
             sauceKeys: c.cat === '湯' ? ['湯'] : [c.sauce, c.sauce2].filter(Boolean),
-            specialKeys: [], noExtraKeys: [], additionKeys: {},
+            specialKeys: [], noExtraKeys: [], additionKeys: c.add ? { [c.add]: 1 } : {},
             price: easyUnitPrice(c), qty: c.qty, category: c.cat, isTakeaway: c.takeaway
         }));
     }
