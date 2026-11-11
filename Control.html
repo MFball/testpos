@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.11.0</title>
+<title>Million 麵店 · 主理員後台 ver2.12.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -129,7 +129,7 @@
 <!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
 <div id="pinGate">
     <div style="font-size:2.5rem;">🍜</div>
-    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.11.0</small></h2>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.12.0</small></h2>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
     <div id="pinError"></div>
     <button id="pinBtn" onclick="checkPin()">進入</button>
@@ -138,7 +138,7 @@
 <!-- ══════════════════ 主畫面 ══════════════════ -->
 <div id="app">
     <div class="topbar">
-        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.11.0</span></h1>
+        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.12.0</span></h1>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
             <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
@@ -168,6 +168,8 @@
         <button class="tab-btn" data-cat="推薦組合" onclick="switchTab('推薦組合')">⭐ 推薦組合</button>
         <!-- ✅ ver2.11.0 新增：點餐機「人氣」頁的固定搭配，在這裡自己配 -->
         <button class="tab-btn" data-cat="人氣設定" onclick="switchTab('人氣設定')">🔥 人氣設定</button>
+        <!-- ✅ ver2.12.0 新增：點餐機「⚡ 簡易」頁的項目（新增/刪除/移動/改預設）跟顏色、文字大小、間距設定 -->
+        <button class="tab-btn" data-cat="簡易設定" onclick="switchTab('簡易設定')">⚡ 簡易設定</button>
     </div>
 
     <div id="itemList"></div>
@@ -453,6 +455,39 @@
     </div>
 
     <!-- ⭐ ver2.9.0 新增：推薦組合設定 -->
+    <!-- ⚡ ver2.12.0 新增：點餐機「簡易」頁設定 -->
+    <div id="easySection" class="print-config-panel" style="display: none;">
+        <h3>
+            <span>⚡ 簡易頁設定（點餐機）</span>
+            <button class="btn btn-primary" onclick="saveEasy()">💾 儲存簡易設定</button>
+        </h3>
+        <div style="background:#f3e5f5; border:1px solid #ce93d8; border-radius:8px; padding:10px 14px; margin:12px 0 4px; font-size:0.85rem; color:#4a148c; line-height:1.6;">
+            控制點餐機「⚡ 簡易」頁顯示哪些麵食／湯品、順序、每款一開始有幾張卡片，以及顏色、文字大小、間距。儲存之後，點餐機按一下 🔄 重新載入（或重開頁面）就會套用。
+        </div>
+        <hr style="border:0; border-top:1px solid #eee; margin:15px 0;">
+
+        <div class="field-label" style="font-size:1rem;">📋 項目清單（由上到下＝簡易頁的顯示順序）</div>
+        <div id="easy-items-list" style="margin-top:8px;"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+            <button class="btn" style="background:#eee; color:#444;" onclick="addEasyItem()">➕ 新增項目</button>
+            <button class="btn" style="background:#eee; color:#444;" onclick="addAllEasyItems('面')">➕ 補齊全部麵食</button>
+            <button class="btn" style="background:#eee; color:#444;" onclick="addAllEasyItems('湯')">➕ 補齊全部湯品</button>
+        </div>
+
+        <hr style="border:0; border-top:1px solid #eee; margin:22px 0 15px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+            <div class="field-label" style="font-size:1rem; margin:0;">🎨 顏色／文字大小／間距</div>
+            <button class="btn" style="background:#eee; color:#444;" onclick="resetEasyStyle()">↩️ 還原預設樣式</button>
+        </div>
+        <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:10px; align-items:flex-start;">
+            <div id="easy-style-form" style="flex:1 1 420px; min-width:300px;"></div>
+            <div style="flex:0 0 250px;">
+                <div class="field-label">預覽</div>
+                <div id="easy-preview"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- 🔥 ver2.11.0 新增：點餐機「人氣」頁固定搭配設定 -->
     <div id="popularSection" class="print-config-panel" style="display: none;">
         <h3>
@@ -541,6 +576,7 @@ const PRINT_CONFIG_URL = "https://million-fishballnoodle-backend-default-rtdb.as
 const PROMOTION_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/promotion.json";
 /* ✅ ver2.9.0 新增：卡片樣式、推薦組合各自獨立的雲端節點，跟 printConfig/promotion 同一套模式 */
 const CARD_STYLE_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/cardStyle.json";
+const EASY_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/easyConfig.json";
 const POPULAR_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/popularCombos.json";
 const RECOMMEND_URL = "https://million-fishballnoodle-backend-default-rtdb.asia-southeast1.firebasedatabase.app/recommendCombos.json";
 
@@ -610,7 +646,8 @@ const CATS = {
     '活動': { type: 'promo' },
     '卡片樣式': { type: 'cardstyle' },
     '推薦組合': { type: 'recommend' },
-    '人氣設定': { type: 'popular' }
+    '人氣設定': { type: 'popular' },
+    '簡易設定': { type: 'easy' }
 };
 
 let menuData = { prices: {}, foodImgs: {}, soupImgs: {}, additions: {}, items: {}, meta: {}, noWant: {}, specialRequest: {}, noodleTypes: {} };
@@ -703,6 +740,7 @@ function checkPin() {
         loadCardStyle();
         loadRecommend();
         loadPopular();
+        loadEasy();
     } else {
         document.getElementById('pinError').innerText = '密碼錯誤';
         document.getElementById('pinInput').value = '';
@@ -1138,6 +1176,201 @@ let popularCombos = [
     { mainKey: '香菇肉碎面', sizeKey: '小的', noodleKey: '面薄', sauceKey: '辣椒' },
     { mainKey: '魚圓面', sizeKey: '小的', noodleKey: '粿條面', sauceKey: '湯' }
 ];
+/* ═══════════════════════════════════════════════════
+   ✅ ver2.12.0 新增：點餐機「⚡ 簡易」頁設定（雲端節點 /easyConfig）
+   { items: [{key, cat:'面'|'湯', cards, noodle, sauce}], style: {...} }
+   - items：簡易頁要顯示的麵食/湯品、順序、每款一開始有幾張卡片、麵食的預設麵種/醬料
+   - style：顏色、文字大小、間距（欄位定義在 EASY_STYLE_GROUPS，預設值跟點餐機內建的完全一致）
+   還沒設定過時，點餐機沿用原本的預設（所有麵食→所有湯品，每款 2 張卡片），畫面不會變。
+   ═══════════════════════════════════════════════════ */
+const EASY_STYLE_DEFAULT = {
+    nameBg: '#000000', nameBgOpacity: 62, nameColor: '#ffffff', nameFontSize: 18,
+    qtyBg: '#ffffff', qtyColor: '#222222', qtyFontSize: 21,
+    priceBg: '#e53935', priceColor: '#ffffff', priceFontSize: 17,
+    cardBg: '#ffffff', cardBorder: '#eeeeee', activeBorder: '#7b1fa2',
+    sectionBg: '#f3e5f5', sectionColor: '#6a1b9a', sectionFontSize: 17,
+    sizeOnBg: '#ff9800', taOnBg: '#3949ab', taOffColor: '#2e7d32', toggleFontSize: 16,
+    fieldFontSize: 15, fieldLabelSize: 11,
+    gridGap: 12, groupGap: 16, fieldGap: 6, cardColumns: 2, imageRatio: '16 / 9'
+};
+const EASY_STYLE_GROUPS = [
+    { title: '🏷️ 品名標籤', fields: [['nameBg','品名底色','color'],['nameBgOpacity','底色透明度(0-100，越小越透明)','num',0,100],['nameColor','品名文字顏色','color'],['nameFontSize','品名文字大小(px)','num',8,60]] },
+    { title: '🔢 份數標籤（X 1）', fields: [['qtyBg','底色','color'],['qtyColor','文字顏色','color'],['qtyFontSize','文字大小(px)','num',8,60]] },
+    { title: '💰 價錢標籤', fields: [['priceBg','底色','color'],['priceColor','文字顏色','color'],['priceFontSize','文字大小(px)','num',8,60]] },
+    { title: '🃏 卡片', fields: [['cardBg','卡片底色','color'],['cardBorder','卡片邊框顏色','color'],['activeBorder','已選擇(數量≥1)的邊框顏色','color'],['cardColumns','每行幾張卡片','sel',['1','2','3','4']],['imageRatio','圖片比例(寬/高)','sel',['16 / 9','16 / 10','4 / 3','1 / 1']]] },
+    { title: '📑 分類標題（麵食類／湯品類）', fields: [['sectionBg','底色','color'],['sectionColor','文字顏色','color'],['sectionFontSize','文字大小(px)','num',8,60]] },
+    { title: '🔘 圖片上的按鈕（大小、堂食/外賣）', fields: [['sizeOnBg','選了「大」的底色','color'],['taOnBg','選了「外賣」的底色','color'],['taOffColor','「堂食」文字顏色','color'],['toggleFontSize','按鈕文字大小(px)','num',8,60]] },
+    { title: '⬇️ 下拉選單', fields: [['fieldFontSize','選單文字大小(px)','num',8,40],['fieldLabelSize','選單上方小標籤大小(px)','num',6,30]] },
+    { title: '↔️ 距離', fields: [['gridGap','卡片之間的距離(px)','num',0,60],['groupGap','不同餐點之間的距離(px)','num',0,80],['fieldGap','下拉選單之間的距離(px)','num',0,30]] }
+];
+let easyItems = null;                       // null＝雲端還沒有設定，顯示時用「全部麵食→全部湯品」當起點
+let easyStyle = { ...EASY_STYLE_DEFAULT };
+async function loadEasy() {
+    try {
+        const res = await fetch(EASY_URL + '?t=' + Date.now());
+        const data = await res.json();
+        if (res.ok && data && typeof data === 'object' && !data.error) {
+            if (Array.isArray(data.items) && data.items.length > 0) easyItems = data.items.map(x => ({ key: x.key, cat: x.cat === '湯' ? '湯' : '面', cards: parseInt(x.cards) || 2, noodle: x.noodle || '', sauce: x.sauce || '' }));
+            if (data.style) easyStyle = { ...EASY_STYLE_DEFAULT, ...data.style };
+        }
+    } catch (e) { console.log('讀取簡易設定失敗，使用預設值'); }
+}
+function easyDefaultItems() {
+    return [...Object.keys(menuData.foodImgs || {}).map(k => ({ key: k, cat: '面', cards: 2, noodle: '', sauce: '' })),
+            ...Object.keys(menuData.soupImgs || {}).map(k => ({ key: k, cat: '湯', cards: 2, noodle: '', sauce: '' }))];
+}
+function renderEasy() {
+    if (easyItems === null) easyItems = easyDefaultItems();
+    renderEasyItems();
+    renderEasyStyleForm();
+    updateEasyPreview();
+}
+function renderEasyItems() {
+    const list = document.getElementById('easy-items-list');
+    if (easyItems.length === 0) { list.innerHTML = '<div style="color:#999; font-size:0.85rem;">清單是空的——至少要有一個項目，按下面「新增項目」或「補齊全部…」</div>'; return; }
+    const nm = k => (menuData.items[k] && menuData.items[k].zh) || k;
+    const foodKeys = Object.keys(menuData.foodImgs || {}), soupKeys = Object.keys(menuData.soupImgs || {});
+    const noodleOpts = getNoodleTypeOptions();
+    list.innerHTML = easyItems.map((it, i) => {
+        const soup = it.cat === '湯';
+        const img = (soup ? menuData.soupImgs : menuData.foodImgs)[it.key] || '';
+        const hasImg = img && !String(img).includes('placeholder');
+        const missing = !(soup ? soupKeys : foodKeys).includes(it.key);
+        return `<div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; background:#f9f9f9; border:1px solid var(--border); border-radius:12px; padding:8px 10px; margin-bottom:8px;">
+            <div style="width:46px; height:46px; border-radius:8px; overflow:hidden; background:#f2ebe0; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.6rem; color:#a08f6f;">${hasImg ? `<img src="${img}" style="width:100%;height:100%;object-fit:cover;">` : '無圖'}</div>
+            <div style="flex:2 1 150px; min-width:130px;">
+                <div class="field-label" style="margin:0 0 3px;">餐點${missing ? ' ⚠️已不存在' : ''}</div>
+                <select class="field-input" onchange="updateEasyItem(${i}, 'main', this.value)">
+                    <optgroup label="🍝 麵食類">${foodKeys.map(k => `<option value="面|${k}" ${(!soup && it.key===k)?'selected':''}>${nm(k)}</option>`).join('')}</optgroup>
+                    <optgroup label="🍜 湯品類">${soupKeys.map(k => `<option value="湯|${k}" ${(soup && it.key===k)?'selected':''}>${nm(k)}</option>`).join('')}</optgroup>
+                    ${missing ? `<option value="${it.cat}|${it.key}" selected>${it.key}（已不存在）</option>` : ''}
+                </select>
+            </div>
+            <div style="flex:0 0 80px;">
+                <div class="field-label" style="margin:0 0 3px;">卡片數</div>
+                <select class="field-input" onchange="updateEasyItem(${i}, 'cards', this.value)">${[1,2,3,4,5,6].map(n => `<option value="${n}" ${it.cards===n?'selected':''}>${n}</option>`).join('')}</select>
+            </div>
+            ${soup ? '<div style="flex:2 1 160px; color:#999; font-size:0.8rem; padding-bottom:10px;">湯品：沒有麵種/醬料設定</div>' : `
+            <div style="flex:1 1 100px; min-width:92px;">
+                <div class="field-label" style="margin:0 0 3px;">預設麵種</div>
+                <select class="field-input" onchange="updateEasyItem(${i}, 'noodle', this.value)"><option value="">（面薄）</option>${noodleOpts.map(k => `<option value="${k}" ${it.noodle===k?'selected':''}>${k}</option>`).join('')}</select>
+            </div>
+            <div style="flex:1 1 100px; min-width:92px;">
+                <div class="field-label" style="margin:0 0 3px;">預設醬料</div>
+                <select class="field-input" onchange="updateEasyItem(${i}, 'sauce', this.value)"><option value="">（辣椒）</option>${SAUCE_OPTIONS.map(k => `<option value="${k}" ${it.sauce===k?'selected':''}>${k}</option>`).join('')}</select>
+            </div>`}
+            <div style="display:flex; gap:4px; flex-shrink:0;">
+                <button onclick="moveEasyItem(${i}, -1)" ${i===0?'disabled':''} style="background:#eee; border:none; border-radius:8px; padding:9px 11px; font-weight:bold;">▲</button>
+                <button onclick="moveEasyItem(${i}, 1)" ${i===easyItems.length-1?'disabled':''} style="background:#eee; border:none; border-radius:8px; padding:9px 11px; font-weight:bold;">▼</button>
+                <button onclick="removeEasyItem(${i})" style="background:#ffebee; color:#e53935; border:none; border-radius:8px; padding:9px 12px; font-weight:bold;">✕</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+function updateEasyItem(i, field, value) {
+    const it = easyItems[i];
+    if (field === 'main') {
+        const [cat, key] = value.split('|');
+        // 不能跟清單裡別的項目重複
+        if (easyItems.some((x, j) => j !== i && x.cat === cat && x.key === key)) { toast('這個餐點已經在清單裡了'); renderEasyItems(); return; }
+        it.cat = cat; it.key = key;
+        if (cat === '湯') { it.noodle = ''; it.sauce = ''; }
+        renderEasyItems();
+        return;
+    }
+    it[field] = field === 'cards' ? (parseInt(value) || 2) : value;
+}
+function moveEasyItem(i, d) {
+    const j = i + d;
+    if (j < 0 || j >= easyItems.length) return;
+    [easyItems[i], easyItems[j]] = [easyItems[j], easyItems[i]];
+    renderEasyItems();
+}
+function removeEasyItem(i) { easyItems.splice(i, 1); renderEasyItems(); }
+function addEasyItem() {
+    const used = new Set(easyItems.map(x => x.cat + '|' + x.key));
+    const cand = [...Object.keys(menuData.foodImgs || {}).map(k => ['面', k]), ...Object.keys(menuData.soupImgs || {}).map(k => ['湯', k])].find(([c, k]) => !used.has(c + '|' + k));
+    if (!cand) { toast('所有麵食、湯品都已經在清單裡了'); return; }
+    easyItems.push({ key: cand[1], cat: cand[0], cards: 2, noodle: '', sauce: '' });
+    renderEasyItems();
+}
+function addAllEasyItems(cat) {
+    const used = new Set(easyItems.map(x => x.cat + '|' + x.key));
+    const src = cat === '湯' ? menuData.soupImgs : menuData.foodImgs;
+    let n = 0;
+    Object.keys(src || {}).forEach(k => { if (!used.has(cat + '|' + k)) { easyItems.push({ key: k, cat, cards: 2, noodle: '', sauce: '' }); n++; } });
+    toast(n ? `已補上 ${n} 個${cat === '湯' ? '湯品' : '麵食'}` : '已經全部都在清單裡了');
+    renderEasyItems();
+}
+function renderEasyStyleForm() {
+    const box = document.getElementById('easy-style-form');
+    box.innerHTML = EASY_STYLE_GROUPS.map(g => `
+        <div style="margin-bottom:14px;">
+            <div class="field-label" style="margin-bottom:6px;">${g.title}</div>
+            <div class="config-grid">${g.fields.map(([k, label, type, a, b]) => {
+                const v = easyStyle[k];
+                let input;
+                if (type === 'color') input = `<input id="es-${k}" type="color" class="field-input" style="height:42px; padding:4px;" value="${v}" oninput="readEasyStyle()">`;
+                else if (type === 'num') input = `<input id="es-${k}" type="number" class="field-input" min="${a}" max="${b}" step="1" value="${v}" oninput="readEasyStyle()">`;
+                else input = `<select id="es-${k}" class="field-input" onchange="readEasyStyle()">${a.map(o => `<option value="${o}" ${String(v)===o?'selected':''}>${o}</option>`).join('')}</select>`;
+                return `<div><div class="field-label">${label}</div>${input}</div>`;
+            }).join('')}</div>
+        </div>`).join('');
+}
+function readEasyStyle() {
+    EASY_STYLE_GROUPS.forEach(g => g.fields.forEach(([k, , type, a, b]) => {
+        const el = document.getElementById('es-' + k); if (!el) return;
+        if (type === 'num') { let n = parseInt(el.value); if (isNaN(n)) n = EASY_STYLE_DEFAULT[k]; easyStyle[k] = Math.max(a, Math.min(b, n)); }
+        else if (type === 'sel' && k === 'cardColumns') easyStyle[k] = parseInt(el.value) || 2;
+        else easyStyle[k] = el.value;
+    }));
+    updateEasyPreview();
+}
+function resetEasyStyle() { easyStyle = { ...EASY_STYLE_DEFAULT }; renderEasyStyleForm(); updateEasyPreview(); toast('已還原成預設樣式（按「儲存簡易設定」才會生效）'); }
+function easyHexToRgba(hex, pct) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${pct / 100})`;
+}
+function updateEasyPreview() {
+    const s = easyStyle, box = document.getElementById('easy-preview'); if (!box) return;
+    const sel = `font-size:${s.fieldFontSize}px; font-weight:900; padding:6px 2px; border:2px solid #ddd; border-radius:8px; background:#fafafa; color:#222; overflow:hidden; white-space:nowrap;`;
+    const lab = `font-size:${s.fieldLabelSize}px; color:#888; font-weight:900;`;
+    box.innerHTML = `
+        <div style="background:${s.sectionBg}; color:${s.sectionColor}; font-size:${s.sectionFontSize}px; font-weight:900; padding:6px 10px; border-radius:8px; margin-bottom:8px;">🍝 麵食類</div>
+        <div style="background:${s.cardBg}; border:3px solid ${s.activeBorder}; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <div style="position:relative; aspect-ratio:${s.imageRatio}; background:linear-gradient(135deg,#f2ebe0,#e8dcc4);">
+                <div style="position:absolute; left:6px; top:6px; display:flex; gap:6px; align-items:flex-start;">
+                    <div style="background:${easyHexToRgba(s.nameBg, s.nameBgOpacity)}; color:${s.nameColor}; font-size:${s.nameFontSize}px; font-weight:900; padding:3px 9px; border-radius:8px;">魚圓面</div>
+                    <div style="background:${s.qtyBg}; color:${s.qtyColor}; font-size:${s.qtyFontSize}px; font-weight:900; padding:1px 10px; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,0.3);">X 2</div>
+                </div>
+                <div style="position:absolute; right:6px; top:6px; background:${s.priceBg}; color:${s.priceColor}; font-size:${s.priceFontSize}px; font-weight:900; padding:3px 9px; border-radius:8px;">$12.00</div>
+                <div style="position:absolute; left:6px; bottom:6px; background:${s.sizeOnBg}; color:#fff; font-size:${s.toggleFontSize}px; font-weight:900; padding:5px 12px; border-radius:10px; border:2px solid #fff;">大</div>
+                <div style="position:absolute; right:6px; bottom:6px; background:${s.taOnBg}; color:#fff; font-size:${s.toggleFontSize}px; font-weight:900; padding:5px 12px; border-radius:10px; border:2px solid #fff;">🥡 外賣</div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:${s.fieldGap}px; padding:6px;">
+                ${['麵種|面薄','醬料|辣椒','加醬料|無','加料|無'].map(x => { const [a, b] = x.split('|'); return `<div style="display:flex; flex-direction:column; min-width:0;"><span style="${lab}">${a}</span><div style="${sel}">${b}</div></div>`; }).join('')}
+            </div>
+        </div>
+        <div style="margin-top:8px; font-size:0.72rem; color:#888; line-height:1.5;">「🥡 外賣」「大」是切換後的顏色；「堂食」文字色：<span style="color:${s.taOffColor}; font-weight:900;">🍽 堂食</span><br>每行 ${s.cardColumns} 張卡片 · 卡片距離 ${s.gridGap}px · 餐點之間 ${s.groupGap}px</div>`;
+}
+async function saveEasy() {
+    readEasyStyle();
+    if (!easyItems || easyItems.length === 0) { toast('清單至少要有一個項目'); return; }
+    const payload = {
+        items: easyItems.map(x => ({ key: x.key, cat: x.cat, cards: x.cards, noodle: x.cat === '湯' ? '' : (x.noodle || ''), sauce: x.cat === '湯' ? '' : (x.sauce || '') })),
+        style: easyStyle
+    };
+    try {
+        const res = await fetch(EASY_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!res.ok) {
+            const hint = (res.status === 401 || res.status === 403) ? '（很可能是 Firebase 資料庫規則尚未開放 /easyConfig 節點的寫入權限）' : '';
+            throw new Error(`伺服器回應 ${res.status}${hint}`);
+        }
+        toast("✓ 簡易設定已儲存！點餐機按一下 🔄 重新載入（或重開頁面）就會套用。");
+    } catch (err) { toast("儲存失敗：" + err.message); }
+}
+
 async function loadPopular() {
     try {
         const res = await fetch(POPULAR_URL + '?t=' + Date.now());
@@ -1408,6 +1641,7 @@ function switchTab(cat) {
     document.getElementById('cardStyleSection').style.display = 'none';
     document.getElementById('recommendSection').style.display = 'none';
     document.getElementById('popularSection').style.display = 'none';
+    document.getElementById('easySection').style.display = 'none';
 
     if (cat === '列印設定') {
         document.getElementById('printConfigSection').style.display = 'block';
@@ -1421,6 +1655,11 @@ function switchTab(cat) {
     }
     if (cat === '卡片樣式') {
         document.getElementById('cardStyleSection').style.display = 'block';
+        return;
+    }
+    if (cat === '簡易設定') {
+        document.getElementById('easySection').style.display = 'block';
+        renderEasy();
         return;
     }
     if (cat === '人氣設定') {
@@ -1447,7 +1686,7 @@ function getImgMap(cat) {
 
 function getKeysForTab() {
     const cat = CATS[currentTab];
-    if (!cat || cat.type === 'print' || cat.type === 'promo' || cat.type === 'cardstyle' || cat.type === 'recommend' || cat.type === 'popular') return [];
+    if (!cat || cat.type === 'print' || cat.type === 'promo' || cat.type === 'cardstyle' || cat.type === 'recommend' || cat.type === 'popular' || cat.type === 'easy') return [];
     if (cat.type === 'food') return Object.keys(menuData[cat.imgField]);
     return Object.keys(menuData[cat.dataKey]);
 }
