@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.12.0</title>
+<title>Million 麵店 · 主理員後台 ver2.13.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -129,7 +129,7 @@
 <!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
 <div id="pinGate">
     <div style="font-size:2.5rem;">🍜</div>
-    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.12.0</small></h2>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.13.0</small></h2>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
     <div id="pinError"></div>
     <button id="pinBtn" onclick="checkPin()">進入</button>
@@ -138,7 +138,7 @@
 <!-- ══════════════════ 主畫面 ══════════════════ -->
 <div id="app">
     <div class="topbar">
-        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.12.0</span></h1>
+        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.13.0</span></h1>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
             <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
@@ -1191,6 +1191,7 @@ const EASY_STYLE_DEFAULT = {
     sectionBg: '#f3e5f5', sectionColor: '#6a1b9a', sectionFontSize: 17,
     sizeOnBg: '#ff9800', taOnBg: '#3949ab', taOffColor: '#2e7d32', toggleFontSize: 16,
     fieldFontSize: 15, fieldLabelSize: 11,
+    noodleSelBg: '#fafafa', sauceSelBg: '#fafafa', sauce2SelBg: '#fafafa', addSelBg: '#fafafa',
     gridGap: 12, groupGap: 16, fieldGap: 6, cardColumns: 2, imageRatio: '16 / 9'
 };
 const EASY_STYLE_GROUPS = [
@@ -1201,6 +1202,8 @@ const EASY_STYLE_GROUPS = [
     { title: '📑 分類標題（麵食類／湯品類）', fields: [['sectionBg','底色','color'],['sectionColor','文字顏色','color'],['sectionFontSize','文字大小(px)','num',8,60]] },
     { title: '🔘 圖片上的按鈕（大小、堂食/外賣）', fields: [['sizeOnBg','選了「大」的底色','color'],['taOnBg','選了「外賣」的底色','color'],['taOffColor','「堂食」文字顏色','color'],['toggleFontSize','按鈕文字大小(px)','num',8,60]] },
     { title: '⬇️ 下拉選單', fields: [['fieldFontSize','選單文字大小(px)','num',8,40],['fieldLabelSize','選單上方小標籤大小(px)','num',6,30]] },
+    /* ✅ ver2.13.0：麵種／醬料／加醬料／加料 各自的底色（原本全部都是同一個淺灰白，現在可以分開設定不同顏色，員工更容易分辨） */
+    { title: '🎨 選單底色（麵種／醬料／加醬料／加料）', fields: [['noodleSelBg','麵種底色','color'],['sauceSelBg','醬料底色','color'],['sauce2SelBg','加醬料底色','color'],['addSelBg','加料底色','color']] },
     { title: '↔️ 距離', fields: [['gridGap','卡片之間的距離(px)','num',0,60],['groupGap','不同餐點之間的距離(px)','num',0,80],['fieldGap','下拉選單之間的距離(px)','num',0,30]] }
 ];
 let easyItems = null;                       // null＝雲端還沒有設定，顯示時用「全部麵食→全部湯品」當起點
@@ -1334,7 +1337,7 @@ function easyHexToRgba(hex, pct) {
 }
 function updateEasyPreview() {
     const s = easyStyle, box = document.getElementById('easy-preview'); if (!box) return;
-    const sel = `font-size:${s.fieldFontSize}px; font-weight:900; padding:6px 2px; border:2px solid #ddd; border-radius:8px; background:#fafafa; color:#222; overflow:hidden; white-space:nowrap;`;
+    const sel = bg => `font-size:${s.fieldFontSize}px; font-weight:900; padding:6px 2px; border:2px solid #ddd; border-radius:8px; background:${bg}; color:#222; overflow:hidden; white-space:nowrap;`;
     const lab = `font-size:${s.fieldLabelSize}px; color:#888; font-weight:900;`;
     box.innerHTML = `
         <div style="background:${s.sectionBg}; color:${s.sectionColor}; font-size:${s.sectionFontSize}px; font-weight:900; padding:6px 10px; border-radius:8px; margin-bottom:8px;">🍝 麵食類</div>
@@ -1349,7 +1352,7 @@ function updateEasyPreview() {
                 <div style="position:absolute; right:6px; bottom:6px; background:${s.taOnBg}; color:#fff; font-size:${s.toggleFontSize}px; font-weight:900; padding:5px 12px; border-radius:10px; border:2px solid #fff;">🥡 外賣</div>
             </div>
             <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:${s.fieldGap}px; padding:6px;">
-                ${['麵種|面薄','醬料|辣椒','加醬料|無','加料|無'].map(x => { const [a, b] = x.split('|'); return `<div style="display:flex; flex-direction:column; min-width:0;"><span style="${lab}">${a}</span><div style="${sel}">${b}</div></div>`; }).join('')}
+                ${[['麵種','面薄',s.noodleSelBg],['醬料','辣椒',s.sauceSelBg],['加醬料','無',s.sauce2SelBg],['加料','✓ 魚圓',s.addSelBg]].map(([a, b, bg]) => `<div style="display:flex; flex-direction:column; min-width:0;"><span style="${lab}">${a}</span><div style="${sel(bg)}">${b}</div></div>`).join('')}
             </div>
         </div>
         <div style="margin-top:8px; font-size:0.72rem; color:#888; line-height:1.5;">「🥡 外賣」「大」是切換後的顏色；「堂食」文字色：<span style="color:${s.taOffColor}; font-weight:900;">🍽 堂食</span><br>每行 ${s.cardColumns} 張卡片 · 卡片距離 ${s.gridGap}px · 餐點之間 ${s.groupGap}px</div>`;
