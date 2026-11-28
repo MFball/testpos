@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.18 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.19 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -238,6 +238,11 @@
     .easy-sel-sauce { background: var(--easy-sauce-bg, #fafafa); }
     .easy-sel-sauce2 { background: var(--easy-sauce2-bg, #fafafa); }
     .easy-sel-add { background: var(--easy-add-bg, #fafafa); }
+    .easy-noodle-btn { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .easy-noodle-row { display: flex; align-items: center; justify-content: center; min-height: 54px; margin: 6px 0; border-radius: 12px; border: 2px solid #ddd; font-size: 1.25rem; font-weight: 900; cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+    .easy-noodle-plain { background: var(--easy-noodle-bg, #fafafa); color: #222; }
+    .easy-noodle-row.sel { border: 4px solid #333; }
+    .easy-noodle-name.two { background: rgba(255,255,255,0.8); color: #222; padding: 2px 16px; border-radius: 8px; }   /* 兩色底的時候，名字墊一塊半透明白底，兩邊顏色都看得清楚 */
     .easy-add-btn { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .easy-add-row { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-bottom: 1px solid #eee; font-size: 1.1rem; font-weight: 900; cursor: pointer; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
     .easy-add-check { font-size: 1.4rem; }
@@ -295,7 +300,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.18</span>
+        <span id="version-tag">v5.9.19</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -317,6 +322,12 @@
     </div>
 
     <!-- ✅ ver5.9.12：簡易頁專用的自訂數量視窗 + 底部「清空／列印」列（切到簡易頁時取代平常的購物車列） -->
+    <div id="easy-noodle-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3000; align-items:center; justify-content:center;" onclick="closeEasyNoodle()">
+        <div style="background:#fff; border-radius:16px; padding:16px; width:min(92vw,420px); max-height:82vh; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
+            <div id="easy-noodle-title" style="font-weight:900; font-size:1.15rem; margin-bottom:10px;">麵種</div>
+            <div id="easy-noodle-list" style="overflow-y:auto; flex:1;"></div>
+        </div>
+    </div>
     <div id="easy-add-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:3000; align-items:center; justify-content:center;" onclick="closeEasyAdd()">
         <div style="background:#fff; border-radius:16px; padding:16px; width:min(92vw,420px); max-height:80vh; display:flex; flex-direction:column;" onclick="event.stopPropagation()">
             <div id="easy-add-title" style="font-weight:900; font-size:1.15rem; margin-bottom:10px;">加料</div>
@@ -892,30 +903,30 @@
        完全是照 userLang 走的，全部維持原樣不動），簡體只是多一層「畫面顯示」的後製轉換，
        不會影響收據列印或送到雲端的訂單摘要文字（那些永遠還是繁體或英文，不會印出簡體字）。 */
     const T2S_MAP = {
-        '並':'并','乾':'干','亂':'乱','佇':'伫','來':'来','個':'个','側':'侧','備':'备','傳':'传','價':'价','優':'优','兒':'儿','內':'内',
-        '兩':'两','別':'别','刪':'删','則':'则','剛':'刚','動':'动','務':'务','勢':'势','區':'区','員':'员','問':'问','啟':'启','單':'单',
-        '嗎':'吗','嘆':'叹','嘗':'尝','噴':'喷','圓':'圆','圖':'图','執':'执','報':'报','場':'场','塊':'块','壓':'压','壞':'坏','實':'实',
-        '寫':'写','寬':'宽','寶':'宝','將':'将','專':'专','尋':'寻','對':'对','導':'导','層':'层','屬':'属','帳':'帐','帶':'带','幫':'帮',
-        '幾':'几','庫':'库','廚':'厨','張':'张','強':'强','彈':'弹','後':'后','徑':'径','從':'从','復':'复','態':'态','應':'应','捲':'卷',
-        '掃':'扫','換':'换','搶':'抢','擇':'择','擊':'击','擋':'挡','據':'据','擠':'挤','擴':'扩','擾':'扰','攔':'拦','攤':'摊','敗':'败',
-        '數':'数','斷':'断','於':'于','時':'时','暢':'畅','暫':'暂','書':'书','會':'会','東':'东','條':'条','極':'极','構':'构','標':'标',
-        '樣':'样','機':'机','檔':'档','檢':'检','檯':'台','檻':'槛','櫃':'柜','欄':'栏','權':'权','歷':'历','歸':'归','氣':'气','決':'决',
-        '沒':'没','況':'况','淺':'浅','減':'减','測':'测','湯':'汤','準':'准','滿':'满','瀏':'浏','為':'为','無':'无','煩':'烦','熱':'热',
-        '燈':'灯','狀':'状','獨':'独','現':'现','環':'环','產':'产','畫':'画','異':'异','當':'当','疊':'叠','發':'发','監':'监','確':'确',
-        '碼':'码','種':'种','稱':'称','積':'积','穩':'稳','筆':'笔','節':'节','範':'范','簡':'简','籤':'签','紀':'纪','紅':'红','純':'纯',
-        '紙':'纸','級':'级','細':'细','組':'组','結':'结','給':'给','統':'统','經':'经','維':'维','網':'网','線':'线','編':'编','縮':'缩',
-        '總':'总','繪':'绘','繼':'继','續':'续','義':'义','聯':'联','聽':'听','腸':'肠','與':'与','舊':'旧','萬':'万','著':'着','蓋':'盖',
-        '蔥':'葱','薦':'荐','藍':'蓝','處':'处','號':'号','蝦':'虾','螢':'萤','補':'补','裝':'装','裡':'里','製':'制','複':'复','見':'见',
-        '規':'规','視':'视','覺':'觉','覽':'览','觀':'观','觸':'触','訂':'订','計':'计','訊':'讯','記':'记','設':'设','許':'许','詞':'词',
-        '詢':'询','試':'试','話':'话','該':'该','詳':'详','認':'认','語':'语','誤':'误','說':'说','調':'调','請':'请','論':'论','證':'证',
-        '識':'识','譯':'译','護':'护','讀':'读','變':'变','讓':'让','豬':'猪','貨':'货','販':'贩','買':'买','費':'费','資':'资','賣':'卖',
-        '賦':'赋','賴':'赖','購':'购','蹤':'踪','車':'车','軌':'轨','軟':'软','較':'较','載':'载','輪':'轮','輯':'辑','輸':'输','轉':'转',
-        '辦':'办','這':'这','連':'连','進':'进','運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选','遺':'遗','還':'还','邊':'边',
-        '邏':'逻','醬':'酱','釣':'钓','鈕':'钮','鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键','鎖':'锁','鐘':'钟',
-        '長':'长','門':'门','閉':'闭','開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双',
-        '雞':'鸡','離':'离','雲':'云','靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头','顆':'颗',
-        '題':'题','額':'额','顏':'颜','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验',
-        '驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','黃':'黄','點':'点','齊':'齐',
+        '並':'并','乾':'干','亂':'乱','佇':'伫','來':'来','個':'个','們':'们','側':'侧','備':'备','傳':'传','價':'价','優':'优','兒':'儿',
+        '內':'内','兩':'两','別':'别','刪':'删','則':'则','剛':'刚','動':'动','務':'务','勢':'势','區':'区','員':'员','問':'问','啟':'启',
+        '單':'单','嗎':'吗','嘆':'叹','嘗':'尝','噴':'喷','圓':'圆','圖':'图','執':'执','報':'报','場':'场','塊':'块','墊':'垫','壓':'压',
+        '壞':'坏','實':'实','寫':'写','寬':'宽','寶':'宝','將':'将','專':'专','尋':'寻','對':'对','導':'导','層':'层','屬':'属','帳':'帐',
+        '帶':'带','幫':'帮','幾':'几','庫':'库','廚':'厨','張':'张','強':'强','彈':'弹','後':'后','徑':'径','從':'从','復':'复','態':'态',
+        '應':'应','捲':'卷','掃':'扫','換':'换','搶':'抢','擇':'择','擊':'击','擋':'挡','據':'据','擠':'挤','擴':'扩','擾':'扰','攔':'拦',
+        '攤':'摊','敗':'败','數':'数','斷':'断','於':'于','時':'时','暢':'畅','暫':'暂','書':'书','會':'会','東':'东','條':'条','極':'极',
+        '構':'构','標':'标','樣':'样','機':'机','檔':'档','檢':'检','檯':'台','檻':'槛','櫃':'柜','欄':'栏','權':'权','歷':'历','歸':'归',
+        '氣':'气','決':'决','沒':'没','況':'况','淺':'浅','減':'减','測':'测','湯':'汤','準':'准','滿':'满','瀏':'浏','為':'为','無':'无',
+        '煩':'烦','熱':'热','燈':'灯','狀':'状','獨':'独','現':'现','環':'环','產':'产','畫':'画','異':'异','當':'当','疊':'叠','發':'发',
+        '監':'监','確':'确','碼':'码','種':'种','稱':'称','積':'积','穩':'稳','筆':'笔','節':'节','範':'范','簡':'简','籤':'签','紀':'纪',
+        '紅':'红','純':'纯','紙':'纸','級':'级','細':'细','組':'组','結':'结','給':'给','統':'统','經':'经','維':'维','網':'网','線':'线',
+        '編':'编','縮':'缩','總':'总','繪':'绘','繼':'继','續':'续','義':'义','聯':'联','聽':'听','腸':'肠','與':'与','舊':'旧','萬':'万',
+        '著':'着','蓋':'盖','蔥':'葱','薦':'荐','藍':'蓝','處':'处','號':'号','蝦':'虾','螢':'萤','補':'补','裝':'装','裡':'里','製':'制',
+        '複':'复','見':'见','規':'规','視':'视','覺':'觉','覽':'览','觀':'观','觸':'触','訂':'订','計':'计','訊':'讯','記':'记','設':'设',
+        '許':'许','詞':'词','詢':'询','試':'试','話':'话','該':'该','詳':'详','認':'认','語':'语','誤':'误','說':'说','調':'调','請':'请',
+        '論':'论','證':'证','識':'识','譯':'译','護':'护','讀':'读','變':'变','讓':'让','豬':'猪','貨':'货','販':'贩','買':'买','費':'费',
+        '資':'资','賣':'卖','賦':'赋','賴':'赖','購':'购','蹤':'踪','車':'车','軌':'轨','軟':'软','較':'较','載':'载','輪':'轮','輯':'辑',
+        '輸':'输','轉':'转','辦':'办','這':'这','連':'连','進':'进','運':'运','過':'过','遞':'递','遠':'远','適':'适','選':'选','遺':'遗',
+        '還':'还','邊':'边','邏':'逻','醬':'酱','釣':'钓','鈕':'钮','鈴':'铃','銀':'银','銷':'销','錄':'录','錢':'钱','錯':'错','鍵':'键',
+        '鎖':'锁','鐘':'钟','長':'长','門':'门','閉':'闭','開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐',
+        '隻':'只','雙':'双','雞':'鸡','離':'离','雲':'云','靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预',
+        '頭':'头','顆':'颗','題':'题','額':'额','顏':'颜','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈',
+        '馬':'马','驗':'验','驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','黃':'黄','點':'点','齊':'齐',
     };
     function toSimplified(str) {
         return String(str).replace(/[\u4e00-\u9fff]/g, ch => T2S_MAP[ch] || ch);
@@ -2839,7 +2850,7 @@
             const noodleList = (nk.includes(c.noodle) ? nk : [c.noodle, ...nk]).map(k => [k, getItemName(k)]);
             const sauceList = config.sauces.map(k => [k, getItemName(k)]);
             fields = `<div class="easy-fields">
-                <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><select class="easy-sel easy-sel-noodle" id="easy-noodle-${i}" style="${easyNoodleStyle(c.noodle)}" onchange="easySet(${i},'noodle',this.value)">${easyNoodleOptions(noodleList, c.noodle)}</select></label>
+                <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><button class="easy-sel easy-sel-noodle easy-noodle-btn" id="easy-noodle-${i}" style="${easyNoodleStyle(c.noodle)}" onclick="openEasyNoodle(${i})">${getItemName(c.noodle)} ▾</button></label>
                 <label class="easy-field"><span>${lbl('醬料', 'Sauce')}</span><select class="easy-sel easy-sel-sauce" onchange="easySet(${i},'sauce',this.value)">${easyOpts(sauceList, c.sauce)}</select></label>
                 <label class="easy-field"><span>${lbl('加醬料', '+ Sauce')}</span><select class="easy-sel easy-sel-sauce2" id="easy-s2-${i}" onchange="easySet(${i},'sauce2',this.value)" ${EASY_EXCLUSIVE.includes(c.sauce) ? 'disabled' : ''}>${easyOpts(easySauce2List(c), c.sauce2)}</select></label>
                 ${addSel}</div>`;
@@ -2912,6 +2923,33 @@
         if (b) { b.innerText = getItemName(c.size); b.classList.toggle('on', c.size === '大的'); }
         easyRefreshCard(i);
     }
+    /* ✅ ver5.9.19：麵種改成「自己的彈出清單」——iPad/iPhone 內建的下拉選單，選項的底色不能改（全部都是白色），
+       所以麵種改成一顆按鈕，按下去跳出我們自己畫的清單，每一種麵用後台設定的顏色（單色或左右兩色）顯示，
+       點一下就選好並關閉。沒設定顏色的麵，用共用的「麵種底色」。 */
+    let easyNoodleTarget = -1, easyNoodleList = [];
+    function openEasyNoodle(i) {
+        easyNoodleTarget = i;
+        const c = easyCards[i], cm = easyNoodleColorMap(), nk = Object.keys(config.noodleTypeImgs);
+        easyNoodleList = nk.includes(c.noodle) ? nk : [c.noodle, ...nk];
+        document.getElementById('easy-noodle-title').innerText = (userLang === 'zh' ? '選擇麵種：' : 'Noodle: ') + getItemName(c.key);
+        document.getElementById('easy-noodle-list').innerHTML = easyNoodleList.map((k, idx) => {
+            const nc = cm[k];
+            const two = !!(nc && nc.c2);
+            const st = nc ? easyNoodleStyle(k) : '';
+            const sel = (k === c.noodle);
+            return `<div class="easy-noodle-row ${nc ? '' : 'easy-noodle-plain'} ${sel ? 'sel' : ''}" style="${st}" onclick="pickEasyNoodle(${idx})"><span class="easy-noodle-name ${two ? 'two' : ''}">${sel ? '✓ ' : ''}${getItemName(k)}</span></div>`;
+        }).join('');
+        document.getElementById('easy-noodle-modal').style.display = 'flex';
+    }
+    function pickEasyNoodle(idx) {
+        const k = easyNoodleList[idx];
+        if (easyNoodleTarget >= 0 && k !== undefined) easySet(easyNoodleTarget, 'noodle', k);
+        closeEasyNoodle();
+    }
+    function closeEasyNoodle() {
+        document.getElementById('easy-noodle-modal').style.display = 'none';
+        easyNoodleTarget = -1;
+    }
     /* ✅ ver5.9.17：加料多選——勾選清單視窗。每個打勾的加料各算 1 份；點一下切換打勾，按「完成」或點視窗外面關閉。 */
     let easyAddTarget = -1;
     function openEasyAdd(i) {
@@ -2953,7 +2991,7 @@
     function easySet(i, field, value) {
         const c = easyCards[i];
         c[field] = value;
-        if (field === 'noodle') { const ns = document.getElementById('easy-noodle-' + i); if (ns) ns.style.cssText = easyNoodleStyle(value); }   // ✅ ver5.9.18：選單底色跟著麵種變色
+        if (field === 'noodle') { const ns = document.getElementById('easy-noodle-' + i); if (ns) { ns.style.cssText = easyNoodleStyle(value); ns.innerText = getItemName(value) + ' ▾'; } }   // ✅ ver5.9.18：選單底色跟著麵種變色
         if (field === 'sauce') {
             if (value === '分湯') { c.takeaway = true; easySyncTa(i); }   // ✅ ver5.9.17：選了分湯就強制切成外賣
             // 選了湯/分湯就不能再加乾醬料；第一個醬料改成跟「加醬料」一樣的，就把加醬料清掉
