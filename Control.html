@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Million 麵店 · 主理員後台 ver2.13.0</title>
+<title>Million 麵店 · 主理員後台 ver2.14.0</title>
 <style>
     :root {
         --primary: #1a73e8; --success: #34a853; --danger: #d93025; --add: #673ab7;
@@ -129,7 +129,7 @@
 <!-- ══════════════════ PIN 登入畫面 ══════════════════ -->
 <div id="pinGate">
     <div style="font-size:2.5rem;">🍜</div>
-    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.13.0</small></h2>
+    <h2>Million 麵店 · 主理員後台 <small style="font-size: 0.8rem; color: #888;">ver2.14.0</small></h2>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="6" placeholder="輸入密碼">
     <div id="pinError"></div>
     <button id="pinBtn" onclick="checkPin()">進入</button>
@@ -138,7 +138,7 @@
 <!-- ══════════════════ 主畫面 ══════════════════ -->
 <div id="app">
     <div class="topbar">
-        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.13.0</span></h1>
+        <h1>🍜 Million Fishball · 主理員後台 <span style="font-size: 0.8rem; background: #e8f0fe; color: var(--primary); padding: 2px 8px; border-radius: 8px;">ver2.14.0</span></h1>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn btn-success" onclick="seedDefaults()">📥 補齊預設資料</button>
             <button class="btn btn-plain" onclick="reloadMenu()">↻ 重新整理</button>
@@ -473,6 +473,12 @@
             <button class="btn" style="background:#eee; color:#444;" onclick="addAllEasyItems('面')">➕ 補齊全部麵食</button>
             <button class="btn" style="background:#eee; color:#444;" onclick="addAllEasyItems('湯')">➕ 補齊全部湯品</button>
         </div>
+
+        <hr style="border:0; border-top:1px solid #eee; margin:22px 0 15px;">
+        <!-- ✅ ver2.14.0 新增：每一種麵各自的顏色 -->
+        <div class="field-label" style="font-size:1rem;">🍜 麵種顏色（每一種麵各自設定，簡易頁的「麵種」選單會跟著變色）</div>
+        <div style="font-size:0.8rem; color:#888; margin:4px 0 8px; line-height:1.6;">每種麵可以選一個顏色，或勾「兩色」變成左右兩色（例如粿條面＝黃＋白）。沒設定的麵，沿用下面「選單底色」的麵種底色。</div>
+        <div id="easy-noodle-colors"></div>
 
         <hr style="border:0; border-top:1px solid #eee; margin:22px 0 15px;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -1206,6 +1212,7 @@ const EASY_STYLE_GROUPS = [
     { title: '🎨 選單底色（麵種／醬料／加醬料／加料）', fields: [['noodleSelBg','麵種底色','color'],['sauceSelBg','醬料底色','color'],['sauce2SelBg','加醬料底色','color'],['addSelBg','加料底色','color']] },
     { title: '↔️ 距離', fields: [['gridGap','卡片之間的距離(px)','num',0,60],['groupGap','不同餐點之間的距離(px)','num',0,80],['fieldGap','下拉選單之間的距離(px)','num',0,30]] }
 ];
+let easyNoodleColors = {};                // { 麵種名稱: {c1:'#色1', c2:'#色2或空'} }；沒有的就是沒設定
 let easyItems = null;                       // null＝雲端還沒有設定，顯示時用「全部麵食→全部湯品」當起點
 let easyStyle = { ...EASY_STYLE_DEFAULT };
 async function loadEasy() {
@@ -1215,6 +1222,7 @@ async function loadEasy() {
         if (res.ok && data && typeof data === 'object' && !data.error) {
             if (Array.isArray(data.items) && data.items.length > 0) easyItems = data.items.map(x => ({ key: x.key, cat: x.cat === '湯' ? '湯' : '面', cards: parseInt(x.cards) || 2, noodle: x.noodle || '', sauce: x.sauce || '' }));
             if (data.style) easyStyle = { ...EASY_STYLE_DEFAULT, ...data.style };
+            if (Array.isArray(data.noodleColors)) { easyNoodleColors = {}; data.noodleColors.forEach(x => { if (x && x.key && x.c1) easyNoodleColors[x.key] = { c1: x.c1, c2: x.c2 || '' }; }); }
         }
     } catch (e) { console.log('讀取簡易設定失敗，使用預設值'); }
 }
@@ -1225,9 +1233,50 @@ function easyDefaultItems() {
 function renderEasy() {
     if (easyItems === null) easyItems = easyDefaultItems();
     renderEasyItems();
+    renderEasyNoodleColors();
     renderEasyStyleForm();
     updateEasyPreview();
 }
+/* ✅ ver2.14.0：每一種麵各自的顏色（單色，或左右兩色） */
+function noodleSwatchStyle(nc) {
+    if (!nc || !nc.c1) return 'background:#f5f5f5; border:2px dashed #ccc; color:#aaa;';
+    const bg = nc.c2 ? `linear-gradient(90deg, ${nc.c1} 50%, ${nc.c2} 50%)` : nc.c1;
+    return `background:${bg}; border:2px solid #ccc; color:#222;`;
+}
+function renderEasyNoodleColors() {
+    const box = document.getElementById('easy-noodle-colors'); if (!box) return;
+    const names = getNoodleTypeOptions();
+    box.innerHTML = names.map((k, idx) => {
+        const nc = easyNoodleColors[k];
+        const two = !!(nc && nc.c2);
+        const kk = k.replace(/'/g, "\\'");
+        return `<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; background:#f9f9f9; border:1px solid var(--border); border-radius:12px; padding:8px 12px; margin-bottom:6px;">
+            <div id="noodle-sw-${idx}" style="width:92px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:0.85rem; ${noodleSwatchStyle(nc)}">${nc ? k : '未設定'}</div>
+            <div style="flex:1 1 90px; font-weight:900;">${k}</div>
+            <label style="font-size:0.8rem; color:#666;">顏色1 <input type="color" value="${(nc && nc.c1) || '#ffe066'}" style="vertical-align:middle; width:46px; height:34px; padding:2px;" oninput="setNoodleColor('${kk}','c1',this.value)"></label>
+            <label style="font-size:0.85rem; font-weight:900;"><input type="checkbox" ${two ? 'checked' : ''} ${nc ? '' : 'disabled'} onchange="toggleNoodleTwo('${kk}', this.checked)"> 兩色</label>
+            <label style="font-size:0.8rem; color:#666; ${two ? '' : 'opacity:0.35;'}">顏色2 <input type="color" value="${(nc && nc.c2) || '#ffffff'}" ${two ? '' : 'disabled'} style="vertical-align:middle; width:46px; height:34px; padding:2px;" oninput="setNoodleColor('${kk}','c2',this.value)"></label>
+            <button onclick="clearNoodleColor('${kk}')" ${nc ? '' : 'disabled'} style="background:#ffebee; color:#e53935; border:none; border-radius:8px; padding:8px 12px; font-weight:bold;">✕ 清除</button>
+        </div>`;
+    }).join('');
+}
+function setNoodleColor(k, field, value) {
+    const nc = easyNoodleColors[k] || { c1: '', c2: '' };
+    nc[field] = value;
+    if (!nc.c1) nc.c1 = value;
+    const first = !easyNoodleColors[k];
+    easyNoodleColors[k] = nc;
+    if (first) { renderEasyNoodleColors(); return; }          // 第一次設定：重畫一次，讓「兩色／清除」變成可以按
+    const idx = getNoodleTypeOptions().indexOf(k);
+    const sw = document.getElementById('noodle-sw-' + idx);
+    if (sw) { sw.style.cssText = noodleSwatchStyle(nc) + ' width:92px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:0.85rem;'; sw.innerText = k; }
+}
+function toggleNoodleTwo(k, on) {
+    const nc = easyNoodleColors[k]; if (!nc) return;
+    nc.c2 = on ? (nc.c2 || '#ffffff') : '';
+    renderEasyNoodleColors();
+}
+function clearNoodleColor(k) { delete easyNoodleColors[k]; renderEasyNoodleColors(); }
 function renderEasyItems() {
     const list = document.getElementById('easy-items-list');
     if (easyItems.length === 0) { list.innerHTML = '<div style="color:#999; font-size:0.85rem;">清單是空的——至少要有一個項目，按下面「新增項目」或「補齊全部…」</div>'; return; }
@@ -1362,7 +1411,8 @@ async function saveEasy() {
     if (!easyItems || easyItems.length === 0) { toast('清單至少要有一個項目'); return; }
     const payload = {
         items: easyItems.map(x => ({ key: x.key, cat: x.cat, cards: x.cards, noodle: x.cat === '湯' ? '' : (x.noodle || ''), sauce: x.cat === '湯' ? '' : (x.sauce || '') })),
-        style: easyStyle
+        style: easyStyle,
+        noodleColors: Object.keys(easyNoodleColors).filter(k => easyNoodleColors[k].c1).map(k => ({ key: k, c1: easyNoodleColors[k].c1, c2: easyNoodleColors[k].c2 || '' }))
     };
     try {
         const res = await fetch(EASY_URL, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
