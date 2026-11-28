@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Million FishBall Noodle - Ver 5.9.17 (堂食/外賣)</title>
+<title>Million FishBall Noodle - Ver 5.9.18 (堂食/外賣)</title>
 <style>
     :root {
         --primary: #1a73e8;
@@ -295,7 +295,7 @@
         <button class="icon-btn" title="預覽列印" onclick="handlePrintPreview()">🔍</button>
         <button class="icon-btn" id="menu-reload-btn" title="重新載入菜單（主理員改完菜單後按這個）" onclick="reloadMenuFromCloud()">🔄</button>
         <button class="icon-btn" title="重新選擇列印方式（本機／雲端）" onclick="changePrintMethod()">🖨️⚙️</button>
-        <span id="version-tag">v5.9.17</span>
+        <span id="version-tag">v5.9.18</span>
         <!-- ✅ ver5.9.7：收據列印語言改成左右滑動開關（跟堂食/外賣同一種樣式），
              左邊(關)＝中文、右邊(開)＝英文，控制的是印出來的收據文字，不是畫面介面 -->
         <button id="print-lang-switch" class="print-lang-switch" onclick="togglePrintLang()" title="收據列印語言（跟畫面顯示語言分開設定）">
@@ -915,7 +915,7 @@
         '長':'长','門':'门','閉':'闭','開':'开','間':'间','關':'关','陣':'阵','際':'际','隨':'随','險':'险','隱':'隐','隻':'只','雙':'双',
         '雞':'鸡','離':'离','雲':'云','靜':'静','響':'响','頁':'页','頂':'顶','項':'项','順':'顺','須':'须','預':'预','頭':'头','顆':'颗',
         '題':'题','額':'额','顏':'颜','類':'类','顧':'顾','顯':'显','風':'风','餃':'饺','餅':'饼','餘':'余','饋':'馈','馬':'马','驗':'验',
-        '驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','點':'点','齊':'齐',
+        '驚':'惊','驟':'骤','體':'体','魚':'鱼','鴛':'鸳','鴦':'鸯','麵':'面','麼':'么','黃':'黄','點':'点','齊':'齐',
     };
     function toSimplified(str) {
         return String(str).replace(/[\u4e00-\u9fff]/g, ch => T2S_MAP[ch] || ch);
@@ -2767,6 +2767,35 @@
             return it.cat === '湯' ? !!config.soupImgs[it.key] : !!config.foodImgs[it.key];   // 餐點已被刪掉就不顯示
         });
     }
+    /* ✅ ver5.9.18：每一種麵可以各自設定顏色（主理員後台「簡易設定」→「麵種顏色」）。
+       麵種下拉選單的底色會跟著目前選的麵變色；可以是單色，或左右兩色（例如粿條面＝黃＋白）。
+       沒設定顏色的麵，沿用「麵種底色」那個共用設定。 */
+    function easyNoodleColorMap() {
+        const m = {};
+        ((easyConfigCloud && easyConfigCloud.noodleColors) || []).forEach(x => { if (x && x.key && x.c1) m[x.key] = x; });
+        return m;
+    }
+    function easyLum(hex) {
+        const m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return 255;
+        const n = parseInt(m[1], 16);
+        return 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+    }
+    function easyNoodleStyle(key) {
+        const nc = easyNoodleColorMap()[key];
+        if (!nc) return '';
+        const two = !!nc.c2;
+        const bg = two ? `linear-gradient(90deg, ${nc.c1} 50%, ${nc.c2} 50%)` : nc.c1;
+        const lum = two ? (easyLum(nc.c1) + easyLum(nc.c2)) / 2 : easyLum(nc.c1);
+        return `background: ${bg}; color: ${lum > 150 ? '#222' : '#fff'};`;
+    }
+    function easyNoodleOptions(list, cur) {
+        const cm = easyNoodleColorMap();
+        return list.map(([v, label]) => {
+            const nc = cm[v];
+            const st = nc ? ` style="background:${nc.c1}; color:${easyLum(nc.c1) > 150 ? '#222' : '#fff'};"` : '';
+            return `<option value="${v}"${st} ${String(v) === String(cur) ? 'selected' : ''}>${label}</option>`;
+        }).join('');
+    }
     function easyDefaultCard(key, cat, cfg) {
         const nk = Object.keys(config.noodleTypeImgs);
         let noodle = cat === '湯' ? '湯品' : (nk.includes('面薄') ? '面薄' : (nk[0] || ''));
@@ -2810,7 +2839,7 @@
             const noodleList = (nk.includes(c.noodle) ? nk : [c.noodle, ...nk]).map(k => [k, getItemName(k)]);
             const sauceList = config.sauces.map(k => [k, getItemName(k)]);
             fields = `<div class="easy-fields">
-                <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><select class="easy-sel easy-sel-noodle" onchange="easySet(${i},'noodle',this.value)">${easyOpts(noodleList, c.noodle)}</select></label>
+                <label class="easy-field"><span>${lbl('麵種', 'Noodle')}</span><select class="easy-sel easy-sel-noodle" id="easy-noodle-${i}" style="${easyNoodleStyle(c.noodle)}" onchange="easySet(${i},'noodle',this.value)">${easyNoodleOptions(noodleList, c.noodle)}</select></label>
                 <label class="easy-field"><span>${lbl('醬料', 'Sauce')}</span><select class="easy-sel easy-sel-sauce" onchange="easySet(${i},'sauce',this.value)">${easyOpts(sauceList, c.sauce)}</select></label>
                 <label class="easy-field"><span>${lbl('加醬料', '+ Sauce')}</span><select class="easy-sel easy-sel-sauce2" id="easy-s2-${i}" onchange="easySet(${i},'sauce2',this.value)" ${EASY_EXCLUSIVE.includes(c.sauce) ? 'disabled' : ''}>${easyOpts(easySauce2List(c), c.sauce2)}</select></label>
                 ${addSel}</div>`;
@@ -2924,6 +2953,7 @@
     function easySet(i, field, value) {
         const c = easyCards[i];
         c[field] = value;
+        if (field === 'noodle') { const ns = document.getElementById('easy-noodle-' + i); if (ns) ns.style.cssText = easyNoodleStyle(value); }   // ✅ ver5.9.18：選單底色跟著麵種變色
         if (field === 'sauce') {
             if (value === '分湯') { c.takeaway = true; easySyncTa(i); }   // ✅ ver5.9.17：選了分湯就強制切成外賣
             // 選了湯/分湯就不能再加乾醬料；第一個醬料改成跟「加醬料」一樣的，就把加醬料清掉
